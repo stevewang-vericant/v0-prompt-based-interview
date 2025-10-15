@@ -20,21 +20,21 @@ const mockPrompts: Prompt[] = [
     id: "1",
     category: "Conversational Fluency",
     text: "Tell me about your favorite hobby and why you enjoy it.",
-    preparationTime: 30,
+    preparationTime: 10, // Reduced from 30 to 10 seconds
     responseTime: 90,
   },
   {
     id: "2",
     category: "Critical Thinking",
     text: "Describe a time when you had to solve a complex problem. What approach did you take and what was the outcome?",
-    preparationTime: 30,
+    preparationTime: 10, // Reduced from 30 to 10 seconds
     responseTime: 90,
   },
   {
     id: "3",
     category: "General Knowledge",
     text: "What do you think is the most important global challenge facing our generation?",
-    preparationTime: 30,
+    preparationTime: 10, // Reduced from 30 to 10 seconds
     responseTime: 90,
   },
 ]
