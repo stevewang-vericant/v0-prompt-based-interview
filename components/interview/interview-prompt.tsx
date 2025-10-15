@@ -29,11 +29,65 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null)
+  const [streamInitialized, setStreamInitialized] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
+
+  useEffect(() => {
+    const initializeStream = async () => {
+      try {
+        console.log("[v0] Initializing media stream...")
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720, facingMode: "user" },
+          audio: true,
+        })
+        streamRef.current = stream
+        setStreamInitialized(true)
+        console.log("[v0] Stream initialized successfully")
+      } catch (err) {
+        console.error("[v0] Stream initialization error:", err)
+        alert("Unable to access camera and microphone. Please check your permissions.")
+      }
+    }
+
+    if (!streamRef.current) {
+      initializeStream()
+    }
+
+    return () => {
+      if (streamRef.current) {
+        console.log("[v0] Cleaning up stream on unmount")
+        streamRef.current.getTracks().forEach((track) => track.stop())
+        streamRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (streamInitialized && streamRef.current && videoRef.current && stage === "recording") {
+      console.log("[v0] Attaching stream to video element for recording")
+      videoRef.current.srcObject = streamRef.current
+      videoRef.current.play().catch((err) => console.error("[v0] Play error:", err))
+    }
+  }, [streamInitialized, stage])
+
+  useEffect(() => {
+    console.log("[v0] Prompt changed:", prompt.id, "Question:", promptNumber)
+    setStage("reading")
+    setRecordedBlob(null)
+    setRecordedUrl(null)
+    setTimeRemaining(0)
+
+    if (promptNumber > 1) {
+      setTimeout(() => {
+        console.log("[v0] Auto-starting preparation for question", promptNumber)
+        startPreparation()
+      }, 100)
+    }
+  }, [prompt.id, promptNumber])
 
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -58,51 +112,60 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
   }, [stage])
 
   const startPreparation = () => {
+    console.log("[v0] Starting preparation")
     setStage("preparing")
     setTimeRemaining(prompt.preparationTime)
   }
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      streamRef.current = stream
+      console.log("[v0] Starting recording for question", promptNumber)
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
+      if (!streamRef.current) {
+        console.error("[v0] No stream available")
+        alert("Camera not ready. Please refresh and try again.")
+        return
       }
 
-      const mediaRecorder = new MediaRecorder(stream)
+      if (videoRef.current) {
+        console.log("[v0] Setting up video element for recording")
+        videoRef.current.srcObject = streamRef.current
+        videoRef.current.muted = true
+        await videoRef.current.play()
+        console.log("[v0] Video element ready")
+      }
+
+      const mediaRecorder = new MediaRecorder(streamRef.current)
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data)
+          console.log("[v0] Data chunk received:", event.data.size, "bytes")
         }
       }
 
       mediaRecorder.onstop = () => {
+        console.log("[v0] Recording stopped, creating blob")
         const blob = new Blob(chunksRef.current, { type: "video/webm" })
         setRecordedBlob(blob)
         setRecordedUrl(URL.createObjectURL(blob))
         setStage("review")
-
-        // Stop stream
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop())
-        }
       }
 
       mediaRecorder.start()
+      console.log("[v0] MediaRecorder started")
       setStage("recording")
       setTimeRemaining(prompt.responseTime)
     } catch (err) {
       console.error("[v0] Recording error:", err)
-      alert("Unable to start recording. Please check your permissions.")
+      alert("Unable to start recording. Please check your camera and microphone permissions.")
     }
   }
 
   const stopRecording = () => {
+    console.log("[v0] Stopping recording")
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop()
     }
@@ -149,13 +212,13 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       {/* Main Content */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl text-balance">{prompt.text}</CardTitle>
+          {stage !== "reading" && <CardTitle className="text-2xl text-balance">{prompt.text}</CardTitle>}
           {stage === "reading" && (
             <CardDescription>Read the prompt carefully and click "Start Preparation" when ready</CardDescription>
           )}
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Reading Stage */}
+          {/* Reading Stage - Only show for first question */}
           {stage === "reading" && (
             <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
@@ -175,12 +238,20 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
           {/* Preparing Stage */}
           {stage === "preparing" && (
             <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2 mb-4">
+                <p className="text-sm font-medium text-blue-900">Preparation Phase</p>
+                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                  <li>Use this time to think about your response</li>
+                  <li>Recording will start automatically when time is up</li>
+                  <li>You'll have {prompt.responseTime} seconds to respond</li>
+                </ul>
+              </div>
               <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-blue-100 mb-4">
-                  <span className="text-4xl font-bold text-blue-600">{timeRemaining}</span>
+                <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-blue-100 mb-4">
+                  <span className="text-5xl font-bold text-blue-600">{timeRemaining}</span>
                 </div>
-                <p className="text-lg font-medium">Preparation Time</p>
-                <p className="text-sm text-muted-foreground">Think about your response</p>
+                <p className="text-xl font-medium">Preparation Time</p>
+                <p className="text-sm text-muted-foreground">Get ready to record your response</p>
               </div>
               <Progress value={getProgressPercentage()} className="h-2" />
             </div>
@@ -189,8 +260,8 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
           {/* Recording Stage */}
           {stage === "recording" && (
             <div className="space-y-4">
-              <div className="relative rounded-lg overflow-hidden border-2 border-red-500 bg-black">
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto" />
+              <div className="relative rounded-lg overflow-hidden border-2 border-red-500 bg-slate-900">
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto min-h-[400px] bg-slate-900" />
                 <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded-full">
                   <Circle className="h-3 w-3 fill-current animate-pulse" />
                   <span className="text-sm font-medium">Recording</span>

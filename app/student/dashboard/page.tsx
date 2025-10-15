@@ -203,7 +203,7 @@ export default function StudentDashboardPage() {
               <div className="space-y-2">
                 <h3 className="font-semibold text-sm">Format</h3>
                 <p className="text-sm text-muted-foreground">
-                  You'll respond to 3-5 prompts via video. Each prompt has 30 seconds preparation time and 60-90 seconds
+                  You'll respond to 3-5 prompts via video. Each prompt has 10 seconds preparation time and 60-90 seconds
                   recording time.
                 </p>
               </div>
