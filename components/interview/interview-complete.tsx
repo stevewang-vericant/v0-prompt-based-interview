@@ -3,14 +3,24 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Clock, Award } from "lucide-react"
 
 interface InterviewCompleteProps {
   responsesCount: number
   onSubmit: () => void
+  isUploading?: boolean
+  uploadProgress?: number
+  uploadStatus?: string
 }
 
-export function InterviewComplete({ responsesCount, onSubmit }: InterviewCompleteProps) {
+export function InterviewComplete({ 
+  responsesCount, 
+  onSubmit, 
+  isUploading = false,
+  uploadProgress = 0,
+  uploadStatus = ""
+}: InterviewCompleteProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async () => {
@@ -81,8 +91,32 @@ export function InterviewComplete({ responsesCount, onSubmit }: InterviewComplet
 
       <Card>
         <CardContent className="pt-6">
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full" size="lg">
-            {isSubmitting ? "Submitting Interview..." : "Submit Interview"}
+          {isUploading && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <div className="flex-1">
+                  <p className="font-medium text-blue-900">
+                    {uploadStatus || "Processing your interview video..."}
+                  </p>
+                  <p className="text-sm text-blue-700">Please wait, do not close this page</p>
+                </div>
+              </div>
+              {uploadProgress > 0 && (
+                <div className="space-y-1">
+                  <Progress value={uploadProgress} className="h-2" />
+                  <p className="text-xs text-blue-600 text-right">{uploadProgress}%</p>
+                </div>
+              )}
+            </div>
+          )}
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isSubmitting || isUploading} 
+            className="w-full" 
+            size="lg"
+          >
+            {isUploading ? "Processing Video..." : isSubmitting ? "Submitting Interview..." : "Submit Interview"}
           </Button>
           <p className="text-xs text-center text-muted-foreground mt-3">
             By submitting, you confirm that all responses are your own work and were completed without assistance
@@ -92,3 +126,4 @@ export function InterviewComplete({ responsesCount, onSubmit }: InterviewComplet
     </div>
   )
 }
+

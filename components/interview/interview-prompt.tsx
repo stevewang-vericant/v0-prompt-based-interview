@@ -19,7 +19,7 @@ interface InterviewPromptProps {
   prompt: Prompt
   promptNumber: number
   totalPrompts: number
-  onComplete: (promptId: string, videoBlob: Blob) => void
+  onComplete: (promptId: string, videoBlob: Blob) => Promise<void>
 }
 
 type Stage = "reading" | "preparing" | "recording"
@@ -34,6 +34,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
+  const shouldProcessUploadRef = useRef(true)
 
   useEffect(() => {
     const initializeStream = async () => {
@@ -57,8 +58,22 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
     }
 
     return () => {
+      console.log("[v0] Cleaning up on unmount")
+      shouldProcessUploadRef.current = false
+      
+      // 先清空 chunks，防止累积
+      chunksRef.current = []
+      
+      // 停止并清理 MediaRecorder
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        console.log("[v0] Stopping active MediaRecorder without processing")
+        mediaRecorderRef.current.stop()
+        mediaRecorderRef.current = null
+      }
+      
+      // 然后清理 stream
       if (streamRef.current) {
-        console.log("[v0] Cleaning up stream on unmount")
+        console.log("[v0] Stopping stream tracks")
         streamRef.current.getTracks().forEach((track) => track.stop())
         streamRef.current = null
       }
@@ -75,6 +90,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
 
   useEffect(() => {
     console.log("[v0] Prompt changed:", prompt.id, "Question:", promptNumber)
+    shouldProcessUploadRef.current = true // 重置标记，允许新问题上传
     setStage("reading")
     setRecordedBlob(null)
     setTimeRemaining(0)
@@ -137,18 +153,42 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
 
+      const currentChunks: Blob[] = []
+      
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          chunksRef.current.push(event.data)
+          currentChunks.push(event.data)
           console.log("[v0] Data chunk received:", event.data.size, "bytes")
         }
       }
 
-      mediaRecorder.onstop = () => {
-        console.log("[v0] Recording stopped, creating blob and moving to next question")
-        const blob = new Blob(chunksRef.current, { type: "video/webm" })
+      mediaRecorder.onstop = async () => {
+        console.log("[v0] Recording stopped, creating blob")
+        
+        // 检查是否应该处理这次上传
+        if (!shouldProcessUploadRef.current) {
+          console.log("[v0] Component unmounting, ignoring onstop event")
+          return
+        }
+        
+        // 检查是否有有效的录制数据
+        if (currentChunks.length === 0) {
+          console.log("[v0] No chunks recorded, ignoring onstop event")
+          return
+        }
+        
+        const blob = new Blob(currentChunks, { type: "video/webm" })
+        console.log("[v0] Blob created, size:", blob.size, "bytes")
         setRecordedBlob(blob)
-        onComplete(prompt.id, blob)
+        
+        try {
+          console.log("[v0] Calling onComplete to upload video")
+          await onComplete(prompt.id, blob)
+          console.log("[v0] onComplete finished successfully")
+        } catch (error) {
+          console.error("[v0] Error in onComplete:", error)
+          alert("Failed to process video. Please try again.")
+        }
       }
 
       mediaRecorder.start()

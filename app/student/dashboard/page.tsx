@@ -17,9 +17,18 @@ type Student = {
   interviewStatus: "not_started" | "in_progress" | "completed"
 }
 
+type LatestInterview = {
+  videoUrl: string
+  subtitleUrl: string
+  interviewId: string
+  totalDuration: number
+  completedAt: string
+}
+
 export default function StudentDashboardPage() {
   const [student, setStudent] = useState<Student | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [latestInterview, setLatestInterview] = useState<LatestInterview | null>(null)
 
   useEffect(() => {
     const storedStudent = localStorage.getItem("currentStudent")
@@ -29,6 +38,13 @@ export default function StudentDashboardPage() {
       // Redirect to login if no student data
       window.location.href = "/student/login"
     }
+    
+    // 加载最近的面试记录
+    const storedInterview = localStorage.getItem("latestInterview")
+    if (storedInterview) {
+      setLatestInterview(JSON.parse(storedInterview))
+    }
+    
     setIsLoading(false)
   }, [])
 
@@ -191,6 +207,44 @@ export default function StudentDashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Latest Interview Video */}
+        {latestInterview && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Latest Interview</CardTitle>
+              <CardDescription>
+                Completed on {new Date(latestInterview.completedAt).toLocaleString()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Interview ID: {latestInterview.interviewId}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Duration: {Math.floor(latestInterview.totalDuration / 60)}m {Math.floor(latestInterview.totalDuration % 60)}s
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    // 使用代理 URL 来避免 CORS 问题
+                    const proxyVideoUrl = `/api/proxy-video?url=${encodeURIComponent(latestInterview.videoUrl)}`
+                    const proxySubtitleUrl = `/api/proxy-json?url=${encodeURIComponent(latestInterview.subtitleUrl)}`
+                    window.location.href = `/student/watch?videoUrl=${encodeURIComponent(proxyVideoUrl)}&subtitleUrl=${encodeURIComponent(proxySubtitleUrl)}`
+                  }}
+                >
+                  <Video className="h-4 w-4 mr-2" />
+                  Watch Interview
+                </Button>
+              </div>
+              <div className="bg-slate-100 p-3 rounded-lg">
+                <p className="text-xs text-slate-600">
+                  ✓ Video with subtitles available
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Interview Information */}
         <Card>
