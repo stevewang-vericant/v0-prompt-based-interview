@@ -7,25 +7,34 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
+import { mockSchools } from "@/lib/mock-data"
 
 export default function SchoolLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
-    // TODO: Implement actual authentication
-    console.log("[v0] School login attempt:", { email })
+    const school = mockSchools.find((s) => s.email === email && s.password === password)
 
-    // Simulate API call
-    setTimeout(() => {
+    if (school) {
+      // Store school data in localStorage
+      localStorage.setItem("schoolUser", JSON.stringify(school))
+
+      setTimeout(() => {
+        window.location.href = "/school/dashboard"
+      }, 500)
+    } else {
+      setError("Invalid email or password")
       setIsLoading(false)
-      window.location.href = "/school/dashboard"
-    }, 1000)
+    }
   }
 
   return (
@@ -39,6 +48,22 @@ export default function SchoolLoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <Alert>
+              <AlertDescription className="text-sm">
+                <strong>Test Credentials:</strong>
+                <br />
+                Email: admin@harvard.edu
+                <br />
+                Password: school123
+              </AlertDescription>
+            </Alert>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

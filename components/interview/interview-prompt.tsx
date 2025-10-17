@@ -22,13 +22,12 @@ interface InterviewPromptProps {
   onComplete: (promptId: string, videoBlob: Blob) => void
 }
 
-type Stage = "reading" | "preparing" | "recording" | "review"
+type Stage = "reading" | "preparing" | "recording"
 
 export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete }: InterviewPromptProps) {
   const [stage, setStage] = useState<Stage>("reading")
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
-  const [recordedUrl, setRecordedUrl] = useState<string | null>(null)
   const [streamInitialized, setStreamInitialized] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -78,7 +77,6 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
     console.log("[v0] Prompt changed:", prompt.id, "Question:", promptNumber)
     setStage("reading")
     setRecordedBlob(null)
-    setRecordedUrl(null)
     setTimeRemaining(0)
 
     if (promptNumber > 1) {
@@ -147,11 +145,10 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       }
 
       mediaRecorder.onstop = () => {
-        console.log("[v0] Recording stopped, creating blob")
+        console.log("[v0] Recording stopped, creating blob and moving to next question")
         const blob = new Blob(chunksRef.current, { type: "video/webm" })
         setRecordedBlob(blob)
-        setRecordedUrl(URL.createObjectURL(blob))
-        setStage("review")
+        onComplete(prompt.id, blob)
       }
 
       mediaRecorder.start()
@@ -168,18 +165,6 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
     console.log("[v0] Stopping recording")
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop()
-    }
-  }
-
-  const handleRetake = () => {
-    setRecordedBlob(null)
-    setRecordedUrl(null)
-    setStage("reading")
-  }
-
-  const handleContinue = () => {
-    if (recordedBlob) {
-      onComplete(prompt.id, recordedBlob)
     }
   }
 
@@ -226,7 +211,6 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
                 <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
                   <li>Preparation time: {prompt.preparationTime} seconds</li>
                   <li>Recording time: {prompt.responseTime} seconds</li>
-                  <li>You can retake your response if needed</li>
                 </ul>
               </div>
               <Button onClick={startPreparation} className="w-full" size="lg">
@@ -275,23 +259,6 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
                 <Square className="h-4 w-4 mr-2 fill-current" />
                 Stop Recording
               </Button>
-            </div>
-          )}
-
-          {/* Review Stage */}
-          {stage === "review" && recordedUrl && (
-            <div className="space-y-4">
-              <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-black">
-                <video src={recordedUrl} controls className="w-full h-auto" />
-              </div>
-              <div className="flex gap-3">
-                <Button onClick={handleRetake} variant="outline" className="flex-1 bg-transparent" size="lg">
-                  Retake Response
-                </Button>
-                <Button onClick={handleContinue} className="flex-1" size="lg">
-                  {promptNumber === totalPrompts ? "Complete Interview" : "Next Question"}
-                </Button>
-              </div>
             </div>
           )}
         </CardContent>

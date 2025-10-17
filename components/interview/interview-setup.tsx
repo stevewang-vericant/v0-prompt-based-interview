@@ -147,7 +147,7 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
             <div>
               <p className="font-medium">Read the prompt carefully</p>
               <p className="text-sm text-muted-foreground">
-                You'll have 10 seconds to prepare your response after reading each prompt
+                You'll have 15 seconds to prepare your response after reading each prompt
               </p>
             </div>
           </div>

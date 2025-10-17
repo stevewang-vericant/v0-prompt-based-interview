@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { InterviewSetup } from "@/components/interview/interview-setup"
 import { InterviewPrompt } from "@/components/interview/interview-prompt"
 import { InterviewComplete } from "@/components/interview/interview-complete"
+import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
 
 interface Prompt {
   id: string
@@ -14,27 +15,33 @@ interface Prompt {
   responseTime: number
 }
 
-// Mock prompts data
 const mockPrompts: Prompt[] = [
   {
     id: "1",
     category: "Conversational Fluency",
     text: "Tell me about your favorite hobby and why you enjoy it.",
-    preparationTime: 10, // Reduced from 30 to 10 seconds
+    preparationTime: 15,
     responseTime: 90,
   },
   {
     id: "2",
     category: "Critical Thinking",
     text: "Describe a time when you had to solve a complex problem. What approach did you take and what was the outcome?",
-    preparationTime: 10, // Reduced from 30 to 10 seconds
+    preparationTime: 15,
     responseTime: 90,
   },
   {
     id: "3",
     category: "General Knowledge",
     text: "What do you think is the most important global challenge facing our generation?",
-    preparationTime: 10, // Reduced from 30 to 10 seconds
+    preparationTime: 15,
+    responseTime: 90,
+  },
+  {
+    id: "4",
+    category: "Critical Thinking",
+    text: "Describe a situation where you had to work with someone whose perspective was very different from yours. How did you handle it?",
+    preparationTime: 15,
     responseTime: 90,
   },
 ]
@@ -45,13 +52,35 @@ export default function InterviewPage() {
   const [stage, setStage] = useState<InterviewStage>("setup")
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
   const [responses, setResponses] = useState<Record<string, Blob>>({})
+  const [interviewId] = useState(() => `interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+  const [isUploading, setIsUploading] = useState(false)
 
   const handleSetupComplete = () => {
     setStage("interview")
   }
 
-  const handlePromptComplete = (promptId: string, videoBlob: Blob) => {
+  const handlePromptComplete = async (promptId: string, videoBlob: Blob) => {
+    console.log("[v0] Prompt completed:", promptId, "Blob size:", videoBlob.size)
     setResponses((prev) => ({ ...prev, [promptId]: videoBlob }))
+
+    setIsUploading(true)
+    try {
+      const result = await uploadVideoToB2AndSave(videoBlob, interviewId, promptId, currentPromptIndex + 1)
+
+      if (result.success) {
+        console.log("[v0] Video uploaded successfully:", result.videoUrl)
+      } else {
+        console.error("[v0] Upload failed:", result.error)
+        alert(`Failed to upload video: ${result.error}. Please try again.`)
+        return
+      }
+    } catch (error) {
+      console.error("[v0] Upload error:", error)
+      alert("Failed to upload video. Please check your connection and try again.")
+      return
+    } finally {
+      setIsUploading(false)
+    }
 
     if (currentPromptIndex < mockPrompts.length - 1) {
       setCurrentPromptIndex((prev) => prev + 1)
@@ -62,11 +91,10 @@ export default function InterviewPage() {
 
   const handleSubmitInterview = async () => {
     console.log("[v0] Submitting interview with", Object.keys(responses).length, "responses")
-    // TODO: Upload videos and submit interview
     setTimeout(() => {
       alert("Interview submitted successfully!")
       window.location.href = "/student/dashboard"
-    }, 2000)
+    }, 1000)
   }
 
   return (
@@ -94,6 +122,20 @@ export default function InterviewPage() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isUploading && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+              <div className="flex items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div>
+                  <p className="font-medium">Uploading video...</p>
+                  <p className="text-sm text-muted-foreground">Please wait</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {stage === "setup" && <InterviewSetup onComplete={handleSetupComplete} />}
 
         {stage === "interview" && (

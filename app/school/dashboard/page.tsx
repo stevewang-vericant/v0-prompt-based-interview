@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -12,6 +12,36 @@ import { CreditCard as CreditCircle, Users, Send, BarChart3 } from "lucide-react
 
 export default function SchoolDashboardPage() {
   const [activeTab, setActiveTab] = useState("overview")
+  const [schoolData, setSchoolData] = useState<{
+    id: string
+    name: string
+    email: string
+    contactName: string
+    credits: number
+  } | null>(null)
+
+  useEffect(() => {
+    const storedSchool = localStorage.getItem("schoolUser")
+    if (storedSchool) {
+      setSchoolData(JSON.parse(storedSchool))
+    } else {
+      // Redirect to login if not authenticated
+      window.location.href = "/school/login"
+    }
+  }, [])
+
+  const handleSignOut = () => {
+    localStorage.removeItem("schoolUser")
+    window.location.href = "/school/login"
+  }
+
+  if (!schoolData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -20,10 +50,10 @@ export default function SchoolDashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">School Dashboard</h1>
+              <h1 className="text-2xl font-bold text-slate-900">{schoolData.name}</h1>
               <p className="text-sm text-slate-600">Manage your interview credits and student invitations</p>
             </div>
-            <Button variant="outline" onClick={() => (window.location.href = "/school/login")}>
+            <Button variant="outline" onClick={handleSignOut}>
               Sign Out
             </Button>
           </div>
@@ -60,7 +90,7 @@ export default function SchoolDashboardPage() {
                   <CreditCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">247</div>
+                  <div className="text-2xl font-bold">{schoolData.credits}</div>
                   <p className="text-xs text-muted-foreground">$49 per credit</p>
                 </CardContent>
               </Card>
@@ -104,7 +134,7 @@ export default function SchoolDashboardPage() {
           </TabsContent>
 
           <TabsContent value="credits" className="space-y-6">
-            <CreditBalance balance={247} />
+            <CreditBalance balance={schoolData.credits} />
             <PurchaseCredits />
           </TabsContent>
 
