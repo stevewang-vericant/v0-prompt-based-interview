@@ -121,6 +121,10 @@ function InterviewPageContent() {
       console.log("[v0] Starting FFmpeg merge and MP4 conversion...")
       setUploadStatus("Merging videos and converting to MP4...")
       
+      // 准备估算的视频时长（用于 iOS Safari 兼容）
+      const estimatedDurations = mockPrompts.map(prompt => prompt.responseTime)
+      console.log("[v0] Using estimated durations:", estimatedDurations)
+      
       // 使用 FFmpeg 合并视频并转换为 MP4（暂时不带字幕）
       const mergeResult = await mergeVideos(
         sortedBlobs, 
@@ -128,7 +132,8 @@ function InterviewPageContent() {
         (progress) => {
           setUploadProgress(Math.floor(progress * 0.7)) // 合并占70%进度
           console.log("[v0] Merge progress:", progress + "%")
-        }
+        },
+        estimatedDurations // 传递估算时长，iOS Safari 回退方案
       )
       
       const mergedBlob = mergeResult.videoBlob

@@ -287,12 +287,14 @@ export interface MergeResult {
  * @param videoBlobs 按顺序排列的视频 Blob 数组
  * @param questionTexts 每个视频段对应的问题文本（可选）
  * @param onProgress 进度回调函数 (0-100)
+ * @param estimatedDurations 估算的视频时长数组（可选，用于 iOS 兼容）
  * @returns 合并后的 MP4 Blob 和时长信息
  */
 export async function mergeVideos(
   videoBlobs: Blob[],
   questionTexts?: string[],
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  estimatedDurations?: number[]
 ): Promise<MergeResult> {
   if (videoBlobs.length === 0) {
     throw new Error('No videos to merge')
@@ -300,7 +302,14 @@ export async function mergeVideos(
 
   // 如果只有一个视频，直接转换为 MP4
   if (videoBlobs.length === 1) {
-    const duration = await getVideoDuration(videoBlobs[0])
+    let duration: number
+    try {
+      duration = await getVideoDuration(videoBlobs[0])
+    } catch (error) {
+      console.warn('[Video] Failed to get duration, using estimate:', error)
+      duration = estimatedDurations?.[0] || 90 // 默认 90 秒
+    }
+    
     const videoBlob = await convertToMP4(videoBlobs[0], onProgress)
     return {
       videoBlob,
@@ -330,13 +339,21 @@ export async function mergeVideos(
   })
 
   try {
-    // 首先获取每个视频的时长信息
+    // 首先获取每个视频的时长信息（如果失败则使用估算值）
     console.log('[Video] Getting duration for each video segment...')
     const segments: VideoSegmentInfo[] = []
     let currentTime = 0
     
     for (let i = 0; i < videoBlobs.length; i++) {
-      const duration = await getVideoDuration(videoBlobs[i])
+      let duration: number
+      try {
+        duration = await getVideoDuration(videoBlobs[i])
+        console.log(`[Video] Segment ${i + 1} duration: ${duration.toFixed(2)}s (actual)`)
+      } catch (error) {
+        duration = estimatedDurations?.[i] || 90 // 使用估算值或默认 90 秒
+        console.warn(`[Video] Segment ${i + 1} duration: ${duration.toFixed(2)}s (estimated, actual failed)`)
+      }
+      
       segments.push({
         index: i,
         duration: duration,
@@ -344,7 +361,6 @@ export async function mergeVideos(
         endTime: currentTime + duration
       })
       currentTime += duration
-      console.log(`[Video] Segment ${i + 1} duration: ${duration.toFixed(2)}s`)
     }
     
     const totalDuration = currentTime
