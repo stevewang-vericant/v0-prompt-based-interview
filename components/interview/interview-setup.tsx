@@ -17,8 +17,11 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
+  const [errorMessage, setErrorMessage] = useState<string>("")
+
   const testDevices = async () => {
     setIsTestingCamera(true)
+    setErrorMessage("")
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       streamRef.current = stream
@@ -33,6 +36,23 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
       console.error("[v0] Device access error:", err)
       setCameraPermission(false)
       setMicPermission(false)
+      
+      // 提供更详细的错误信息
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setErrorMessage("Permission denied. Please allow camera and microphone access in your browser settings.")
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          setErrorMessage("No camera or microphone found. Please check your device.")
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          setErrorMessage("Camera is already in use by another application.")
+        } else if (err.name === 'OverconstrainedError') {
+          setErrorMessage("Camera settings not supported.")
+        } else if (err.name === 'SecurityError') {
+          setErrorMessage("Access denied due to security restrictions. Make sure you're using HTTPS.")
+        } else {
+          setErrorMessage(`Error: ${err.message}`)
+        }
+      }
     }
   }
 
@@ -124,12 +144,62 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
 
           {/* Error Message */}
           {cameraPermission === false || micPermission === false ? (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Unable to access your camera or microphone. Please check your browser permissions and try again.
-              </AlertDescription>
-            </Alert>
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {errorMessage || "Unable to access your camera or microphone. Please check your browser permissions and try again."}
+                </AlertDescription>
+              </Alert>
+              
+              {/* Mobile-specific instructions */}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="font-semibold mb-2">📱 How to Fix Camera/Microphone Access:</p>
+                  
+                  <div className="space-y-3 text-sm">
+                    {/* iOS/Safari Instructions */}
+                    <div className="border-l-4 border-blue-500 pl-3">
+                      <p className="font-semibold mb-1">🍎 iPhone/iPad (Safari or Chrome):</p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>Tap the <strong>aA</strong> icon (or 🔒) in the address bar at the top</li>
+                        <li>Tap <strong>"Website Settings"</strong></li>
+                        <li>Change <strong>Camera</strong> and <strong>Microphone</strong> to <strong>"Allow"</strong></li>
+                        <li>Tap <strong>"Done"</strong> and refresh this page</li>
+                      </ol>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Alternative: Settings app → Safari → Camera/Microphone → Allow
+                      </p>
+                    </div>
+                    
+                    {/* Android Instructions */}
+                    <div className="border-l-4 border-green-500 pl-3">
+                      <p className="font-semibold mb-1">🤖 Android (Chrome):</p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>Tap the 🔒 lock icon in address bar</li>
+                        <li>Tap <strong>"Permissions"</strong> or <strong>"Site settings"</strong></li>
+                        <li>Enable <strong>Camera</strong> and <strong>Microphone</strong></li>
+                        <li>Refresh this page</li>
+                      </ol>
+                    </div>
+                    
+                    {/* System-level permissions */}
+                    <div className="mt-3 p-2 bg-yellow-50 rounded">
+                      <p className="text-xs font-semibold">⚠️ Still not working?</p>
+                      <p className="text-xs mt-1">
+                        Check your phone's system settings: <strong>Settings → Privacy & Security → Camera/Microphone</strong> → Make sure Safari/Chrome is allowed.
+                      </p>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+              
+              {/* Retry button */}
+              <Button onClick={testDevices} variant="outline" className="w-full">
+                Try Again
+              </Button>
+            </div>
           ) : null}
         </CardContent>
       </Card>
