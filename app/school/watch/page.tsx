@@ -1,12 +1,13 @@
 "use client"
 
 import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { VideoPlayerWithSubtitles } from '@/components/video-player-with-subtitles'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 
-export default function SchoolWatchPage() {
+function SchoolWatchPageContent() {
   const searchParams = useSearchParams()
   const videoUrl = searchParams.get('videoUrl')
   const subtitleUrl = searchParams.get('subtitleUrl')
@@ -77,6 +78,21 @@ export default function SchoolWatchPage() {
         </Card> */}
       </main>
     </div>
+  )
+}
+
+export default function SchoolWatchPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
+          <p className="mt-2 text-sm text-slate-600">Loading video player...</p>
+        </div>
+      </div>
+    }>
+      <SchoolWatchPageContent />
+    </Suspense>
   )
 }
 
