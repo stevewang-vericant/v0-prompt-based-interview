@@ -97,7 +97,7 @@ function InterviewPageContent() {
     studentEmail?: string,
     studentName?: string,
     schoolCode?: string | null
-  ) => {
+  ): Promise<{ success: boolean; error?: string }> => {
     setIsUploading(true)
     setUploadProgress(0)
     
@@ -225,20 +225,20 @@ function InterviewPageContent() {
           
           setUploadProgress(100)
           setUploadStatus("Upload complete!")
-          setTimeout(() => {
-            alert("Interview videos merged and uploaded successfully!")
-          }, 500)
+          console.log("[v0] ✓ All operations completed successfully!")
+          return { success: true }
         } else {
           console.error("[v0] Subtitle upload failed:", subtitleResult.error)
-          alert(`Warning: Video uploaded but subtitle metadata failed: ${subtitleResult.error}`)
+          return { success: false, error: `Failed to upload subtitle metadata: ${subtitleResult.error}` }
         }
       } else {
         console.error("[v0] Upload failed:", result.error)
-        alert(`Failed to upload merged video: ${result.error}`)
+        return { success: false, error: `Failed to upload video: ${result.error}` }
       }
     } catch (error) {
       console.error("[v0] Merge/upload error:", error)
-      alert(`Failed to merge or upload videos: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      return { success: false, error: `Failed to process video: ${errorMessage}` }
     } finally {
       setIsUploading(false)
       setUploadProgress(0)
@@ -252,12 +252,26 @@ function InterviewPageContent() {
     console.log("[v0] School code:", schoolCode || "Not specified")
     
     // 开始合并和上传视频，传入学生信息和学校代码
-    await mergeAndUploadVideos(responses, studentEmail, studentName, schoolCode)
+    const result = await mergeAndUploadVideos(responses, studentEmail, studentName, schoolCode)
     
-    // 上传完成后重定向到 dashboard
+    // 根据结果跳转到完成页面
+    const params = new URLSearchParams({
+      status: result.success ? 'success' : 'error',
+      email: studentEmail,
+    })
+    
+    if (schoolCode) {
+      params.append('school', schoolCode)
+    }
+    
+    if (!result.success && result.error) {
+      params.append('error', result.error)
+    }
+    
+    // 稍微延迟跳转，让用户看到上传完成的动画
     setTimeout(() => {
-      window.location.href = "/student/dashboard"
-    }, 2000)
+      window.location.href = `/student/interview/complete?${params.toString()}`
+    }, result.success ? 1000 : 500)
   }
 
   return (
@@ -280,7 +294,7 @@ function InterviewPageContent() {
               )}
             </div>
             {stage === "setup" && (
-              <Button variant="outline" onClick={() => (window.location.href = "/student/dashboard")}>
+              <Button variant="outline" onClick={() => (window.location.href = "/")}>
                 Exit
               </Button>
             )}
