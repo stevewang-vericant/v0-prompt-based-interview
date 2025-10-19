@@ -12,6 +12,7 @@ export interface InterviewData {
   video_url: string
   subtitle_url?: string
   total_duration?: number
+  school_code?: string
   metadata?: Record<string, any>
 }
 
@@ -25,6 +26,7 @@ export interface InterviewRecord {
   interview_id: string
   student_id: string | null
   school_id: string | null
+  school_code: string | null
   student_email: string | null
   video_url: string | null
   subtitle_url: string | null
@@ -66,6 +68,7 @@ export async function saveInterview(data: InterviewData): Promise<{
       video_url: data.video_url,
       subtitle_url: data.subtitle_url,
       total_duration: data.total_duration,
+      school_code: data.school_code,
       metadata: data.metadata || {},
       status: 'completed',
       completed_at: new Date().toISOString(),
@@ -288,6 +291,181 @@ export async function updateInterviewStatus(
     console.error("[DB] Unexpected error:", error)
     return {
       success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * 根据学校代码获取面试列表
+ * 
+ * @param schoolCode 学校代码（如 harvard）
+ * @param limit 返回数量限制
+ * @param offset 分页偏移量
+ * @returns 面试列表
+ */
+export async function getInterviewsBySchoolCode(
+  schoolCode: string,
+  limit: number = 100,
+  offset: number = 0
+): Promise<{
+  success: boolean
+  interviews?: InterviewRecord[]
+  count?: number
+  error?: string
+}> {
+  try {
+    console.log("[DB] Fetching interviews for school:", schoolCode)
+    
+    const supabase = await createClient()
+    
+    const { data: interviews, error, count } = await supabase
+      .from('interviews')
+      .select('*', { count: 'exact' })
+      .eq('school_code', schoolCode)
+      .not('video_url', 'is', null)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+    
+    if (error) {
+      console.error("[DB] Error fetching interviews:", error)
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+    
+    console.log("[DB] Found", interviews?.length || 0, "interviews for school")
+    return {
+      success: true,
+      interviews: interviews || [],
+      count: count || 0
+    }
+  } catch (error) {
+    console.error("[DB] Unexpected error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * 根据管理员邮箱获取学校信息和权限
+ * 
+ * @param adminEmail 管理员邮箱
+ * @returns 学校信息和权限
+ */
+export async function getSchoolByAdminEmail(adminEmail: string): Promise<{
+  success: boolean
+  school?: {
+    code: string
+    name: string
+    is_super_admin: boolean
+  }
+  error?: string
+}> {
+  try {
+    console.log("[DB] Fetching school for admin:", adminEmail)
+    
+    const supabase = await createClient()
+    
+    // 查找管理员记录
+    const { data: adminRecords, error } = await supabase
+      .from('school_admins')
+      .select(`
+        id,
+        email,
+        is_super_admin,
+        schools:school_id (
+          id,
+          code,
+          name
+        )
+      `)
+      .eq('email', adminEmail)
+      .limit(1)
+      .single()
+    
+    if (error) {
+      console.error("[DB] Error fetching admin:", error)
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+    
+    if (!adminRecords) {
+      return {
+        success: false,
+        error: 'Admin not found'
+      }
+    }
+    
+    const schoolData = adminRecords.schools as any
+    
+    console.log("[DB] Admin found, school:", schoolData?.code, "super admin:", adminRecords.is_super_admin)
+    return {
+      success: true,
+      school: {
+        code: schoolData?.code || '',
+        name: schoolData?.name || '',
+        is_super_admin: adminRecords.is_super_admin || false
+      }
+    }
+  } catch (error) {
+    console.error("[DB] Unexpected error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * 检查用户是否为超级管理员
+ * 
+ * @param email 用户邮箱
+ * @returns 是否为超级管理员
+ */
+export async function checkSuperAdmin(email: string): Promise<{
+  success: boolean
+  is_super_admin: boolean
+  error?: string
+}> {
+  try {
+    console.log("[DB] Checking super admin status for:", email)
+    
+    const supabase = await createClient()
+    
+    const { data: admin, error } = await supabase
+      .from('school_admins')
+      .select('is_super_admin')
+      .eq('email', email)
+      .eq('is_super_admin', true)
+      .single()
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error("[DB] Error checking super admin:", error)
+      return {
+        success: false,
+        is_super_admin: false,
+        error: error.message
+      }
+    }
+    
+    const isSuperAdmin = !!admin
+    console.log("[DB] Super admin status:", isSuperAdmin)
+    
+    return {
+      success: true,
+      is_super_admin: isSuperAdmin
+    }
+  } catch (error) {
+    console.error("[DB] Unexpected error:", error)
+    return {
+      success: false,
+      is_super_admin: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     }
   }

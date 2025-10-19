@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { InterviewSetup } from "@/components/interview/interview-setup"
 import { InterviewPrompt } from "@/components/interview/interview-prompt"
@@ -9,6 +10,8 @@ import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
 import { uploadJsonToB2 } from "@/app/actions/upload-json"
 import { saveInterview } from "@/app/actions/interviews"
 import { mergeVideos } from "@/lib/video-merger"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 interface Prompt {
   id: string
@@ -51,7 +54,10 @@ const mockPrompts: Prompt[] = [
 
 type InterviewStage = "setup" | "interview" | "complete"
 
-export default function InterviewPage() {
+function InterviewPageContent() {
+  const searchParams = useSearchParams()
+  const schoolCode = searchParams.get("school")
+  
   const [stage, setStage] = useState<InterviewStage>("setup")
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
   const [responses, setResponses] = useState<Record<string, Blob>>({})
@@ -89,7 +95,8 @@ export default function InterviewPage() {
   const mergeAndUploadVideos = async (
     allResponses: Record<string, Blob>,
     studentEmail?: string,
-    studentName?: string
+    studentName?: string,
+    schoolCode?: string | null
   ) => {
     setIsUploading(true)
     setUploadProgress(0)
@@ -189,6 +196,7 @@ export default function InterviewPage() {
               video_url: result.videoUrl!,
               subtitle_url: subtitleResult.url,
               total_duration: mergeResult.totalDuration,
+              school_code: schoolCode || undefined,
               metadata: {
                 questions: subtitleMetadata.questions,
                 completedAt: new Date().toISOString()
@@ -241,9 +249,10 @@ export default function InterviewPage() {
   const handleSubmitInterview = async (studentEmail: string, studentName?: string) => {
     console.log("[v0] Submitting interview with", Object.keys(responses).length, "responses")
     console.log("[v0] Student email:", studentEmail)
+    console.log("[v0] School code:", schoolCode || "Not specified")
     
-    // 开始合并和上传视频，传入学生信息
-    await mergeAndUploadVideos(responses, studentEmail, studentName)
+    // 开始合并和上传视频，传入学生信息和学校代码
+    await mergeAndUploadVideos(responses, studentEmail, studentName, schoolCode)
     
     // 上传完成后重定向到 dashboard
     setTimeout(() => {
@@ -264,6 +273,11 @@ export default function InterviewPage() {
                 {stage === "interview" && `Question ${currentPromptIndex + 1} of ${mockPrompts.length}`}
                 {stage === "complete" && "Interview completed"}
               </p>
+              {schoolCode && (
+                <p className="text-xs text-slate-500 mt-1">
+                  School: <span className="font-medium">{schoolCode}</span>
+                </p>
+              )}
             </div>
             {stage === "setup" && (
               <Button variant="outline" onClick={() => (window.location.href = "/student/dashboard")}>
@@ -273,6 +287,20 @@ export default function InterviewPage() {
           </div>
         </div>
       </header>
+
+      {/* Warning if no school code */}
+      {!schoolCode && stage === "setup" && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Warning: No School Code</AlertTitle>
+            <AlertDescription>
+              This interview link is missing a school code parameter. The interview will be saved but may not be visible to any school.
+              Please use the link provided by your school (e.g., <code>/student/interview?school=harvard</code>).
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -298,5 +326,20 @@ export default function InterviewPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function InterviewPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
+          <p className="mt-2 text-sm text-slate-600">Loading interview...</p>
+        </div>
+      </div>
+    }>
+      <InterviewPageContent />
+    </Suspense>
   )
 }

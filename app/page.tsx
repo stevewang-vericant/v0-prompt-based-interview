@@ -20,10 +20,10 @@ export default function HomePage() {
             <Button asChild size="lg" className="text-lg">
               <Link href="/school/login">School Portal</Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="text-lg bg-transparent">
-              <Link href="/student/login">Student Login</Link>
-            </Button>
           </div>
+          <p className="text-sm text-slate-500 mt-4">
+            Students: Access your interview through the link provided by your school
+          </p>
         </div>
       </header>
 
