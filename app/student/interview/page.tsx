@@ -7,6 +7,7 @@ import { InterviewPrompt } from "@/components/interview/interview-prompt"
 import { InterviewComplete } from "@/components/interview/interview-complete"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
 import { uploadJsonToB2 } from "@/app/actions/upload-json"
+import { saveInterview } from "@/app/actions/interviews"
 import { mergeVideos } from "@/lib/video-merger"
 
 interface Prompt {
@@ -78,17 +79,18 @@ export default function InterviewPage() {
       // 还有更多问题，继续下一题
       setCurrentPromptIndex((prev) => prev + 1)
     } else {
-      // 所有问题完成，开始合并和上传
-      console.log("[v0] All prompts completed, merging and uploading videos...")
+      // 所有问题完成，切换到 complete 阶段，等待用户输入邮箱
+      console.log("[v0] All prompts completed, waiting for student information...")
       setInterviewCompleted(true)
       setStage("complete")
-      
-      // 开始合并和上传
-      await mergeAndUploadVideos({ ...responses, [promptId]: videoBlob })
     }
   }
 
-  const mergeAndUploadVideos = async (allResponses: Record<string, Blob>) => {
+  const mergeAndUploadVideos = async (
+    allResponses: Record<string, Blob>,
+    studentEmail?: string,
+    studentName?: string
+  ) => {
     setIsUploading(true)
     setUploadProgress(0)
     
@@ -174,6 +176,33 @@ export default function InterviewPage() {
         if (subtitleResult.success) {
           console.log("[v0] ✓ Subtitle metadata uploaded successfully:", subtitleResult.url)
           
+          // 保存到数据库（如果提供了学生邮箱）
+          if (studentEmail) {
+            setUploadStatus("Saving to database...")
+            setUploadProgress(95)
+            console.log("[v0] Saving interview to database...")
+            
+            const dbResult = await saveInterview({
+              interview_id: interviewId,
+              student_email: studentEmail,
+              student_name: studentName,
+              video_url: result.videoUrl!,
+              subtitle_url: subtitleResult.url,
+              total_duration: mergeResult.totalDuration,
+              metadata: {
+                questions: subtitleMetadata.questions,
+                completedAt: new Date().toISOString()
+              }
+            })
+            
+            if (dbResult.success) {
+              console.log("[v0] ✓ Interview saved to database:", dbResult.interview?.id)
+            } else {
+              console.error("[v0] Database save failed:", dbResult.error)
+              // 不阻止用户流程，只记录错误
+            }
+          }
+          
           // 保存视频 URL 和字幕 URL 到 localStorage，供 dashboard 使用
           const interviewData = {
             videoUrl: result.videoUrl,
@@ -209,12 +238,17 @@ export default function InterviewPage() {
     }
   }
 
-  const handleSubmitInterview = async () => {
+  const handleSubmitInterview = async (studentEmail: string, studentName?: string) => {
     console.log("[v0] Submitting interview with", Object.keys(responses).length, "responses")
+    console.log("[v0] Student email:", studentEmail)
+    
+    // 开始合并和上传视频，传入学生信息
+    await mergeAndUploadVideos(responses, studentEmail, studentName)
+    
+    // 上传完成后重定向到 dashboard
     setTimeout(() => {
-      alert("Interview submitted successfully!")
       window.location.href = "/student/dashboard"
-    }, 1000)
+    }, 2000)
   }
 
   return (

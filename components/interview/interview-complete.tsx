@@ -3,12 +3,14 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle2, Clock, Award } from "lucide-react"
+import { CheckCircle2, Clock, Award, Mail } from "lucide-react"
 
 interface InterviewCompleteProps {
   responsesCount: number
-  onSubmit: () => void
+  onSubmit: (studentEmail: string, studentName?: string) => void
   isUploading?: boolean
   uploadProgress?: number
   uploadStatus?: string
@@ -22,10 +24,29 @@ export function InterviewComplete({
   uploadStatus = ""
 }: InterviewCompleteProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [studentEmail, setStudentEmail] = useState("")
+  const [studentName, setStudentName] = useState("")
+  const [emailError, setEmailError] = useState("")
+
+  const validateEmail = (email: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return re.test(email)
+  }
 
   const handleSubmit = async () => {
+    // 验证邮箱
+    if (!studentEmail.trim()) {
+      setEmailError("Please enter your email address")
+      return
+    }
+    if (!validateEmail(studentEmail)) {
+      setEmailError("Please enter a valid email address")
+      return
+    }
+    
+    setEmailError("")
     setIsSubmitting(true)
-    await onSubmit()
+    await onSubmit(studentEmail, studentName || undefined)
   }
 
   return (
@@ -90,9 +111,49 @@ export function InterviewComplete({
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Student Information
+          </CardTitle>
+          <CardDescription>
+            Please provide your contact information to submit the interview
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email Address *</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="your.email@example.com"
+              value={studentEmail}
+              onChange={(e) => {
+                setStudentEmail(e.target.value)
+                setEmailError("")
+              }}
+              disabled={isUploading || isSubmitting}
+              className={emailError ? "border-red-500" : ""}
+            />
+            {emailError && (
+              <p className="text-sm text-red-600">{emailError}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name (Optional)</Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Your full name"
+              value={studentName}
+              onChange={(e) => setStudentName(e.target.value)}
+              disabled={isUploading || isSubmitting}
+            />
+          </div>
+
           {isUploading && (
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
               <div className="flex items-center gap-3">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                 <div className="flex-1">
@@ -110,15 +171,16 @@ export function InterviewComplete({
               )}
             </div>
           )}
+
           <Button 
             onClick={handleSubmit} 
-            disabled={isSubmitting || isUploading} 
+            disabled={isSubmitting || isUploading || !studentEmail.trim()} 
             className="w-full" 
             size="lg"
           >
             {isUploading ? "Processing Video..." : isSubmitting ? "Submitting Interview..." : "Submit Interview"}
           </Button>
-          <p className="text-xs text-center text-muted-foreground mt-3">
+          <p className="text-xs text-center text-muted-foreground">
             By submitting, you confirm that all responses are your own work and were completed without assistance
           </p>
         </CardContent>
