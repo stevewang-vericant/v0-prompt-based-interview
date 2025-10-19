@@ -12,15 +12,11 @@ import {
   getSchoolByAdminEmail,
   InterviewRecord 
 } from "@/app/actions/interviews"
-import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle } from "lucide-react"
+import { getCurrentUser, signOut } from "@/app/actions/auth"
+import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut } from "lucide-react"
 import { format } from "date-fns"
 
 function SchoolDashboardContent() {
-  const searchParams = useSearchParams()
-  // 临时方案：从 URL 参数读取用户邮箱（实际项目中应该使用认证系统）
-  // 例如：/school/dashboard?email=admin@harvard.edu
-  const adminEmail = searchParams.get("email") || "admin@harvard.edu" // 默认为 harvard 管理员
-  
   const [interviews, setInterviews] = useState<InterviewRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,26 +26,35 @@ function SchoolDashboardContent() {
     name: string
     is_super_admin: boolean
   } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{
+    email: string
+  } | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [linkCopied, setLinkCopied] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
-  const loadSchoolInfo = async () => {
+  const loadUserAndSchool = async () => {
     try {
-      console.log("[School] Fetching school info for:", adminEmail)
-      const result = await getSchoolByAdminEmail(adminEmail)
+      console.log("[School] Fetching current user...")
+      const result = await getCurrentUser()
       
-      if (result.success && result.school) {
-        console.log("[School] School info loaded:", result.school)
-        setSchoolInfo(result.school)
-        return result.school
+      if (result.success && result.user) {
+        console.log("[School] User loaded:", result.user.email)
+        setCurrentUser({ email: result.user.email })
+        setSchoolInfo(result.user.school)
+        return result.user.school
       } else {
-        console.error("[School] Failed to load school info:", result.error)
-        setAuthError(result.error || "Failed to load school information")
+        console.error("[School] Failed to load user:", result.error)
+        setAuthError(result.error || "Not authenticated")
+        // 跳转到登录页面
+        setTimeout(() => {
+          window.location.href = "/school/login"
+        }, 2000)
         return null
       }
     } catch (err) {
-      console.error("[School] Error loading school info:", err)
+      console.error("[School] Error loading user:", err)
       setAuthError(err instanceof Error ? err.message : "Unknown error")
       return null
     }
@@ -60,10 +65,10 @@ function SchoolDashboardContent() {
       setLoading(true)
       setError(null)
       
-      // 先加载学校信息
+      // 先加载用户和学校信息
       let school = schoolInfo
       if (!school) {
-        school = await loadSchoolInfo()
+        school = await loadUserAndSchool()
         if (!school) {
           setLoading(false)
           return
@@ -101,11 +106,17 @@ function SchoolDashboardContent() {
 
   useEffect(() => {
     loadInterviews()
-  }, [adminEmail])
+  }, [])
 
   const handleRefresh = () => {
     setIsRefreshing(true)
     loadInterviews()
+  }
+
+  const handleLogout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    await signOut()
   }
 
   const handleWatchInterview = (interview: InterviewRecord) => {
@@ -179,18 +190,14 @@ function SchoolDashboardContent() {
               </AlertDescription>
             </Alert>
             <p className="text-sm text-slate-600">
-              The email <strong>{adminEmail}</strong> is not registered as a school administrator.
+              You need to be logged in to access the school dashboard.
             </p>
-            <div className="bg-slate-50 p-4 rounded-lg">
-              <p className="text-sm font-medium text-slate-900 mb-2">Test Accounts:</p>
-              <ul className="text-sm text-slate-600 space-y-1">
-                <li>• <code>admin@harvard.edu</code> - Harvard Admin</li>
-                <li>• <code>super@admin.com</code> - Super Administrator (all schools)</li>
-              </ul>
-            </div>
-            <p className="text-xs text-slate-500">
-              To switch accounts, add <code>?email=xxx@example.com</code> to the URL
+            <p className="text-sm text-slate-600">
+              Redirecting to login page...
             </p>
+            <Button onClick={() => window.location.href = "/school/login"}>
+              Go to Login
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -220,22 +227,34 @@ function SchoolDashboardContent() {
                       <Building2 className="h-4 w-4" />
                       <span>{schoolInfo.name}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Mail className="h-4 w-4" />
-                      <span>{adminEmail}</span>
-                    </div>
+                    {currentUser && (
+                      <div className="flex items-center gap-1">
+                        <Mail className="h-4 w-4" />
+                        <span>{currentUser.email}</span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
             </div>
-            <Button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              variant="outline"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                variant="outline"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                variant="ghost"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {loggingOut ? "Logging out..." : "Logout"}
+              </Button>
+            </div>
           </div>
         </div>
       </header>

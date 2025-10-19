@@ -1,68 +1,54 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { signIn } from "@/app/actions/auth"
+import { AlertCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { mockSchools } from "@/lib/mock-data"
 
 export default function SchoolLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    setError(null)
+    setLoading(true)
 
-    const school = mockSchools.find((s) => s.email === email && s.password === password)
+    const result = await signIn(email, password)
 
-    if (school) {
-      // Store school data in localStorage
-      localStorage.setItem("schoolUser", JSON.stringify(school))
-
-      setTimeout(() => {
-        window.location.href = "/school/dashboard"
-      }, 500)
+    if (result.success) {
+      // 登录成功，跳转到 dashboard
+      window.location.href = "/school/dashboard"
     } else {
-      setError("Invalid email or password")
-      setIsLoading(false)
+      setError(result.error || "Login failed")
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">School Portal</CardTitle>
-          <CardDescription className="text-center">
+        <CardHeader>
+          <CardTitle className="text-2xl">School Portal</CardTitle>
+          <CardDescription>
             Sign in to manage your interview credits and invitations
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-
-            <Alert>
-              <AlertDescription className="text-sm">
-                <strong>Test Credentials:</strong>
-                <br />
-                Email: admin@harvard.edu
-                <br />
-                Password: school123
-              </AlertDescription>
-            </Alert>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -73,8 +59,11 @@ export default function SchoolLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading}
+                autoComplete="email"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -83,18 +72,33 @@ export default function SchoolLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading}
+                autoComplete="current-password"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign In"}
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
+
+            <div className="text-center text-sm text-slate-600">
+              Don't have an account?{" "}
+              <Link href="/school/register" className="text-blue-600 hover:underline">
+                Register your school
+              </Link>
+            </div>
           </form>
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link href="/school/register" className="text-primary hover:underline">
-              Register your school
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>
