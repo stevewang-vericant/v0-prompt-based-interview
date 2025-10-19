@@ -5,13 +5,14 @@ import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
 import { 
   getInterviews, 
   getInterviewsBySchoolCode,
   getSchoolByAdminEmail,
   InterviewRecord 
 } from "@/app/actions/interviews"
-import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2 } from "lucide-react"
+import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle } from "lucide-react"
 import { format } from "date-fns"
 
 function SchoolDashboardContent() {
@@ -30,6 +31,8 @@ function SchoolDashboardContent() {
     is_super_admin: boolean
   } | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const loadSchoolInfo = async () => {
     try {
@@ -126,6 +129,36 @@ function SchoolDashboardContent() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
+  // 复制面试链接到剪贴板
+  const handleCopyLink = async () => {
+    if (!schoolInfo) return
+    
+    const interviewUrl = `${window.location.origin}/student/interview?school=${schoolInfo.code}`
+    
+    try {
+      await navigator.clipboard.writeText(interviewUrl)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy link:', err)
+      alert('Failed to copy link to clipboard')
+    }
+  }
+
+  // 过滤面试列表
+  const filteredInterviews = interviews.filter(interview => {
+    if (!searchQuery.trim()) return true
+    
+    const query = searchQuery.toLowerCase()
+    const email = (interview.student_email || '').toLowerCase()
+    const interviewId = (interview.interview_id || '').toLowerCase()
+    const schoolCode = (interview.school_code || '').toLowerCase()
+    
+    return email.includes(query) || 
+           interviewId.includes(query) || 
+           schoolCode.includes(query)
+  })
+
   // 如果认证失败，显示错误
   if (authError) {
     return (
@@ -219,13 +252,44 @@ function SchoolDashboardContent() {
             </AlertDescription>
           </Alert>
         ) : (
-          <Alert className="mb-6 bg-blue-50 border-blue-200">
-            <Building2 className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-900">School Access</AlertTitle>
-            <AlertDescription className="text-blue-700">
-              You can only view interviews submitted to <strong>{schoolInfo?.name}</strong> (code: <code>{schoolInfo?.code}</code>)
-            </AlertDescription>
-          </Alert>
+          <Card className="mb-6 bg-blue-50 border-blue-200">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <LinkIcon className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-blue-900">Student Interview Link</CardTitle>
+              </div>
+              <CardDescription className="text-blue-700">
+                Share this link with students to start their video interview for <strong>{schoolInfo?.name}</strong>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-white rounded-lg border border-blue-300 px-4 py-3 font-mono text-sm text-slate-700 overflow-x-auto">
+                  {typeof window !== 'undefined' && `${window.location.origin}/student/interview?school=${schoolInfo?.code}`}
+                </div>
+                <Button
+                  onClick={handleCopyLink}
+                  variant={linkCopied ? "default" : "outline"}
+                  className={linkCopied ? "bg-green-600 hover:bg-green-700" : ""}
+                >
+                  {linkCopied ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Link
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-blue-600 mt-2">
+                Students can use this link to start their interview. No login required.
+              </p>
+            </CardContent>
+          </Card>
         )}
 
         {/* Stats Cards */}
@@ -286,10 +350,35 @@ function SchoolDashboardContent() {
         {/* Interview List */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Interviews</CardTitle>
-            <CardDescription>
-              View and review student interview assessments
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Recent Interviews</CardTitle>
+                <CardDescription>
+                  View and review student interview assessments
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search email, ID, school..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -304,20 +393,40 @@ function SchoolDashboardContent() {
                   Try Again
                 </Button>
               </div>
-            ) : interviews.length === 0 ? (
+            ) : filteredInterviews.length === 0 ? (
               <div className="text-center py-12">
                 <Video className="mx-auto h-12 w-12 text-slate-400" />
-                <p className="mt-4 text-slate-600">No interviews found</p>
+                <p className="mt-4 text-slate-600">
+                  {searchQuery ? 'No interviews match your search' : 'No interviews found'}
+                </p>
                 <p className="text-sm text-slate-500 mt-2">
-                  {schoolInfo?.is_super_admin 
-                    ? 'No interviews have been submitted yet'
-                    : `No interviews for ${schoolInfo?.name} yet`
+                  {searchQuery 
+                    ? `Try searching with different keywords`
+                    : schoolInfo?.is_super_admin 
+                      ? 'No interviews have been submitted yet'
+                      : `No interviews for ${schoolInfo?.name} yet`
                   }
                 </p>
+                {searchQuery && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSearchQuery("")}
+                    className="mt-4"
+                  >
+                    Clear Search
+                  </Button>
+                )}
               </div>
             ) : (
-              <div className="space-y-4">
-                {interviews.map((interview) => (
+              <>
+                {searchQuery && (
+                  <div className="mb-4 text-sm text-slate-600">
+                    Found <strong>{filteredInterviews.length}</strong> interview{filteredInterviews.length !== 1 ? 's' : ''} matching "<strong>{searchQuery}</strong>"
+                  </div>
+                )}
+                <div className="space-y-4">
+                  {filteredInterviews.map((interview) => (
                   <div
                     key={interview.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
@@ -373,6 +482,7 @@ function SchoolDashboardContent() {
                   </div>
                 ))}
               </div>
+              </>
             )}
           </CardContent>
         </Card>
