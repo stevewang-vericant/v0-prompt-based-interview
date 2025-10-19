@@ -159,18 +159,49 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
                   <p className="font-semibold mb-2">📱 How to Fix Camera/Microphone Access:</p>
                   
                   <div className="space-y-3 text-sm">
-                    {/* iOS/Safari Instructions */}
-                    <div className="border-l-4 border-blue-500 pl-3">
-                      <p className="font-semibold mb-1">🍎 iPhone/iPad (Safari or Chrome):</p>
-                      <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li>Tap the <strong>aA</strong> icon (or 🔒) in the address bar at the top</li>
-                        <li>Tap <strong>"Website Settings"</strong></li>
-                        <li>Change <strong>Camera</strong> and <strong>Microphone</strong> to <strong>"Allow"</strong></li>
-                        <li>Tap <strong>"Done"</strong> and refresh this page</li>
-                      </ol>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Alternative: Settings app → Safari → Camera/Microphone → Allow
+                    {/* iOS Chrome Instructions */}
+                    <div className="border-l-4 border-red-500 pl-3 bg-red-50 p-2 rounded">
+                      <p className="font-semibold mb-1">🍎 iPhone Chrome 用户：</p>
+                      <p className="text-sm mb-2">
+                        iOS 上的 Chrome 权限设置比较特殊，请按以下步骤操作：
                       </p>
+                      <ol className="list-decimal list-inside space-y-2 ml-2">
+                        <li>
+                          <strong>方法1：在地址栏左侧</strong>
+                          <ul className="list-disc list-inside ml-4 mt-1">
+                            <li>点击地址栏左侧的 <strong>🔒 锁形图标</strong></li>
+                            <li>如果看到 "权限" 或 "Permissions"，点击进入</li>
+                            <li>允许摄像头和麦克风</li>
+                          </ul>
+                        </li>
+                        <li className="mt-2">
+                          <strong>方法2：刷新页面重新授权</strong>
+                          <ul className="list-disc list-inside ml-4 mt-1">
+                            <li>完全关闭这个标签页</li>
+                            <li>重新打开链接</li>
+                            <li>当浏览器弹出权限请求时，点击 <strong>"允许"</strong></li>
+                          </ul>
+                        </li>
+                        <li className="mt-2">
+                          <strong>方法3：使用 Safari（推荐）</strong>
+                          <ul className="list-disc list-inside ml-4 mt-1">
+                            <li>在 Safari 中打开此链接</li>
+                            <li>点击地址栏的 <strong>aA</strong> 图标</li>
+                            <li>选择 "网站设置" → 允许摄像头和麦克风</li>
+                          </ul>
+                        </li>
+                      </ol>
+                    </div>
+                    
+                    {/* iOS Safari Instructions */}
+                    <div className="border-l-4 border-blue-500 pl-3">
+                      <p className="font-semibold mb-1">🧭 iPhone Safari (推荐)：</p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>点击地址栏左侧的 <strong>aA</strong> 图标</li>
+                        <li>点击 <strong>"网站设置"</strong></li>
+                        <li>将 <strong>摄像头</strong> 和 <strong>麦克风</strong> 改为 <strong>"允许"</strong></li>
+                        <li>点击 <strong>"完成"</strong> 并刷新页面</li>
+                      </ol>
                     </div>
                     
                     {/* Android Instructions */}
@@ -185,20 +216,43 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
                     </div>
                     
                     {/* System-level permissions */}
-                    <div className="mt-3 p-2 bg-yellow-50 rounded">
-                      <p className="text-xs font-semibold">⚠️ Still not working?</p>
-                      <p className="text-xs mt-1">
-                        Check your phone's system settings: <strong>Settings → Privacy & Security → Camera/Microphone</strong> → Make sure Safari/Chrome is allowed.
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <p className="font-semibold mb-2">⚠️ 还是不行？检查 iPhone 系统设置：</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs ml-2">
+                        <li>打开 iPhone <strong>设置</strong> app</li>
+                        <li>向下滚动找到 <strong>Chrome</strong> 或 <strong>Safari</strong></li>
+                        <li>确保 <strong>摄像头</strong> 和 <strong>麦克风</strong> 开关已打开（绿色）</li>
+                        <li>返回浏览器，刷新页面</li>
+                      </ol>
+                      <p className="text-xs mt-2 text-muted-foreground">
+                        💡 提示：如果在系统设置里找不到 Chrome，说明 Chrome 从未请求过权限。请尝试上面的"方法2：刷新页面重新授权"。
                       </p>
                     </div>
                   </div>
                 </AlertDescription>
               </Alert>
               
-              {/* Retry button */}
-              <Button onClick={testDevices} variant="outline" className="w-full">
-                Try Again
-              </Button>
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <Button onClick={testDevices} variant="outline" className="flex-1">
+                  重试
+                </Button>
+                <Button 
+                  onClick={() => {
+                    // 复制当前 URL 到剪贴板
+                    navigator.clipboard.writeText(window.location.href).then(() => {
+                      alert('✅ 链接已复制！\n\n请打开 Safari，粘贴链接并访问。\nSafari 对摄像头权限支持更好。')
+                    }).catch(() => {
+                      // 如果复制失败，直接显示提示
+                      alert('请复制当前页面链接，然后在 Safari 中打开')
+                    })
+                  }}
+                  variant="default" 
+                  className="flex-1"
+                >
+                  📋 复制链接用 Safari 打开
+                </Button>
+              </div>
             </div>
           ) : null}
         </CardContent>
