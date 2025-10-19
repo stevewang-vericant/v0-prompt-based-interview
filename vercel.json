@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "app/**/*.{js,ts,tsx}": {
+      "maxDuration": 60
+    }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next"
+}
+
