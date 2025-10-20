@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
  * 面试数据类型定义
@@ -60,7 +61,8 @@ export async function saveInterview(data: InterviewData): Promise<{
   try {
     console.log("[DB] Saving interview to database:", data.interview_id)
     
-    const supabase = await createClient()
+    // 使用 admin client 绕过 RLS（服务器端操作）
+    const supabase = createAdminClient()
     
     // 准备插入数据
     const insertData = {

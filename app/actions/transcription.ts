@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import OpenAI from "openai"
 
 // 初始化 OpenAI 客户端
@@ -50,7 +51,7 @@ export async function createTranscriptionJob(
     console.log("[Transcription] Interview ID (custom):", interviewId)
     console.log("[Transcription] Video URL:", videoUrl)
     
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     
     // 首先，根据 custom interview_id 获取 UUID id
     console.log("[Transcription] Querying interviews table for UUID...")
@@ -179,7 +180,7 @@ export async function processTranscriptionJob(
     console.log("[Transcription] Job ID:", jobId)
     console.log("[Transcription] Video URL:", videoUrl)
     
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     
     // 更新任务状态为处理中
     console.log("[Transcription] Updating job status to 'processing'...")
@@ -319,7 +320,7 @@ export async function processTranscriptionJob(
     console.error("[Transcription] ========== PROCESS JOB END (EXCEPTION) ==========")
     
     // 更新任务状态为失败
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     console.log("[Transcription] Updating job status to 'failed'...")
     const { error: jobUpdateError } = await supabase
       .from('transcription_jobs')
@@ -374,7 +375,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
   try {
     console.log("[Transcription] Getting status for interview:", interviewId)
     
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     
     const { data: interview, error } = await supabase
       .from('interviews')

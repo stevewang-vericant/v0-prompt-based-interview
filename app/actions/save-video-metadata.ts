@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { startTranscription } from "./transcription"
 
 /**
@@ -33,12 +34,13 @@ export async function saveVideoMetadata(
     console.log("[v0] Response Order:", responseOrder)
 
     // Check Supabase configuration
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.warn("[v0] ⚠️ Supabase not configured, skipping database save")
       return { success: true, data: null }
     }
 
-    const supabase = await createClient()
+    // 使用 admin client 绕过 RLS（服务器端操作）
+    const supabase = createAdminClient()
 
     // 首先，根据 custom interview_id 获取 UUID id，如果不存在则创建
     let { data: interview, error: interviewError } = await supabase
