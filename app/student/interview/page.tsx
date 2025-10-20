@@ -148,7 +148,11 @@ function InterviewPageContent() {
           i + 1, // sequence number (1-based)
           i === 0 ? schoolCode : null, // 只在第一个分段传递
           i === 0 ? studentEmail : undefined, // 只在第一个分段传递
-          i === 0 ? studentName : undefined // 只在第一个分段传递
+          i === 0 ? studentName : undefined, // 只在第一个分段传递
+          // 传入文本和分类，便于服务端解析真实 prompts UUID
+          prompt.text,
+          prompt.category,
+          prompt.responseTime
         )
         
         if (!result.success) {

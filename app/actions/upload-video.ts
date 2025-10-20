@@ -22,13 +22,19 @@ export async function uploadVideoToB2AndSave(
   responseOrder: number,
   schoolCode?: string | null,
   studentEmail?: string,
-  studentName?: string
+  studentName?: string,
+  // 以下三个字段用于在数据库中解析/创建真实的 prompts 记录（需要 UUID 外键）
+  promptText?: string,
+  promptCategory?: string,
+  promptResponseTime?: number,
 ) {
   try {
     console.log("[v0] ===== Starting video upload =====")
     console.log("[v0] Blob size:", videoBlob.size, "bytes")
     console.log("[v0] Interview ID:", interviewId)
     console.log("[v0] Prompt ID:", promptId)
+    if (promptText) console.log("[v0] Prompt Text:", promptText?.slice(0, 60))
+    if (promptCategory) console.log("[v0] Prompt Category:", promptCategory)
     console.log("[v0] Response Order:", responseOrder)
     
     // Check environment variables
@@ -135,11 +141,57 @@ export async function uploadVideoToB2AndSave(
       console.log("[v0] Found existing interview UUID:", interviewUuid)
     }
     
+    // 解析 prompt UUID（prompts.id 是 UUID 外键）
+    let promptUuid: string | null = null
+    try {
+      if (promptText) {
+        const { data: existingPrompt, error: findPromptError } = await supabase
+          .from('prompts')
+          .select('id')
+          .eq('prompt_text', promptText)
+          .maybeSingle()
+
+        if (findPromptError) {
+          console.warn('[v0] ⚠️ Prompt lookup error:', findPromptError)
+        }
+
+        if (existingPrompt?.id) {
+          promptUuid = existingPrompt.id
+          console.log('[v0] Found existing prompt UUID:', promptUuid)
+        } else {
+          // 创建一个新的 prompt 记录（尽最大努力填充字段）
+          const normalizedCategory = (promptCategory || 'general').toLowerCase().replace(/\s+/g, '_')
+          const { data: newPrompt, error: createPromptError } = await supabase
+            .from('prompts')
+            .insert({
+              category: normalizedCategory,
+              prompt_text: promptText,
+              preparation_time: 15,
+              response_time: promptResponseTime || 90,
+              difficulty_level: 'medium',
+            })
+            .select('id')
+            .single()
+
+          if (createPromptError) {
+            console.warn('[v0] ⚠️ Failed to create prompt record:', createPromptError)
+          } else if (newPrompt?.id) {
+            promptUuid = newPrompt.id
+            console.log('[v0] Created new prompt UUID:', promptUuid)
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[v0] ⚠️ Prompt resolution exception:', e)
+    }
+
     const { data, error } = await supabase
       .from("interview_responses")
       .insert({
         interview_id: interviewUuid,
-        prompt_id: promptId,
+        // 如果未能解析出 UUID，则退回到允许为空的写法：只有当表允许 NULL 时才会成功
+        // 若表不允许 NULL 且无匹配 UUID，这里会报错并被下面的错误处理捕获
+        prompt_id: promptUuid ?? undefined,
         video_url: videoUrl,
         sequence_number: responseOrder,
         video_duration: 90,
