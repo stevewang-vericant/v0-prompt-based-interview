@@ -169,10 +169,11 @@ function InterviewPageContent() {
       console.log("[v0] Uploading merged MP4 to B2...")
       console.log("[v0] Merged video size:", mergedBlob.size, "bytes (", (mergedBlob.size / 1024 / 1024).toFixed(2), "MB)")
       
-      // 仅在本地开发环境使用服务器端上传（为绕过本地 CORS 调试）
-      // 在预览/生产环境一律使用直传 B2，避免 Vercel 对请求体大小/执行时间的限制
+      // 小文件（< 10MB）使用服务器端上传，避免 CORS 配置问题
+      // 大文件使用客户端直传 B2，避免 Vercel 的请求体大小限制
+      // 本地开发时也走服务器端上传，方便调试
       const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-      const useLegacyUpload = isLocalhost && mergedBlob.size < 10 * 1024 * 1024
+      const useLegacyUpload = mergedBlob.size < 10 * 1024 * 1024 || isLocalhost
       
       let videoUrl: string
       
