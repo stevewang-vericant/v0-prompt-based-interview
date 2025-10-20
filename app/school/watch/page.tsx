@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { VideoPlayerWithSubtitles } from '@/components/video-player-with-subtitles'
+import { TranscriptionDisplay } from '@/components/transcription/transcription-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
@@ -62,10 +63,25 @@ function SchoolWatchPageContent() {
 
       {/* Video Player */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <VideoPlayerWithSubtitles 
-          videoUrl={videoUrl} 
-          subtitleUrl={subtitleUrl || undefined} 
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Video Player - 2/3 width */}
+          <div className="lg:col-span-2">
+            <VideoPlayerWithSubtitles 
+              videoUrl={videoUrl} 
+              subtitleUrl={subtitleUrl || undefined} 
+            />
+          </div>
+
+          {/* Transcription Panel - 1/3 width */}
+          <div className="lg:col-span-1">
+            {interviewId && (
+              <TranscriptionDisplay 
+                interviewId={interviewId}
+                className="sticky top-8"
+              />
+            )}
+          </div>
+        </div>
 
         {/* Additional Interview Info (Future Enhancement) */}
         {/* <Card className="mt-6">

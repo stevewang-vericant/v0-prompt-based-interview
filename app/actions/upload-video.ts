@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
+import { startTranscription } from "./transcription"
 
 const s3Client = new S3Client({
   endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
@@ -104,6 +105,23 @@ export async function uploadVideoToB2AndSave(
     }
 
     console.log("[v0] ✓ Database save successful")
+    
+    // 如果是完整视频（responseOrder === 0），启动转录任务
+    if (responseOrder === 0) {
+      console.log("[v0] Starting transcription for complete video...")
+      try {
+        const transcriptionResult = await startTranscription(interviewId, videoUrl)
+        if (transcriptionResult.success) {
+          console.log("[v0] ✓ Transcription job started:", transcriptionResult.jobId)
+        } else {
+          console.warn("[v0] ⚠️ Failed to start transcription:", transcriptionResult.error)
+        }
+      } catch (error) {
+        console.warn("[v0] ⚠️ Transcription start error:", error)
+        // 不阻止视频上传成功，转录失败不影响主流程
+      }
+    }
+    
     console.log("[v0] ===== Upload complete =====")
     return { success: true, videoUrl, data }
   } catch (error) {
