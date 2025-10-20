@@ -92,6 +92,11 @@ export function MultiSegmentVideoPlayer({
 
   // 当前分段
   const currentSegment = metadata?.segments[currentSegmentIndex]
+  
+  // 将 B2 URL 转换为代理 URL 以避免 COEP 限制
+  const getProxyVideoUrl = (videoUrl: string) => {
+    return `/api/proxy-video?url=${encodeURIComponent(videoUrl)}`
+  }
 
   // 视频事件处理
   const handleTimeUpdate = () => {
@@ -251,7 +256,7 @@ export function MultiSegmentVideoPlayer({
             <video
               key={currentSegment.videoUrl} // 使用 key 强制重新加载新视频
               ref={videoRef}
-              src={currentSegment.videoUrl}
+              src={getProxyVideoUrl(currentSegment.videoUrl)}
               className="w-full h-full cursor-pointer"
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
