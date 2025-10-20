@@ -208,30 +208,28 @@ export async function uploadVideoToB2AndSave(
       console.log("[v0] ✓ Database save successful")
     }
     
-        // 为每个分段视频启动转录任务（分段独立转录）
+        // 为分段视频启动转录任务（仅首段触发一次，绑定到原始 interviewId）
         // 即使 interview_responses 保存失败也要执行转录
-        if (responseOrder > 0) { // responseOrder > 0 表示这是分段视频
+        if (responseOrder === 1) { // 仅在第一段触发
           console.log("[v0] ========== SEGMENT TRANSCRIPTION WORKFLOW START ==========")
           console.log("[v0] Segment video detected, initiating transcription...")
           console.log("[v0] Interview ID (custom):", interviewId)
-          console.log("[v0] Segment number:", responseOrder)
           console.log("[v0] Video URL:", videoUrl)
           console.log("[v0] OpenAI API Key configured:", !!process.env.OPENAI_API_KEY)
           
           try {
-            // 使用一个特殊的 ID 来区分每个分段的转录
-            const segmentInterviewId = `${interviewId}-segment-${responseOrder}`
-            const transcriptionResult = await startTranscription(segmentInterviewId, videoUrl)
+            // 将转录任务绑定到原始 interviewId（UI 按 interviewId 查询）
+            const transcriptionResult = await startTranscription(interviewId, videoUrl)
             if (transcriptionResult.success) {
-              console.log("[v0] ✓ Transcription job created for segment", responseOrder)
+              console.log("[v0] ✓ Transcription job created (first segment)")
               console.log("[v0] Job ID:", transcriptionResult.jobId)
               console.log("[v0] Note: Transcription will process asynchronously")
             } else {
-              console.error("[v0] ✗ Failed to start transcription for segment", responseOrder)
+              console.error("[v0] ✗ Failed to start transcription (first segment)")
               console.error("[v0] Error:", transcriptionResult.error)
             }
           } catch (error) {
-            console.error("[v0] ✗ Transcription start exception for segment", responseOrder, error)
+            console.error("[v0] ✗ Transcription start exception (first segment)", error)
             console.error("[v0] Stack:", error instanceof Error ? error.stack : 'No stack trace')
             // 不阻止视频上传成功，转录失败不影响主流程
           }

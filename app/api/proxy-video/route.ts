@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const url = searchParams.get('url')
@@ -11,11 +13,8 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[Proxy] Fetching video from:', url)
     
-    const response = await fetch(url, {
-      headers: {
-        'Range': request.headers.get('range') || '',
-      },
-    })
+    const range = request.headers.get('range') || undefined
+    const response = await fetch(url, { headers: { ...(range ? { Range: range } : {}) } })
 
     if (!response.ok) {
       throw new Error(`Failed to fetch: ${response.status}`)
@@ -26,10 +25,11 @@ export async function GET(request: NextRequest) {
     return new NextResponse(data, {
       status: response.status,
       headers: {
-        'Content-Type': response.headers.get('content-type') || 'video/mp4',
+        'Content-Type': response.headers.get('content-type') || 'video/webm',
         'Content-Length': response.headers.get('content-length') || '',
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000',
+        ...(response.headers.get('content-range') ? { 'Content-Range': response.headers.get('content-range')! } : {}),
+        'Cache-Control': response.headers.get('cache-control') || 'no-store',
       },
     })
   } catch (error) {
