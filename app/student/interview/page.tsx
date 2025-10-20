@@ -9,9 +9,6 @@ import { InterviewComplete } from "@/components/interview/interview-complete"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
 import { uploadJsonToB2 } from "@/app/actions/upload-json"
 import { saveInterview } from "@/app/actions/interviews"
-import { getB2PresignedUrl } from "@/app/actions/get-b2-presigned-url"
-import { saveVideoMetadata } from "@/app/actions/save-video-metadata"
-import { mergeVideos } from "@/lib/video-merger"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
@@ -94,7 +91,7 @@ function InterviewPageContent() {
     }
   }
 
-  const mergeAndUploadVideos = async (
+  const uploadSegmentVideos = async (
     allResponses: Record<string, Blob>,
     studentEmail?: string,
     studentName?: string,
@@ -104,162 +101,114 @@ function InterviewPageContent() {
     setUploadProgress(0)
     
     try {
-      console.log("[v0] Merging", Object.keys(allResponses).length, "video segments...")
-      setUploadStatus("Preparing videos for merge...")
+      console.log("[v0] Uploading", Object.keys(allResponses).length, "video segments separately...")
+      setUploadStatus("Preparing to upload video segments...")
       
-      // 按顺序合并视频
-      const sortedBlobs = mockPrompts
-        .map(prompt => allResponses[prompt.id])
-        .filter(blob => blob !== undefined)
-      
-      // 提取问题文本，用于添加字幕
-      // TODO: 字幕功能暂时禁用，因为 Canvas 音频处理比较复杂
-      // const questionTexts = mockPrompts.map(prompt => prompt.text)
-      
-      if (sortedBlobs.length === 0) {
-        throw new Error("No video segments to merge")
-      }
-
-      console.log("[v0] Starting FFmpeg merge and MP4 conversion...")
-      setUploadStatus("Merging videos and converting to MP4...")
-      
-      // 准备估算的视频时长（用于 iOS Safari 兼容）
-      const estimatedDurations = mockPrompts.map(prompt => prompt.responseTime)
-      console.log("[v0] Using estimated durations:", estimatedDurations)
-      
-      // 使用 FFmpeg 合并视频并转换为 MP4（暂时不带字幕）
-      const mergeResult = await mergeVideos(
-        sortedBlobs, 
-        undefined, // 暂时不传递字幕文本
-        (progress) => {
-          setUploadProgress(Math.floor(progress * 0.7)) // 合并占70%进度
-          console.log("[v0] Merge progress:", progress + "%")
-        },
-        estimatedDurations // 传递估算时长，iOS Safari 回退方案
-      )
-      
-      const mergedBlob = mergeResult.videoBlob
-      const mergedSize = mergedBlob.size
-      console.log("[v0] Videos merged successfully, MP4 size:", mergedSize, "bytes")
-      console.log("[v0] Total duration:", mergeResult.totalDuration.toFixed(2), "seconds")
-      
-      // 生成字幕元数据
-      const subtitleMetadata = {
-        interviewId,
-        totalDuration: mergeResult.totalDuration,
-        createdAt: new Date().toISOString(),
-        questions: mockPrompts.map((prompt, index) => ({
-          id: prompt.id,
-          questionNumber: index + 1,
-          category: prompt.category,
-          text: prompt.text,
-          startTime: mergeResult.segments[index].startTime,
-          endTime: mergeResult.segments[index].endTime,
-          duration: mergeResult.segments[index].duration
+      // 按顺序排列视频
+      const segments = mockPrompts
+        .map((prompt, index) => ({
+          prompt,
+          blob: allResponses[prompt.id],
+          index
         }))
+        .filter(seg => seg.blob !== undefined)
+      
+      if (segments.length === 0) {
+        throw new Error("No video segments to upload")
       }
-      
-      console.log("[v0] Subtitle metadata generated:", subtitleMetadata)
 
-      // 上传合并后的视频
-      // 注意：本地开发时可能因 CORS 限制无法直接上传到 B2
-      // 临时使用服务器端上传进行测试
-      setUploadStatus("Uploading merged video to B2...")
-      setUploadProgress(75)
-      console.log("[v0] Uploading merged MP4 to B2...")
-      console.log("[v0] Merged video size:", mergedBlob.size, "bytes (", (mergedBlob.size / 1024 / 1024).toFixed(2), "MB)")
+      console.log("[v0] Uploading", segments.length, "video segments...")
       
-      // 小文件（< 10MB）使用服务器端上传，避免 CORS 配置问题
-      // 大文件使用客户端直传 B2，避免 Vercel 的请求体大小限制
-      // 本地开发时也走服务器端上传，方便调试
-      const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-      const useLegacyUpload = mergedBlob.size < 10 * 1024 * 1024 || isLocalhost
+      const uploadedSegments: Array<{
+        promptId: string
+        videoUrl: string
+        sequenceNumber: number
+        duration: number
+        questionText: string
+        category: string
+      }> = []
       
-      let videoUrl: string
+      let totalDuration = 0
       
-      if (useLegacyUpload) {
-        console.log("[v0] Using server-side upload (legacy method for local testing)")
+      // 分别上传每个分段视频（小文件，无需合并，避免 413 错误）
+      for (let i = 0; i < segments.length; i++) {
+        const { prompt, blob, index } = segments[i]
+        const progressBase = (i / segments.length) * 70 // 0-70% 用于上传
+        setUploadProgress(Math.floor(progressBase))
+        setUploadStatus(`Uploading segment ${i + 1}/${segments.length}...`)
+        
+        console.log(`[v0] Uploading segment ${i + 1}/${segments.length}: ${prompt.text.substring(0, 50)}...`)
+        
         const result = await uploadVideoToB2AndSave(
-          mergedBlob,
+          blob,
           interviewId,
-          "complete-interview",
-          0,
+          prompt.id,
+          i + 1, // sequence number (1-based)
           schoolCode,
           studentEmail,
           studentName
         )
         
         if (!result.success) {
-          throw new Error(`Failed to upload video: ${result.error}`)
+          throw new Error(`Failed to upload segment ${i + 1}: ${result.error}`)
         }
         
-        videoUrl = result.videoUrl!
-        console.log("[v0] ✓ Video uploaded via server")
-      } else {
-        console.log("[v0] Using client-side direct upload to B2")
-        const timestamp = Date.now()
-        const filename = `interviews/${interviewId}/complete-interview-${timestamp}.mp4`
-        
-        // 步骤 1: 获取预签名 URL
-        console.log("[v0] Requesting presigned URL...")
-        const presignedResult = await getB2PresignedUrl(filename, 'video/mp4')
-        
-        if (!presignedResult.success || !presignedResult.presignedUrl || !presignedResult.publicUrl) {
-          throw new Error(`Failed to get presigned URL: ${presignedResult.error}`)
-        }
-        
-        console.log("[v0] ✓ Presigned URL obtained")
-        
-        // 步骤 2: 直接上传到 B2
-        setUploadStatus("Uploading to B2...")
-        setUploadProgress(80)
-        console.log("[v0] Uploading directly to B2...")
-        
-        const uploadResponse = await fetch(presignedResult.presignedUrl, {
-          method: 'PUT',
-          body: mergedBlob,
-          headers: {
-            'Content-Type': 'video/mp4',
-          },
+        uploadedSegments.push({
+          promptId: prompt.id,
+          videoUrl: result.videoUrl!,
+          sequenceNumber: i + 1,
+          duration: prompt.responseTime, // 使用预估时长
+          questionText: prompt.text,
+          category: prompt.category
         })
         
-        if (!uploadResponse.ok) {
-          throw new Error(`B2 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
-        }
-        
-        console.log("[v0] ✓ Video uploaded to B2 successfully")
-        
-        // 步骤 3: 保存元数据
-        setUploadStatus("Saving to database...")
-        setUploadProgress(85)
-        const metadataResult = await saveVideoMetadata(
-          presignedResult.publicUrl,
-          interviewId,
-          "complete-interview",
-          0,
-          schoolCode,
-          studentEmail,
-          studentName
-        )
-        
-        if (!metadataResult.success) {
-          console.warn("[v0] ⚠️ Failed to save metadata:", metadataResult.error)
-        }
-        
-        videoUrl = presignedResult.publicUrl
+        totalDuration += prompt.responseTime
+        console.log(`[v0] ✓ Segment ${i + 1} uploaded:`, result.videoUrl)
       }
       
-      console.log("[v0] ✓ Merged MP4 video uploaded successfully:", videoUrl)
+      console.log("[v0] ✓ All", segments.length, "segments uploaded successfully")
+      console.log("[v0] Total estimated duration:", totalDuration, "seconds")
+      
+      // 第一个分段视频的 URL 作为主视频 URL（用于兼容现有数据库结构）
+      const videoUrl = uploadedSegments[0].videoUrl
+      
+      // 生成字幕元数据（包含所有分段信息）
+      setUploadStatus("Creating subtitle metadata...")
+      setUploadProgress(75)
+      
+      let cumulativeTime = 0
+      const subtitleMetadata = {
+        interviewId,
+        totalDuration,
+        createdAt: new Date().toISOString(),
+        segments: uploadedSegments,
+        questions: uploadedSegments.map((seg, index) => {
+          const questionData = {
+            id: seg.promptId,
+            questionNumber: seg.sequenceNumber,
+            category: seg.category,
+            text: seg.questionText,
+            startTime: cumulativeTime,
+            endTime: cumulativeTime + seg.duration,
+            duration: seg.duration,
+            videoUrl: seg.videoUrl
+          }
+          cumulativeTime += seg.duration
+          return questionData
+        })
+      }
+      
+      console.log("[v0] Subtitle metadata generated:", subtitleMetadata)
         
-        // 上传字幕元数据
-        setUploadStatus("Uploading subtitle metadata...")
-        setUploadProgress(90)
-        console.log("[v0] Uploading subtitle metadata to B2...")
+      // 上传字幕元数据
+      setUploadStatus("Uploading subtitle metadata...")
+      setUploadProgress(80)
+      console.log("[v0] Uploading subtitle metadata to B2...")
       
       const subtitleResult = await uploadJsonToB2(
         subtitleMetadata,
         interviewId,
-        "complete-interview-subtitles"
+        "interview-segments-metadata"
       )
       
       if (!subtitleResult.success) {
@@ -271,7 +220,7 @@ function InterviewPageContent() {
       // 保存到数据库（如果提供了学生邮箱）
       if (studentEmail) {
         setUploadStatus("Saving to database...")
-        setUploadProgress(95)
+        setUploadProgress(90)
         console.log("[v0] Saving interview to database...")
         
         const dbResult = await saveInterview({
@@ -280,9 +229,10 @@ function InterviewPageContent() {
           student_name: studentName,
           video_url: videoUrl,
           subtitle_url: subtitleResult.url,
-          total_duration: mergeResult.totalDuration,
+          total_duration: totalDuration,
           school_code: schoolCode || undefined,
           metadata: {
+            segments: uploadedSegments,
             questions: subtitleMetadata.questions,
             completedAt: new Date().toISOString()
           }
@@ -301,7 +251,8 @@ function InterviewPageContent() {
         videoUrl: videoUrl,
         subtitleUrl: subtitleResult.url,
         interviewId,
-        totalDuration: mergeResult.totalDuration,
+        totalDuration,
+        segments: uploadedSegments,
         completedAt: new Date().toISOString()
       }
       
@@ -313,9 +264,9 @@ function InterviewPageContent() {
       console.log("[v0] ✓ All operations completed successfully!")
       return { success: true }
     } catch (error) {
-      console.error("[v0] Merge/upload error:", error)
+      console.error("[v0] Upload error:", error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      return { success: false, error: `Failed to process video: ${errorMessage}` }
+      return { success: false, error: `Failed to upload videos: ${errorMessage}` }
     } finally {
       setIsUploading(false)
       setUploadProgress(0)
@@ -328,8 +279,8 @@ function InterviewPageContent() {
     console.log("[v0] Student email:", studentEmail)
     console.log("[v0] School code:", schoolCode || "Not specified")
     
-    // 开始合并和上传视频，传入学生信息和学校代码
-    const result = await mergeAndUploadVideos(responses, studentEmail, studentName, schoolCode)
+    // 上传所有视频分段，传入学生信息和学校代码
+    const result = await uploadSegmentVideos(responses, studentEmail, studentName, schoolCode)
     
     // 根据结果跳转到完成页面
     const params = new URLSearchParams({
