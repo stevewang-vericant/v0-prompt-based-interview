@@ -50,11 +50,29 @@ export async function createTranscriptionJob(
     
     const supabase = await createClient()
     
+    // 首先，根据 custom interview_id 获取 UUID id
+    const { data: interview, error: interviewError } = await supabase
+      .from('interviews')
+      .select('id')
+      .eq('interview_id', interviewId)
+      .single()
+    
+    if (interviewError || !interview) {
+      console.error("[Transcription] Interview not found:", interviewError)
+      return {
+        success: false,
+        error: 'Interview not found in database'
+      }
+    }
+    
+    const interviewUuid = interview.id
+    console.log("[Transcription] Found interview UUID:", interviewUuid)
+    
     // 检查是否已有进行中的任务
     const { data: existingJob } = await supabase
       .from('transcription_jobs')
       .select('*')
-      .eq('interview_id', interviewId)
+      .eq('interview_id', interviewUuid)
       .in('status', ['pending', 'processing'])
       .single()
     
@@ -69,11 +87,11 @@ export async function createTranscriptionJob(
     // 生成任务 ID
     const jobId = `transcription_${interviewId}_${Date.now()}`
     
-    // 创建转录任务记录
+    // 创建转录任务记录（使用 UUID）
     const { data: job, error: jobError } = await supabase
       .from('transcription_jobs')
       .insert({
-        interview_id: interviewId,
+        interview_id: interviewUuid,
         job_id: jobId,
         status: 'pending'
       })
@@ -88,14 +106,14 @@ export async function createTranscriptionJob(
       }
     }
     
-    // 更新面试记录的转录状态
+    // 更新面试记录的转录状态（使用 UUID）
     const { error: updateError } = await supabase
       .from('interviews')
       .update({
         transcription_status: 'pending',
         transcription_job_id: jobId
       })
-      .eq('interview_id', interviewId)
+      .eq('id', interviewUuid)
     
     if (updateError) {
       console.error("[Transcription] Error updating interview:", updateError)
