@@ -244,7 +244,7 @@ async function addSubtitleToVideo(
 }
 
 /**
- * 初始化 FFmpeg
+ * 初始化 FFmpeg（带多 CDN 回退）
  */
 async function loadFFmpeg() {
   if (ffmpeg) return ffmpeg
@@ -252,15 +252,37 @@ async function loadFFmpeg() {
   console.log('[FFmpeg] Loading FFmpeg...')
   ffmpeg = new FFmpeg()
 
-  // 加载 FFmpeg 核心文件
-  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
-  await ffmpeg.load({
-    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-  })
+  const CORE_VERSION = '0.12.6'
+  const candidates = [
+    // 优先使用 jsDelivr，稳定性更好
+    `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
+    // 回退到 unpkg
+    `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
+    // 最后尝试项目本地（可选：将核心文件放到 public/ffmpeg/ 下）
+    '/ffmpeg'
+  ]
 
-  console.log('[FFmpeg] FFmpeg loaded successfully')
-  return ffmpeg
+  let lastError: unknown = null
+  for (const baseURL of candidates) {
+    try {
+      console.log(`[FFmpeg] Trying core from: ${baseURL}`)
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      })
+      console.log('[FFmpeg] FFmpeg loaded successfully')
+      return ffmpeg
+    } catch (err) {
+      console.warn('[FFmpeg] Failed to load core from', baseURL, err)
+      lastError = err
+      // 继续尝试下一个候选源
+    }
+  }
+
+  console.error('[FFmpeg] All core sources failed to load')
+  throw new Error(
+    `Failed to load FFmpeg core from all sources: ${lastError instanceof Error ? lastError.message : 'unknown error'}`
+  )
 }
 
 /**
