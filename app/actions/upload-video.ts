@@ -85,10 +85,47 @@ export async function uploadVideoToB2AndSave(
     }
     
     const supabase = await createClient()
+    
+    // 首先，根据 custom interview_id 获取 UUID id，如果不存在则创建
+    let { data: interview, error: interviewError } = await supabase
+      .from('interviews')
+      .select('id')
+      .eq('interview_id', interviewId)
+      .single()
+    
+    let interviewUuid: string
+    
+    if (interviewError || !interview) {
+      // Interview 记录不存在，创建一个基础记录
+      console.log("[v0] Interview record not found, creating one...")
+      
+      const { data: newInterview, error: createError } = await supabase
+        .from('interviews')
+        .insert({
+          interview_id: interviewId,
+          status: 'in_progress',
+          started_at: new Date().toISOString()
+        })
+        .select('id')
+        .single()
+      
+      if (createError || !newInterview) {
+        console.error("[v0] ⚠️ Failed to create interview record:", createError)
+        console.log("[v0] Video uploaded successfully (but not saved to database)")
+        return { success: true, videoUrl, data: null, dbError: 'Failed to create interview record' }
+      }
+      
+      interviewUuid = newInterview.id
+      console.log("[v0] Created new interview record with UUID:", interviewUuid)
+    } else {
+      interviewUuid = interview.id
+      console.log("[v0] Found existing interview UUID:", interviewUuid)
+    }
+    
     const { data, error } = await supabase
       .from("interview_responses")
       .insert({
-        interview_id: interviewId,
+        interview_id: interviewUuid,
         prompt_id: promptId,
         video_url: videoUrl,
         sequence_number: responseOrder,
