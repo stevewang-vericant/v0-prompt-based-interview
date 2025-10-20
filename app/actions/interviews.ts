@@ -77,10 +77,13 @@ export async function saveInterview(data: InterviewData): Promise<{
       submitted_at: new Date().toISOString(),
     }
     
-    // 插入到数据库
+    // 使用 upsert 避免重复键错误（第一个分段可能已经创建了记录）
     const { data: interview, error } = await supabase
       .from('interviews')
-      .insert(insertData)
+      .upsert(insertData, {
+        onConflict: 'interview_id', // 基于 interview_id 进行冲突检测
+        ignoreDuplicates: false // 如果冲突，更新记录
+      })
       .select()
       .single()
     
@@ -92,7 +95,7 @@ export async function saveInterview(data: InterviewData): Promise<{
       }
     }
     
-    console.log("[DB] Interview saved successfully:", interview.id)
+    console.log("[DB] Interview saved/updated successfully:", interview.id)
     return {
       success: true,
       interview
