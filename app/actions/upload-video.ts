@@ -145,18 +145,30 @@ export async function uploadVideoToB2AndSave(
     
     // 如果是完整视频（responseOrder === 0），启动转录任务
     if (responseOrder === 0) {
-      console.log("[v0] Starting transcription for complete video...")
+      console.log("[v0] ========== TRANSCRIPTION WORKFLOW START ==========")
+      console.log("[v0] Complete video detected, initiating transcription...")
+      console.log("[v0] Interview ID (custom):", interviewId)
+      console.log("[v0] Interview UUID:", interviewUuid)
+      console.log("[v0] Video URL:", videoUrl)
+      console.log("[v0] OpenAI API Key configured:", !!process.env.OPENAI_API_KEY)
+      
       try {
         const transcriptionResult = await startTranscription(interviewId, videoUrl)
         if (transcriptionResult.success) {
-          console.log("[v0] ✓ Transcription job started:", transcriptionResult.jobId)
+          console.log("[v0] ✓ Transcription job created successfully!")
+          console.log("[v0] Job ID:", transcriptionResult.jobId)
+          console.log("[v0] Note: Transcription will process asynchronously")
         } else {
-          console.warn("[v0] ⚠️ Failed to start transcription:", transcriptionResult.error)
+          console.error("[v0] ✗ Failed to start transcription")
+          console.error("[v0] Error:", transcriptionResult.error)
         }
       } catch (error) {
-        console.warn("[v0] ⚠️ Transcription start error:", error)
+        console.error("[v0] ✗ Transcription start exception:", error)
+        console.error("[v0] Stack:", error instanceof Error ? error.stack : 'No stack trace')
         // 不阻止视频上传成功，转录失败不影响主流程
       }
+      
+      console.log("[v0] ========== TRANSCRIPTION WORKFLOW END ==========")
     }
     
     console.log("[v0] ===== Upload complete =====")
