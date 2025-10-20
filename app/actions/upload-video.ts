@@ -4,12 +4,6 @@ import { createClient } from "@/lib/supabase/server"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 import { startTranscription } from "./transcription"
 
-// Vercel Serverless Function timeout configuration
-// Hobby plan: max 10 seconds (default)
-// Pro plan: max 60 seconds
-// We set to 60 for Pro plan, will fall back to 10 on Hobby
-export const maxDuration = 60
-
 const s3Client = new S3Client({
   endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
   region: process.env.B2_BUCKET_REGION!,
@@ -25,6 +19,8 @@ export async function uploadVideoToB2AndSave(
   interviewId: string,
   promptId: string,
   responseOrder: number,
+  schoolCode?: string | null,
+  studentEmail?: string
 ) {
   try {
     console.log("[v0] ===== Starting video upload =====")
@@ -104,11 +100,15 @@ export async function uploadVideoToB2AndSave(
     if (interviewError || !interview) {
       // Interview 记录不存在，创建一个基础记录
       console.log("[v0] Interview record not found, creating one...")
+      console.log("[v0] School code:", schoolCode || "Not provided")
+      console.log("[v0] Student email:", studentEmail || "Not provided")
       
       const { data: newInterview, error: createError } = await supabase
         .from('interviews')
         .insert({
           interview_id: interviewId,
+          school_code: schoolCode || null,
+          student_email: studentEmail || null,
           status: 'in_progress',
           started_at: new Date().toISOString()
         })
@@ -144,12 +144,13 @@ export async function uploadVideoToB2AndSave(
       console.error("[v0] ⚠️ Database save error:", error)
       console.log("[v0] Video uploaded successfully (but not saved to database)")
       // Don't fail the whole operation - video is already uploaded
-      return { success: true, videoUrl, data: null, dbError: error.message }
+      // Continue to transcription even if interview_responses save failed
+    } else {
+      console.log("[v0] ✓ Database save successful")
     }
-
-    console.log("[v0] ✓ Database save successful")
     
     // 如果是完整视频（responseOrder === 0），启动转录任务
+    // 即使 interview_responses 保存失败也要执行转录
     if (responseOrder === 0) {
       console.log("[v0] ========== TRANSCRIPTION WORKFLOW START ==========")
       console.log("[v0] Complete video detected, initiating transcription...")
@@ -178,7 +179,7 @@ export async function uploadVideoToB2AndSave(
     }
     
     console.log("[v0] ===== Upload complete =====")
-    return { success: true, videoUrl, data }
+    return { success: true, videoUrl, data: data || null, dbError: error ? error.message : undefined }
   } catch (error) {
     console.error("[v0] ❌ Upload error:", error)
     console.error("[v0] Error details:", error instanceof Error ? error.stack : error)

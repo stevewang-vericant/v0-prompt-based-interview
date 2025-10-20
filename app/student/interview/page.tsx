@@ -161,63 +161,86 @@ function InterviewPageContent() {
       
       console.log("[v0] Subtitle metadata generated:", subtitleMetadata)
 
-      // 上传合并后的视频（使用客户端直接上传到 B2，绕过 Vercel 10秒超时限制）
-      setUploadStatus("Preparing upload to B2...")
+      // 上传合并后的视频
+      // 注意：本地开发时可能因 CORS 限制无法直接上传到 B2
+      // 临时使用服务器端上传进行测试
+      setUploadStatus("Uploading merged video to B2...")
       setUploadProgress(75)
       console.log("[v0] Uploading merged MP4 to B2...")
       console.log("[v0] Merged video size:", mergedBlob.size, "bytes (", (mergedBlob.size / 1024 / 1024).toFixed(2), "MB)")
       
-      const timestamp = Date.now()
-      const filename = `interviews/${interviewId}/complete-interview-${timestamp}.mp4`
+      // 检查视频大小，如果小于 10MB，使用服务器上传（本地测试）
+      const useLegacyUpload = mergedBlob.size < 10 * 1024 * 1024 || typeof window !== 'undefined' && window.location.hostname === 'localhost'
       
-      // 步骤 1: 获取预签名 URL
-      console.log("[v0] Requesting presigned URL...")
-      const presignedResult = await getB2PresignedUrl(filename, 'video/mp4')
+      let videoUrl: string
       
-      if (!presignedResult.success || !presignedResult.presignedUrl || !presignedResult.publicUrl) {
-        throw new Error(`Failed to get presigned URL: ${presignedResult.error}`)
+      if (useLegacyUpload) {
+        console.log("[v0] Using server-side upload (legacy method for local testing)")
+        const result = await uploadVideoToB2AndSave(
+          mergedBlob,
+          interviewId,
+          "complete-interview",
+          0,
+          schoolCode,
+          studentEmail
+        )
+        
+        if (!result.success) {
+          throw new Error(`Failed to upload video: ${result.error}`)
+        }
+        
+        videoUrl = result.videoUrl!
+        console.log("[v0] ✓ Video uploaded via server")
+      } else {
+        console.log("[v0] Using client-side direct upload to B2")
+        const timestamp = Date.now()
+        const filename = `interviews/${interviewId}/complete-interview-${timestamp}.mp4`
+        
+        // 步骤 1: 获取预签名 URL
+        console.log("[v0] Requesting presigned URL...")
+        const presignedResult = await getB2PresignedUrl(filename, 'video/mp4')
+        
+        if (!presignedResult.success || !presignedResult.presignedUrl || !presignedResult.publicUrl) {
+          throw new Error(`Failed to get presigned URL: ${presignedResult.error}`)
+        }
+        
+        console.log("[v0] ✓ Presigned URL obtained")
+        
+        // 步骤 2: 直接上传到 B2
+        setUploadStatus("Uploading to B2...")
+        setUploadProgress(80)
+        console.log("[v0] Uploading directly to B2...")
+        
+        const uploadResponse = await fetch(presignedResult.presignedUrl, {
+          method: 'PUT',
+          body: mergedBlob,
+          headers: {
+            'Content-Type': 'video/mp4',
+          },
+        })
+        
+        if (!uploadResponse.ok) {
+          throw new Error(`B2 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
+        }
+        
+        console.log("[v0] ✓ Video uploaded to B2 successfully")
+        
+        // 步骤 3: 保存元数据
+        setUploadStatus("Saving to database...")
+        setUploadProgress(85)
+        const metadataResult = await saveVideoMetadata(
+          presignedResult.publicUrl,
+          interviewId,
+          "complete-interview",
+          0
+        )
+        
+        if (!metadataResult.success) {
+          console.warn("[v0] ⚠️ Failed to save metadata:", metadataResult.error)
+        }
+        
+        videoUrl = presignedResult.publicUrl
       }
-      
-      console.log("[v0] ✓ Presigned URL obtained")
-      
-      // 步骤 2: 直接上传到 B2（无超时限制）
-      setUploadStatus("Uploading merged video to B2...")
-      setUploadProgress(80)
-      console.log("[v0] Uploading directly to B2...")
-      
-      const uploadResponse = await fetch(presignedResult.presignedUrl, {
-        method: 'PUT',
-        body: mergedBlob,
-        headers: {
-          'Content-Type': 'video/mp4',
-        },
-      })
-      
-      if (!uploadResponse.ok) {
-        throw new Error(`B2 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
-      }
-      
-      console.log("[v0] ✓ Video uploaded to B2 successfully")
-      console.log("[v0] Public URL:", presignedResult.publicUrl)
-      
-      // 步骤 3: 保存元数据到数据库并触发转录
-      setUploadStatus("Saving to database...")
-      setUploadProgress(85)
-      console.log("[v0] Saving metadata to database...")
-      
-      const metadataResult = await saveVideoMetadata(
-        presignedResult.publicUrl,
-        interviewId,
-        "complete-interview",
-        0
-      )
-      
-      if (!metadataResult.success) {
-        console.warn("[v0] ⚠️ Failed to save metadata:", metadataResult.error)
-        // 继续流程，因为视频已上传成功
-      }
-      
-      const videoUrl = presignedResult.publicUrl
       
       console.log("[v0] ✓ Merged MP4 video uploaded successfully:", videoUrl)
         
