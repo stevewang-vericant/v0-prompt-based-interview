@@ -163,13 +163,21 @@ function InterviewPageContent() {
       setUploadStatus("Uploading merged video to B2...")
       setUploadProgress(75)
       console.log("[v0] Uploading merged MP4 to B2...")
+      console.log("[v0] Merged video size:", mergedBlob.size, "bytes (", (mergedBlob.size / 1024 / 1024).toFixed(2), "MB)")
       
-      const result = await uploadVideoToB2AndSave(
+      // 添加超时保护（20秒）
+      const uploadTimeout = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Upload timeout: Server took too long to respond. This might be due to Vercel free plan limits (10s timeout). Please try again or contact support.')), 20000)
+      )
+      
+      const uploadPromise = uploadVideoToB2AndSave(
         mergedBlob, 
         interviewId, 
         "complete-interview", // 使用特殊的 ID 标识完整面试
         0 // 序号设为 0，表示这是完整的面试视频
       )
+      
+      const result = await Promise.race([uploadPromise, uploadTimeout])
 
       if (result.success) {
         console.log("[v0] ✓ Merged MP4 video uploaded successfully:", result.videoUrl)

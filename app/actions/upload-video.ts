@@ -4,6 +4,12 @@ import { createClient } from "@/lib/supabase/server"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 import { startTranscription } from "./transcription"
 
+// Vercel Serverless Function timeout configuration
+// Hobby plan: max 10 seconds (default)
+// Pro plan: max 60 seconds
+// We set to 60 for Pro plan, will fall back to 10 on Hobby
+export const maxDuration = 60
+
 const s3Client = new S3Client({
   endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
   region: process.env.B2_BUCKET_REGION!,
