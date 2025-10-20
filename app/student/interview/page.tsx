@@ -9,6 +9,8 @@ import { InterviewComplete } from "@/components/interview/interview-complete"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
 import { uploadJsonToB2 } from "@/app/actions/upload-json"
 import { saveInterview } from "@/app/actions/interviews"
+import { getB2PresignedUrl } from "@/app/actions/get-b2-presigned-url"
+import { saveVideoMetadata } from "@/app/actions/save-video-metadata"
 import { mergeVideos } from "@/lib/video-merger"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
@@ -159,95 +161,127 @@ function InterviewPageContent() {
       
       console.log("[v0] Subtitle metadata generated:", subtitleMetadata)
 
-      // 上传合并后的视频
-      setUploadStatus("Uploading merged video to B2...")
+      // 上传合并后的视频（使用客户端直接上传到 B2，绕过 Vercel 10秒超时限制）
+      setUploadStatus("Preparing upload to B2...")
       setUploadProgress(75)
       console.log("[v0] Uploading merged MP4 to B2...")
       console.log("[v0] Merged video size:", mergedBlob.size, "bytes (", (mergedBlob.size / 1024 / 1024).toFixed(2), "MB)")
       
-      // 添加超时保护（20秒）
-      const uploadTimeout = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Upload timeout: Server took too long to respond. This might be due to Vercel free plan limits (10s timeout). Please try again or contact support.')), 20000)
+      const timestamp = Date.now()
+      const filename = `interviews/${interviewId}/complete-interview-${timestamp}.mp4`
+      
+      // 步骤 1: 获取预签名 URL
+      console.log("[v0] Requesting presigned URL...")
+      const presignedResult = await getB2PresignedUrl(filename, 'video/mp4')
+      
+      if (!presignedResult.success || !presignedResult.presignedUrl || !presignedResult.publicUrl) {
+        throw new Error(`Failed to get presigned URL: ${presignedResult.error}`)
+      }
+      
+      console.log("[v0] ✓ Presigned URL obtained")
+      
+      // 步骤 2: 直接上传到 B2（无超时限制）
+      setUploadStatus("Uploading merged video to B2...")
+      setUploadProgress(80)
+      console.log("[v0] Uploading directly to B2...")
+      
+      const uploadResponse = await fetch(presignedResult.presignedUrl, {
+        method: 'PUT',
+        body: mergedBlob,
+        headers: {
+          'Content-Type': 'video/mp4',
+        },
+      })
+      
+      if (!uploadResponse.ok) {
+        throw new Error(`B2 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
+      }
+      
+      console.log("[v0] ✓ Video uploaded to B2 successfully")
+      console.log("[v0] Public URL:", presignedResult.publicUrl)
+      
+      // 步骤 3: 保存元数据到数据库并触发转录
+      setUploadStatus("Saving to database...")
+      setUploadProgress(85)
+      console.log("[v0] Saving metadata to database...")
+      
+      const metadataResult = await saveVideoMetadata(
+        presignedResult.publicUrl,
+        interviewId,
+        "complete-interview",
+        0
       )
       
-      const uploadPromise = uploadVideoToB2AndSave(
-        mergedBlob, 
-        interviewId, 
-        "complete-interview", // 使用特殊的 ID 标识完整面试
-        0 // 序号设为 0，表示这是完整的面试视频
-      )
+      if (!metadataResult.success) {
+        console.warn("[v0] ⚠️ Failed to save metadata:", metadataResult.error)
+        // 继续流程，因为视频已上传成功
+      }
       
-      const result = await Promise.race([uploadPromise, uploadTimeout])
-
-      if (result.success) {
-        console.log("[v0] ✓ Merged MP4 video uploaded successfully:", result.videoUrl)
+      const videoUrl = presignedResult.publicUrl
+      
+      console.log("[v0] ✓ Merged MP4 video uploaded successfully:", videoUrl)
         
         // 上传字幕元数据
         setUploadStatus("Uploading subtitle metadata...")
         setUploadProgress(90)
         console.log("[v0] Uploading subtitle metadata to B2...")
+      
+      const subtitleResult = await uploadJsonToB2(
+        subtitleMetadata,
+        interviewId,
+        "complete-interview-subtitles"
+      )
+      
+      if (!subtitleResult.success) {
+        throw new Error(`Failed to upload subtitle metadata: ${subtitleResult.error}`)
+      }
+      
+      console.log("[v0] ✓ Subtitle metadata uploaded successfully:", subtitleResult.url)
+      
+      // 保存到数据库（如果提供了学生邮箱）
+      if (studentEmail) {
+        setUploadStatus("Saving to database...")
+        setUploadProgress(95)
+        console.log("[v0] Saving interview to database...")
         
-        const subtitleResult = await uploadJsonToB2(
-          subtitleMetadata,
-          interviewId,
-          "complete-interview-subtitles"
-        )
-        
-        if (subtitleResult.success) {
-          console.log("[v0] ✓ Subtitle metadata uploaded successfully:", subtitleResult.url)
-          
-          // 保存到数据库（如果提供了学生邮箱）
-          if (studentEmail) {
-            setUploadStatus("Saving to database...")
-            setUploadProgress(95)
-            console.log("[v0] Saving interview to database...")
-            
-            const dbResult = await saveInterview({
-              interview_id: interviewId,
-              student_email: studentEmail,
-              student_name: studentName,
-              video_url: result.videoUrl!,
-              subtitle_url: subtitleResult.url,
-              total_duration: mergeResult.totalDuration,
-              school_code: schoolCode || undefined,
-              metadata: {
-                questions: subtitleMetadata.questions,
-                completedAt: new Date().toISOString()
-              }
-            })
-            
-            if (dbResult.success) {
-              console.log("[v0] ✓ Interview saved to database:", dbResult.interview?.id)
-            } else {
-              console.error("[v0] Database save failed:", dbResult.error)
-              // 不阻止用户流程，只记录错误
-            }
-          }
-          
-          // 保存视频 URL 和字幕 URL 到 localStorage，供 dashboard 使用
-          const interviewData = {
-            videoUrl: result.videoUrl,
-            subtitleUrl: subtitleResult.url,
-            interviewId,
-            totalDuration: mergeResult.totalDuration,
+        const dbResult = await saveInterview({
+          interview_id: interviewId,
+          student_email: studentEmail,
+          student_name: studentName,
+          video_url: videoUrl,
+          subtitle_url: subtitleResult.url,
+          total_duration: mergeResult.totalDuration,
+          school_code: schoolCode || undefined,
+          metadata: {
+            questions: subtitleMetadata.questions,
             completedAt: new Date().toISOString()
           }
-          
-          localStorage.setItem('latestInterview', JSON.stringify(interviewData))
-          console.log("[v0] Interview data saved to localStorage")
-          
-          setUploadProgress(100)
-          setUploadStatus("Upload complete!")
-          console.log("[v0] ✓ All operations completed successfully!")
-          return { success: true }
+        })
+        
+        if (dbResult.success) {
+          console.log("[v0] ✓ Interview saved to database:", dbResult.interview?.id)
         } else {
-          console.error("[v0] Subtitle upload failed:", subtitleResult.error)
-          return { success: false, error: `Failed to upload subtitle metadata: ${subtitleResult.error}` }
+          console.error("[v0] Database save failed:", dbResult.error)
+          // 不阻止用户流程，只记录错误
         }
-      } else {
-        console.error("[v0] Upload failed:", result.error)
-        return { success: false, error: `Failed to upload video: ${result.error}` }
       }
+      
+      // 保存视频 URL 和字幕 URL 到 localStorage，供 dashboard 使用
+      const interviewData = {
+        videoUrl: videoUrl,
+        subtitleUrl: subtitleResult.url,
+        interviewId,
+        totalDuration: mergeResult.totalDuration,
+        completedAt: new Date().toISOString()
+      }
+      
+      localStorage.setItem('latestInterview', JSON.stringify(interviewData))
+      console.log("[v0] Interview data saved to localStorage")
+      
+      setUploadProgress(100)
+      setUploadStatus("Upload complete!")
+      console.log("[v0] ✓ All operations completed successfully!")
+      return { success: true }
     } catch (error) {
       console.error("[v0] Merge/upload error:", error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
