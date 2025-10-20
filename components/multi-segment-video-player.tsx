@@ -148,11 +148,21 @@ export function MultiSegmentVideoPlayer({
   // 当分段索引改变时，如果正在播放，自动播放新分段
   useEffect(() => {
     if (isPlaying && videoRef.current && videoReady) {
-      videoRef.current.play().catch(err => {
-        console.error('[MultiPlayer] Auto-play next segment error:', err)
-      })
+      // 稍微延迟确保视频完全加载
+      const timer = setTimeout(() => {
+        videoRef.current?.play().catch(err => {
+          console.error('[MultiPlayer] Auto-play next segment error:', err)
+          // 如果自动播放失败，尝试静音播放
+          if (videoRef.current) {
+            videoRef.current.muted = true
+            videoRef.current.play().catch(console.error)
+          }
+        })
+      }, 100)
+      
+      return () => clearTimeout(timer)
     }
-  }, [currentSegmentIndex, videoReady])
+  }, [currentSegmentIndex, videoReady, isPlaying])
 
   const togglePlay = async () => {
     if (!videoRef.current || !videoReady) return
@@ -399,19 +409,6 @@ export function MultiSegmentVideoPlayer({
             </div>
           </div>
 
-          {/* 当前问题信息 */}
-          <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-900">
-                  Question {currentSegmentIndex + 1}: {currentSegment.category}
-                </p>
-                <p className="text-sm text-slate-600 mt-1">
-                  {currentSegment.questionText}
-                </p>
-              </div>
-            </div>
-          </div>
 
           {/* 面试信息 */}
           <div className="text-sm text-muted-foreground">

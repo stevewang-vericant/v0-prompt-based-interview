@@ -159,16 +159,19 @@ function InterviewPageContent() {
           throw new Error(`Failed to upload segment ${i + 1}: ${result.error}`)
         }
         
+        // 计算实际录制时长（从 blob 大小估算，或使用默认值）
+        const actualDuration = Math.max(30, Math.min(90, Math.round(blob.size / 20000))) // 粗略估算：20KB/秒
+        
         uploadedSegments.push({
           promptId: prompt.id,
           videoUrl: result.videoUrl!,
           sequenceNumber: i + 1,
-          duration: prompt.responseTime, // 使用预估时长
+          duration: actualDuration, // 使用实际估算时长
           questionText: prompt.text,
           category: prompt.category
         })
         
-        totalDuration += prompt.responseTime
+        totalDuration += actualDuration
         console.log(`[v0] ✓ Segment ${i + 1} uploaded:`, result.videoUrl)
       }
       
