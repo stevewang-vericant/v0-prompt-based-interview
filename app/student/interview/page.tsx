@@ -182,7 +182,8 @@ function InterviewPageContent() {
           "complete-interview",
           0,
           schoolCode,
-          studentEmail
+          studentEmail,
+          studentName
         )
         
         if (!result.success) {
@@ -232,7 +233,10 @@ function InterviewPageContent() {
           presignedResult.publicUrl,
           interviewId,
           "complete-interview",
-          0
+          0,
+          schoolCode,
+          studentEmail,
+          studentName
         )
         
         if (!metadataResult.success) {
@@ -328,6 +332,7 @@ function InterviewPageContent() {
     const params = new URLSearchParams({
       status: result.success ? 'success' : 'error',
       email: studentEmail,
+      interviewId: interviewId,
     })
     
     if (schoolCode) {
@@ -357,11 +362,16 @@ function InterviewPageContent() {
                 {stage === "interview" && `Question ${currentPromptIndex + 1} of ${mockPrompts.length}`}
                 {stage === "complete" && "Interview completed"}
               </p>
-              {schoolCode && (
-                <p className="text-xs text-slate-500 mt-1">
-                  School: <span className="font-medium">{schoolCode}</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
+                {schoolCode && (
+                  <p>
+                    School: <span className="font-medium">{schoolCode}</span>
+                  </p>
+                )}
+                <p className="font-mono">
+                  ID: <span className="font-medium">{interviewId}</span>
                 </p>
-              )}
+              </div>
             </div>
             {stage === "setup" && (
               <Button variant="outline" onClick={() => (window.location.href = "/")}>
@@ -406,6 +416,7 @@ function InterviewPageContent() {
             isUploading={isUploading}
             uploadProgress={uploadProgress}
             uploadStatus={uploadStatus}
+            interviewId={interviewId}
           />
         )}
       </main>

@@ -14,6 +14,7 @@ interface InterviewCompleteProps {
   isUploading?: boolean
   uploadProgress?: number
   uploadStatus?: string
+  interviewId?: string
 }
 
 export function InterviewComplete({ 
@@ -21,7 +22,8 @@ export function InterviewComplete({
   onSubmit, 
   isUploading = false,
   uploadProgress = 0,
-  uploadStatus = ""
+  uploadStatus = "",
+  interviewId
 }: InterviewCompleteProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [studentEmail, setStudentEmail] = useState("")
@@ -161,6 +163,11 @@ export function InterviewComplete({
                     {uploadStatus || "Processing your interview video..."}
                   </p>
                   <p className="text-sm text-blue-700">Please wait, do not close this page</p>
+                  {interviewId && (
+                    <p className="text-xs text-blue-600 font-mono mt-1">
+                      Interview ID: {interviewId}
+                    </p>
+                  )}
                 </div>
               </div>
               {uploadProgress > 0 && (

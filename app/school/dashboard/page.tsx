@@ -126,9 +126,24 @@ function SchoolDashboardContent() {
       ? `/api/proxy-json?url=${encodeURIComponent(interview.subtitle_url)}` 
       : ''
     
-    const watchUrl = `/school/watch?videoUrl=${encodeURIComponent(proxyVideoUrl)}${
-      proxySubtitleUrl ? `&subtitleUrl=${encodeURIComponent(proxySubtitleUrl)}` : ''
-    }&interviewId=${interview.interview_id}`
+    const params = new URLSearchParams({
+      videoUrl: proxyVideoUrl,
+      interviewId: interview.interview_id
+    })
+    
+    if (proxySubtitleUrl) {
+      params.append('subtitleUrl', proxySubtitleUrl)
+    }
+    
+    if (interview.student_email) {
+      params.append('studentEmail', interview.student_email)
+    }
+    
+    if (interview.student_name) {
+      params.append('studentName', interview.student_name)
+    }
+    
+    const watchUrl = `/school/watch?${params.toString()}`
     
     window.location.href = watchUrl
   }
@@ -454,9 +469,16 @@ function SchoolDashboardContent() {
                       <div className="flex items-center gap-3 mb-2">
                         <div className="flex items-center gap-2">
                           <Mail className="h-4 w-4 text-slate-400" />
-                          <span className="font-medium text-slate-900">
-                            {interview.student_email || 'Unknown'}
-                          </span>
+                          <div className="flex flex-col">
+                            {interview.student_name && (
+                              <span className="font-medium text-slate-900">
+                                {interview.student_name}
+                              </span>
+                            )}
+                            <span className={interview.student_name ? "text-sm text-slate-600" : "font-medium text-slate-900"}>
+                              {interview.student_email || 'Unknown'}
+                            </span>
+                          </div>
                         </div>
                         {interview.school_code && (
                           <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
@@ -486,8 +508,8 @@ function SchoolDashboardContent() {
                             {formatDuration(interview.total_duration)}
                           </div>
                         )}
-                        <div className="text-xs text-slate-500">
-                          ID: {interview.interview_id.slice(0, 20)}...
+                        <div className="text-xs text-slate-500 font-mono">
+                          ID: {interview.interview_id}
                         </div>
                       </div>
                     </div>

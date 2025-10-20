@@ -28,6 +28,7 @@ export interface InterviewRecord {
   school_id: string | null
   school_code: string | null
   student_email: string | null
+  student_name: string | null
   video_url: string | null
   subtitle_url: string | null
   total_duration: number | null
@@ -65,6 +66,7 @@ export async function saveInterview(data: InterviewData): Promise<{
     const insertData = {
       interview_id: data.interview_id,
       student_email: data.student_email,
+      student_name: data.student_name,
       video_url: data.video_url,
       subtitle_url: data.subtitle_url,
       total_duration: data.total_duration,

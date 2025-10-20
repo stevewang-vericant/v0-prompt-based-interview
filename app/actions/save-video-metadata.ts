@@ -17,6 +17,9 @@ export async function saveVideoMetadata(
   interviewId: string,
   promptId: string,
   responseOrder: number,
+  schoolCode?: string | null,
+  studentEmail?: string,
+  studentName?: string
 ): Promise<{
   success: boolean
   error?: string
@@ -49,12 +52,20 @@ export async function saveVideoMetadata(
     if (interviewError || !interview) {
       // Interview 记录不存在，创建一个基础记录
       console.log("[v0] Interview record not found, creating one...")
+      console.log("[v0] School code:", schoolCode || "Not provided")
+      console.log("[v0] Student email:", studentEmail || "Not provided")
+      console.log("[v0] Student name:", studentName || "Not provided")
 
       const { data: newInterview, error: createError } = await supabase
         .from('interviews')
         .insert({
           interview_id: interviewId,
-          status: 'in_progress',
+          school_code: schoolCode || null,
+          student_email: studentEmail || null,
+          student_name: studentName || null,
+          video_url: videoUrl,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
           started_at: new Date().toISOString()
         })
         .select('id')

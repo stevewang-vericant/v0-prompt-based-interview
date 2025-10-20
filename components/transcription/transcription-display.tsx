@@ -168,18 +168,14 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
   return (
     <Card className={className}>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            <CardTitle>AI Transcription</CardTitle>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant={getStatusBadgeVariant()}>
-              {getStatusIcon()}
-              <span className="ml-1">{getStatusText()}</span>
-            </Badge>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-primary" />
+              <CardTitle className="text-xl">AI Transcription</CardTitle>
+            </div>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={handleRefresh}
               disabled={refreshing}
@@ -187,10 +183,13 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={getStatusBadgeVariant()} className="text-xs">
+              {getStatusIcon()}
+              <span className="ml-1.5">{getStatusText()}</span>
+            </Badge>
+          </div>
         </div>
-        <CardDescription>
-          AI-generated transcript of the interview video
-        </CardDescription>
       </CardHeader>
       
       <CardContent>
@@ -223,30 +222,6 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
 
         {transcriptionData?.status === 'completed' && transcriptionData.transcription && (
           <div className="space-y-4">
-            {/* 转录元数据 */}
-            {transcriptionData.metadata && (
-              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                {transcriptionData.metadata.language && (
-                  <Badge variant="outline">
-                    Language: {transcriptionData.metadata.language}
-                  </Badge>
-                )}
-                {transcriptionData.metadata.duration && (
-                  <Badge variant="outline">
-                    Duration: {Math.round(transcriptionData.metadata.duration)}s
-                  </Badge>
-                )}
-                {transcriptionData.metadata.confidence && (
-                  <Badge variant="outline">
-                    Confidence: {Math.round(transcriptionData.metadata.confidence * 100)}%
-                  </Badge>
-                )}
-                <Badge variant="outline">
-                  Model: {transcriptionData.metadata.model}
-                </Badge>
-              </div>
-            )}
-
             {/* 操作按钮 */}
             <div className="flex gap-2">
               <Button
@@ -268,36 +243,11 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
             </div>
 
             {/* 转录文本 */}
-            <div className="bg-muted p-4 rounded-lg">
-              <h4 className="font-medium mb-2">Transcription:</h4>
+            <div className="bg-muted p-4 rounded-lg max-h-[500px] overflow-y-auto">
               <div className="whitespace-pre-wrap text-sm leading-relaxed">
                 {transcriptionData.transcription}
               </div>
             </div>
-
-            {/* 分段显示（如果有） */}
-            {transcriptionData.metadata?.segments && transcriptionData.metadata.segments.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium">Segments:</h4>
-                <div className="space-y-2">
-                  {transcriptionData.metadata.segments.map((segment, index) => (
-                    <div key={index} className="bg-muted p-3 rounded-lg">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="text-xs text-muted-foreground">
-                          {Math.round(segment.start)}s - {Math.round(segment.end)}s
-                        </span>
-                        {segment.confidence && (
-                          <span className="text-xs text-muted-foreground">
-                            {Math.round(segment.confidence * 100)}% confidence
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm">{segment.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 

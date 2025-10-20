@@ -13,6 +13,7 @@ function InterviewCompleteContent() {
   const schoolCode = searchParams.get("school")
   const errorMessage = searchParams.get("error")
   const studentEmail = searchParams.get("email")
+  const interviewId = searchParams.get("interviewId")
 
   const isSuccess = status === "success"
 
@@ -36,6 +37,11 @@ function InterviewCompleteContent() {
               <CardDescription className="text-base text-slate-600">
                 Thank you for completing your video interview assessment
               </CardDescription>
+              {interviewId && (
+                <p className="text-xs text-slate-500 font-mono mt-2">
+                  Interview ID: {interviewId}
+                </p>
+              )}
             </>
           ) : (
             <>
@@ -48,6 +54,11 @@ function InterviewCompleteContent() {
               <CardDescription className="text-base text-slate-600">
                 We encountered an error while processing your interview
               </CardDescription>
+              {interviewId && (
+                <p className="text-xs text-slate-500 font-mono mt-2">
+                  Interview ID: {interviewId}
+                </p>
+              )}
             </>
           )}
         </CardHeader>

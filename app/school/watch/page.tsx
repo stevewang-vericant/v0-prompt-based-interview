@@ -13,6 +13,8 @@ function SchoolWatchPageContent() {
   const videoUrl = searchParams.get('videoUrl')
   const subtitleUrl = searchParams.get('subtitleUrl')
   const interviewId = searchParams.get('interviewId')
+  const studentEmail = searchParams.get('studentEmail')
+  const studentName = searchParams.get('studentName')
 
   if (!videoUrl) {
     return (
@@ -51,11 +53,23 @@ function SchoolWatchPageContent() {
             </Button>
             <div>
               <h1 className="text-xl font-bold text-slate-900">Interview Review</h1>
-              {interviewId && (
-                <p className="text-sm text-slate-600">
-                  Interview ID: {interviewId.slice(0, 30)}...
-                </p>
-              )}
+              <div className="space-y-1 mt-1">
+                {studentName && (
+                  <p className="text-sm text-slate-700">
+                    <span className="font-medium">Student:</span> {studentName}
+                  </p>
+                )}
+                {studentEmail && (
+                  <p className="text-sm text-slate-600">
+                    <span className="font-medium">Email:</span> {studentEmail}
+                  </p>
+                )}
+                {interviewId && (
+                  <p className="text-xs text-slate-500 font-mono">
+                    Interview ID: {interviewId}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

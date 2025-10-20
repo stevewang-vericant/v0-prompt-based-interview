@@ -20,7 +20,8 @@ export async function uploadVideoToB2AndSave(
   promptId: string,
   responseOrder: number,
   schoolCode?: string | null,
-  studentEmail?: string
+  studentEmail?: string,
+  studentName?: string
 ) {
   try {
     console.log("[v0] ===== Starting video upload =====")
@@ -102,14 +103,18 @@ export async function uploadVideoToB2AndSave(
       console.log("[v0] Interview record not found, creating one...")
       console.log("[v0] School code:", schoolCode || "Not provided")
       console.log("[v0] Student email:", studentEmail || "Not provided")
+      console.log("[v0] Student name:", studentName || "Not provided")
       
-      const { data: newInterview, error: createError } = await supabase
+      const { data: newInterview, error: createError} = await supabase
         .from('interviews')
         .insert({
           interview_id: interviewId,
           school_code: schoolCode || null,
           student_email: studentEmail || null,
-          status: 'in_progress',
+          student_name: studentName || null,
+          video_url: videoUrl, // 添加视频 URL，这样查询时才能找到
+          status: 'completed', // 改为 completed，因为视频已经上传完成
+          completed_at: new Date().toISOString(),
           started_at: new Date().toISOString()
         })
         .select('id')
