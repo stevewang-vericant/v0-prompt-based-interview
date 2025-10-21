@@ -16,12 +16,13 @@ import {
 import { toast } from "sonner"
 
 interface AISummaryProps {
-  transcription: string
+  summary?: string
+  transcription?: string
   className?: string
 }
 
-export function AISummary({ transcription, className }: AISummaryProps) {
-  const [summary, setSummary] = useState<string | null>(null)
+export function AISummary({ summary: initialSummary, transcription, className }: AISummaryProps) {
+  const [summary, setSummary] = useState<string | null>(initialSummary || null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -118,7 +119,7 @@ export function AISummary({ transcription, className }: AISummaryProps) {
           </Alert>
         )}
 
-        {!summary && !loading && (
+        {!summary && !loading && transcription && (
           <div className="text-center py-8">
             <Sparkles className="h-12 w-12 text-purple-300 mx-auto mb-4" />
             <p className="text-muted-foreground mb-4">
@@ -128,6 +129,15 @@ export function AISummary({ transcription, className }: AISummaryProps) {
               <Sparkles className="h-4 w-4 mr-2" />
               Generate Summary
             </Button>
+          </div>
+        )}
+
+        {!summary && !loading && !transcription && (
+          <div className="text-center py-8">
+            <Sparkles className="h-12 w-12 text-purple-300 mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              AI summary will be generated automatically after transcription completes
+            </p>
           </div>
         )}
 

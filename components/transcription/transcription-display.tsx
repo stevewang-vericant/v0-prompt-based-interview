@@ -26,6 +26,7 @@ interface TranscriptionDisplayProps {
 interface TranscriptionData {
   status: 'pending' | 'processing' | 'completed' | 'failed'
   transcription?: string
+  aiSummary?: string
   metadata?: {
     language?: string
     duration?: number
@@ -51,13 +52,14 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
       const response = await fetch(`/api/transcription/status?interviewId=${interviewId}`)
       const data = await response.json()
       
-      if (data.success) {
-        setTranscriptionData({
-          status: data.status,
-          transcription: data.transcription,
-          metadata: data.metadata
-        })
-      } else {
+          if (data.success) {
+            setTranscriptionData({
+              status: data.status,
+              transcription: data.transcription,
+              aiSummary: data.aiSummary,
+              metadata: data.metadata
+            })
+          } else {
         console.error('Failed to fetch transcription status:', data.error)
       }
     } catch (error) {
@@ -270,10 +272,10 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
             )}
 
             {/* AI Summary Section */}
-            {transcriptionData?.status === 'completed' && transcriptionData.transcription && (
+            {transcriptionData?.status === 'completed' && transcriptionData.aiSummary && (
               <div className="mt-6">
                 <AISummary 
-                  transcription={transcriptionData.transcription}
+                  summary={transcriptionData.aiSummary}
                 />
               </div>
             )}

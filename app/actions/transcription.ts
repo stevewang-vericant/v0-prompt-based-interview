@@ -287,6 +287,31 @@ export async function processTranscriptionJob(
       console.log("[Transcription] ✓ Job status updated to 'completed'")
     }
     
+    // 生成AI摘要
+    console.log("[Transcription] Generating AI summary...")
+    let aiSummary = null
+    
+    try {
+      const summaryResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/ai-summary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transcription: transcription.text }),
+      })
+      
+      const summaryData = await summaryResponse.json()
+      
+      if (summaryData.success) {
+        aiSummary = summaryData.summary
+        console.log("[Transcription] ✓ AI summary generated successfully")
+      } else {
+        console.warn("[Transcription] ⚠️ Failed to generate AI summary:", summaryData.error)
+      }
+    } catch (error) {
+      console.warn("[Transcription] ⚠️ AI summary generation failed:", error)
+    }
+    
     // 更新面试记录
     console.log("[Transcription] Updating interview with transcription results...")
     const { error: updateError } = await supabase
@@ -294,6 +319,7 @@ export async function processTranscriptionJob(
       .update({
         transcription_status: 'completed',
         transcription_text: transcription.text,
+        ai_summary: aiSummary,
         transcription_metadata: metadata
       })
       .eq('transcription_job_id', jobId)
@@ -369,6 +395,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
   success: boolean
   status?: TranscriptionStatus
   transcription?: string
+  aiSummary?: string
   metadata?: TranscriptionMetadata
   error?: string
 }> {
@@ -382,6 +409,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
       .select(`
         transcription_status,
         transcription_text,
+        ai_summary,
         transcription_metadata,
         transcription_job_id
       `)
@@ -407,6 +435,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
       success: true,
       status: interview.transcription_status as TranscriptionStatus,
       transcription: interview.transcription_text,
+      aiSummary: interview.ai_summary,
       metadata: interview.transcription_metadata as TranscriptionMetadata
     }
     
