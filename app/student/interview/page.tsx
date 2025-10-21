@@ -216,28 +216,42 @@ function InterviewPageContent() {
       setUploadStatus("Creating subtitle metadata...")
       setUploadProgress(80)
       
+      // 使用服务器返回的实际时长重新计算时间轴
+      const actualTotalDuration = mergeData.totalDuration || totalDuration
+      const serverSegmentDurations = mergeData.segmentDurations || segmentDurations
+      
+      // 使用服务器返回的分段时长，按比例缩放到实际总时长
+      const totalEstimatedDuration = serverSegmentDurations.reduce((sum, dur) => sum + dur, 0)
+      const scaleFactor = actualTotalDuration / totalEstimatedDuration
+      
       let cumulativeTime = 0
       const subtitleMetadata = {
         interviewId,
-        totalDuration: mergeData.totalDuration || totalDuration,
+        totalDuration: actualTotalDuration,
         createdAt: new Date().toISOString(),
         mergedVideoUrl: videoUrl,
         questions: uploadedSegments.map((seg, index) => {
+          // 使用服务器分段时长按比例缩放
+          const scaledDuration = Math.round(serverSegmentDurations[index] * scaleFactor)
           const questionData = {
             id: seg.promptId,
             questionNumber: seg.sequenceNumber,
             category: seg.category,
             text: seg.questionText,
             startTime: cumulativeTime,
-            endTime: cumulativeTime + seg.duration,
-            duration: seg.duration
+            endTime: cumulativeTime + scaledDuration,
+            duration: scaledDuration
           }
-          cumulativeTime += seg.duration
+          cumulativeTime += scaledDuration
           return questionData
         })
       }
       
       console.log("[v0] Subtitle metadata generated:", subtitleMetadata)
+      console.log("[v0] Time axis details:")
+      subtitleMetadata.questions.forEach((q, index) => {
+        console.log(`[v0] Question ${q.questionNumber}: ${q.startTime}s - ${q.endTime}s (${q.duration}s) - ${q.text.substring(0, 30)}...`)
+      })
         
       // 上传字幕元数据
       setUploadStatus("Uploading subtitle metadata...")

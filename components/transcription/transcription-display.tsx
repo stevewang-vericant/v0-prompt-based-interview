@@ -16,6 +16,7 @@ import {
   Download
 } from "lucide-react"
 import { toast } from "sonner"
+import { AISummary } from "./ai-summary"
 
 interface TranscriptionDisplayProps {
   interviewId: string
@@ -242,21 +243,41 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
               </Button>
             </div>
 
-            {/* 转录文本 */}
-            <div className="bg-muted p-4 rounded-lg max-h-[500px] overflow-y-auto">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {transcriptionData.transcription}
-              </div>
-            </div>
+                {/* 转录文本 */}
+                <div className="bg-muted p-4 rounded-lg max-h-[500px] overflow-y-auto">
+                  <div className="text-sm leading-relaxed space-y-3">
+                    {transcriptionData.transcription
+                      ?.split(/[.!?]+/)
+                      .filter(sentence => sentence.trim().length > 0)
+                      .map((sentence, index) => (
+                        <p key={index} className="text-slate-700">
+                          {sentence.trim()}
+                          {!sentence.trim().endsWith('.') && 
+                           !sentence.trim().endsWith('!') && 
+                           !sentence.trim().endsWith('?') && '.'}
+                        </p>
+                      ))
+                    }
+                  </div>
+                </div>
           </div>
         )}
 
-        {!transcriptionData && (
-          <div className="text-center text-muted-foreground py-8">
-            No transcription data available
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+            {!transcriptionData && (
+              <div className="text-center text-muted-foreground py-8">
+                No transcription data available
+              </div>
+            )}
+
+            {/* AI Summary Section */}
+            {transcriptionData?.status === 'completed' && transcriptionData.transcription && (
+              <div className="mt-6">
+                <AISummary 
+                  transcription={transcriptionData.transcription}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )
+    }

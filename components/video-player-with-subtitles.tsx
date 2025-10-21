@@ -94,9 +94,25 @@ export function VideoPlayerWithSubtitles({
   useEffect(() => {
     if (!subtitles) return
 
+    // 调试信息：显示时间轴数据
+    if (Math.floor(currentTime) % 5 === 0 && Math.floor(currentTime) > 0) {
+      console.log('[Player] Current time:', currentTime, 'seconds')
+      console.log('[Player] Available questions:', subtitles.questions.map(q => ({
+        question: q.questionNumber,
+        start: q.startTime,
+        end: q.endTime,
+        text: q.text.substring(0, 30) + '...'
+      })))
+    }
+
     const current = subtitles.questions.find(
       (q) => currentTime >= q.startTime && currentTime < q.endTime
     )
+
+    if (current && current !== currentSubtitle) {
+      console.log('[Player] Subtitle changed to question', current.questionNumber, 'at', currentTime, 'seconds')
+      console.log('[Player] Question text:', current.text.substring(0, 50) + '...')
+    }
 
     setCurrentSubtitle(current || null)
   }, [currentTime, subtitles])
