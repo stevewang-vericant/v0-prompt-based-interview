@@ -183,6 +183,17 @@ function InterviewPageContent() {
       setUploadProgress(70)
       console.log("[v0] Triggering server-side video merge...")
       
+      console.log("[v0] Calling merge-videos API...")
+      console.log("[v0] Merge request data:", {
+        interviewId,
+        segmentsCount: uploadedSegments.length,
+        segments: uploadedSegments.map(seg => ({
+          url: seg.videoUrl,
+          sequenceNumber: seg.sequenceNumber,
+          duration: seg.duration
+        }))
+      })
+      
       const mergeResult = await fetch('/api/merge-videos', {
         method: 'POST',
         headers: {
@@ -198,12 +209,20 @@ function InterviewPageContent() {
         })
       })
       
+      console.log("[v0] Merge API response status:", mergeResult.status)
+      console.log("[v0] Merge API response headers:", Object.fromEntries(mergeResult.headers.entries()))
+      
       if (!mergeResult.ok) {
-        throw new Error(`Failed to merge videos: ${mergeResult.statusText}`)
+        const errorText = await mergeResult.text()
+        console.error("[v0] Merge API error response:", errorText)
+        throw new Error(`Failed to merge videos: ${mergeResult.status} ${mergeResult.statusText}`)
       }
       
       const mergeData = await mergeResult.json()
+      console.log("[v0] Merge API response data:", mergeData)
+      
       if (!mergeData.success) {
+        console.error("[v0] Merge API returned error:", mergeData.error)
         throw new Error(`Video merge failed: ${mergeData.error}`)
       }
       
