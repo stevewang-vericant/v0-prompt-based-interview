@@ -178,19 +178,50 @@ function InterviewPageContent() {
       console.log("[v0] ✓ All", segments.length, "segments uploaded successfully")
       console.log("[v0] Total estimated duration:", totalDuration, "seconds")
       
-      // 第一个分段视频的 URL 作为主视频 URL（用于兼容现有数据库结构）
-      const videoUrl = uploadedSegments[0].videoUrl
+      // 触发服务端合并
+      setUploadStatus("Merging videos on server...")
+      setUploadProgress(70)
+      console.log("[v0] Triggering server-side video merge...")
       
-      // 生成字幕元数据（包含所有分段信息）
+      const mergeResult = await fetch('/api/merge-videos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          interviewId,
+          segments: uploadedSegments.map(seg => ({
+            url: seg.videoUrl,
+            sequenceNumber: seg.sequenceNumber,
+            duration: seg.duration
+          }))
+        })
+      })
+      
+      if (!mergeResult.ok) {
+        throw new Error(`Failed to merge videos: ${mergeResult.statusText}`)
+      }
+      
+      const mergeData = await mergeResult.json()
+      if (!mergeData.success) {
+        throw new Error(`Video merge failed: ${mergeData.error}`)
+      }
+      
+      console.log("[v0] ✓ Videos merged successfully:", mergeData.mergedVideoUrl)
+      
+      // 使用合并后的视频URL
+      const videoUrl = mergeData.mergedVideoUrl
+      
+      // 生成字幕元数据（基于合并后的视频）
       setUploadStatus("Creating subtitle metadata...")
-      setUploadProgress(75)
+      setUploadProgress(80)
       
       let cumulativeTime = 0
       const subtitleMetadata = {
         interviewId,
-        totalDuration,
+        totalDuration: mergeData.totalDuration || totalDuration,
         createdAt: new Date().toISOString(),
-        segments: uploadedSegments,
+        mergedVideoUrl: videoUrl,
         questions: uploadedSegments.map((seg, index) => {
           const questionData = {
             id: seg.promptId,
@@ -199,8 +230,7 @@ function InterviewPageContent() {
             text: seg.questionText,
             startTime: cumulativeTime,
             endTime: cumulativeTime + seg.duration,
-            duration: seg.duration,
-            videoUrl: seg.videoUrl
+            duration: seg.duration
           }
           cumulativeTime += seg.duration
           return questionData
@@ -217,7 +247,7 @@ function InterviewPageContent() {
       const subtitleResult = await uploadJsonToB2(
         subtitleMetadata,
         interviewId,
-        "interview-segments-metadata"
+        "interview-subtitles"
       )
       
       if (!subtitleResult.success) {
@@ -232,20 +262,21 @@ function InterviewPageContent() {
         setUploadProgress(90)
         console.log("[v0] Saving interview to database...")
         
-        const dbResult = await saveInterview({
-          interview_id: interviewId,
-          student_email: studentEmail,
-          student_name: studentName,
-          video_url: videoUrl,
-          subtitle_url: subtitleResult.url,
-          total_duration: totalDuration,
-          school_code: schoolCode || undefined,
-          metadata: {
-            segments: uploadedSegments,
-            questions: subtitleMetadata.questions,
-            completedAt: new Date().toISOString()
-          }
-        })
+            const dbResult = await saveInterview({
+              interview_id: interviewId,
+              student_email: studentEmail,
+              student_name: studentName,
+              video_url: videoUrl,
+              subtitle_url: subtitleResult.url,
+              total_duration: mergeData.totalDuration || totalDuration,
+              school_code: schoolCode || undefined,
+              metadata: {
+                questions: subtitleMetadata.questions,
+                mergedVideoUrl: videoUrl,
+                segmentCount: uploadedSegments.length,
+                completedAt: new Date().toISOString()
+              }
+            })
         
         if (dbResult.success) {
           console.log("[v0] ✓ Interview saved to database:", dbResult.interview?.id)
@@ -255,15 +286,14 @@ function InterviewPageContent() {
         }
       }
       
-      // 保存视频 URL 和字幕 URL 到 localStorage，供 dashboard 使用
-      const interviewData = {
-        videoUrl: videoUrl,
-        subtitleUrl: subtitleResult.url,
-        interviewId,
-        totalDuration,
-        segments: uploadedSegments,
-        completedAt: new Date().toISOString()
-      }
+          // 保存视频 URL 和字幕 URL 到 localStorage，供 dashboard 使用
+          const interviewData = {
+            videoUrl: videoUrl,
+            subtitleUrl: subtitleResult.url,
+            interviewId,
+            totalDuration: mergeData.totalDuration || totalDuration,
+            completedAt: new Date().toISOString()
+          }
       
       localStorage.setItem('latestInterview', JSON.stringify(interviewData))
       console.log("[v0] Interview data saved to localStorage")
