@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     
     console.log('[API] Processing transcription job:', jobId)
     
-    const result = await processTranscriptionJob(jobId, videoUrl)
+    const result = await processTranscriptionJob(jobId)
     
     if (result.success) {
       return NextResponse.json({

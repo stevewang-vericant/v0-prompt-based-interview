@@ -40,7 +40,8 @@ export interface TranscriptionMetadata {
  */
 export async function createTranscriptionJob(
   interviewId: string,
-  videoUrl: string
+  videoUrl: string,
+  interviewUuid: string
 ): Promise<{
   success: boolean
   error?: string
@@ -53,25 +54,7 @@ export async function createTranscriptionJob(
     
     const supabase = createAdminClient()
     
-    // 首先，根据 custom interview_id 获取 UUID id
-    console.log("[Transcription] Querying interviews table for UUID...")
-    const { data: interview, error: interviewError } = await supabase
-      .from('interviews')
-      .select('id')
-      .eq('interview_id', interviewId)
-      .single()
-    
-    if (interviewError || !interview) {
-      console.error("[Transcription] ✗ Interview not found in database")
-      console.error("[Transcription] Error:", interviewError)
-      return {
-        success: false,
-        error: 'Interview not found in database'
-      }
-    }
-    
-    const interviewUuid = interview.id
-    console.log("[Transcription] ✓ Found interview UUID:", interviewUuid)
+    console.log("[Transcription] Using provided interview UUID:", interviewUuid)
     
     // 检查是否已有进行中的任务
     console.log("[Transcription] Checking for existing jobs...")
@@ -168,7 +151,7 @@ export async function createTranscriptionJob(
  */
 export async function processTranscriptionJob(
   jobId: string,
-  videoUrl: string
+  interviewUUID?: string
 ): Promise<{
   success: boolean
   error?: string
@@ -178,9 +161,25 @@ export async function processTranscriptionJob(
   try {
     console.log("[Transcription] ========== PROCESS JOB START ==========")
     console.log("[Transcription] Job ID:", jobId)
-    console.log("[Transcription] Video URL:", videoUrl)
+    console.log("[Transcription] Interview UUID:", interviewUUID)
     
     const supabase = createAdminClient()
+    
+    // 1. Fetch job details to get video URL
+    const { data: job, error: jobError } = await supabase
+      .from('transcription_jobs')
+      .select('interview_id, video_url, metadata')
+      .eq('job_id', jobId)
+      .single()
+
+    if (jobError || !job) {
+      console.error("[Transcription] Job not found or error fetching job:", jobError)
+      return { success: false, error: jobError?.message || 'Job not found' }
+    }
+
+    const actualInterviewUUID = interviewUUID || job.interview_id
+    const videoUrl = job.video_url
+    console.log("[Transcription] Video URL:", videoUrl)
     
     // 更新任务状态为处理中
     console.log("[Transcription] Updating job status to 'processing'...")
@@ -314,15 +313,27 @@ export async function processTranscriptionJob(
     
     // 更新面试记录
     console.log("[Transcription] Updating interview with transcription results...")
+    const updateData: any = {
+      transcription_status: 'completed',
+      transcription_text: transcription.text,
+      transcription_metadata: metadata
+    }
+    
+    // 如果ai_summary字段存在，则包含它
+    if (aiSummary) {
+      updateData.ai_summary = aiSummary
+    }
+    
+    // 直接使用传入的interviewUUID来更新
+    if (!interviewUUID) {
+      throw new Error('Interview UUID is required for updating interview record')
+    }
+    
+    console.log("[Transcription] Updating interview record with UUID:", interviewUUID)
     const { error: updateError } = await supabase
       .from('interviews')
-      .update({
-        transcription_status: 'completed',
-        transcription_text: transcription.text,
-        ai_summary: aiSummary,
-        transcription_metadata: metadata
-      })
-      .eq('transcription_job_id', jobId)
+      .update(updateData)
+      .eq('id', interviewUUID)
     
     if (updateError) {
       console.error("[Transcription] ✗ Failed to update interview:", updateError)
@@ -431,6 +442,12 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
       }
     }
     
+    console.log("[Transcription] Interview data:", {
+      transcription_status: interview.transcription_status,
+      has_transcription_text: !!interview.transcription_text,
+      transcription_text_length: interview.transcription_text?.length || 0
+    })
+    
     return {
       success: true,
       status: interview.transcription_status as TranscriptionStatus,
@@ -464,8 +481,29 @@ export async function startTranscription(interviewId: string, videoUrl: string):
     console.log("[Transcription] ========== START TRANSCRIPTION ==========")
     console.log("[Transcription] Initiating transcription workflow...")
     
+    const supabase = createAdminClient()
+    
+    // 首先获取interview的UUID
+    const { data: interview, error: interviewError } = await supabase
+      .from('interviews')
+      .select('id')
+      .eq('interview_id', interviewId)
+      .single()
+    
+    if (interviewError || !interview) {
+      console.error("[Transcription] ✗ Interview not found in database")
+      console.error("[Transcription] Error:", interviewError)
+      return {
+        success: false,
+        error: 'Interview not found in database'
+      }
+    }
+    
+    const interviewUuid = interview?.id
+    console.log("[Transcription] ✓ Found interview UUID:", interviewUuid)
+    
     // 创建任务
-    const createResult = await createTranscriptionJob(interviewId, videoUrl)
+    const createResult = await createTranscriptionJob(interviewId, videoUrl, interviewUuid)
     
     if (!createResult.success) {
       console.error("[Transcription] ✗ Failed to create transcription job")
@@ -476,7 +514,7 @@ export async function startTranscription(interviewId: string, videoUrl: string):
     console.log("[Transcription] ✓ Job created, starting async processing...")
     
     // 异步处理任务（不等待完成）
-    processTranscriptionJob(createResult.jobId!, videoUrl).catch(error => {
+    processTranscriptionJob(createResult.jobId!, interviewUuid).catch(error => {
       console.error("[Transcription] ✗ Async job processing failed:", error)
       console.error("[Transcription] Job ID:", createResult.jobId)
       console.error("[Transcription] Stack:", error instanceof Error ? error.stack : 'No stack trace')

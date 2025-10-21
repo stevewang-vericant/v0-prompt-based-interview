@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTranscriptionStatus } from '@/app/actions/transcription'
+import { getTranscriptionStatus } from '@/app/actions/transcription-simple'
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,13 +18,12 @@ export async function GET(request: NextRequest) {
     const result = await getTranscriptionStatus(interviewId)
     
     if (result.success) {
-      return NextResponse.json({
-        success: true,
-        status: result.status,
-        transcription: result.transcription,
-        aiSummary: result.aiSummary,
-        metadata: result.metadata
-      })
+        return NextResponse.json({
+          success: true,
+          status: result.status,
+          transcription: result.transcription,
+          metadata: result.metadata
+        })
     } else {
       return NextResponse.json(
         { success: false, error: result.error },

@@ -218,10 +218,10 @@ function InterviewPageContent() {
       
       // 使用服务器返回的实际时长重新计算时间轴
       const actualTotalDuration = mergeData.totalDuration || totalDuration
-      const serverSegmentDurations = mergeData.segmentDurations || segmentDurations
+      const serverSegmentDurations = mergeData.segmentDurations || uploadedSegments.map(s => s.duration)
       
       // 使用服务器返回的分段时长，按比例缩放到实际总时长
-      const totalEstimatedDuration = serverSegmentDurations.reduce((sum, dur) => sum + dur, 0)
+      const totalEstimatedDuration = serverSegmentDurations.reduce((sum: number, dur: number) => sum + dur, 0)
       const scaleFactor = actualTotalDuration / totalEstimatedDuration
       
       let cumulativeTime = 0

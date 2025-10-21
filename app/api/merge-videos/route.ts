@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { startTranscription } from '@/app/actions/transcription'
+import { transcribeVideo } from '@/app/actions/transcription-simple'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
     try {
       // 使用本地临时文件来获取时长
       const tempDurationFile = join(tempDir, `duration_check_${Date.now()}.webm`)
-      writeFileSync(tempDurationFile, mergedBuffer)
+      writeFileSync(tempDurationFile, mergedBuffer as any)
       
       const durationCommand = `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${tempDurationFile}"`
       const { stdout: durationOutput } = await execAsync(durationCommand)
@@ -285,15 +285,14 @@ export async function POST(request: NextRequest) {
     // 触发转录任务
     console.log('[Merge] Starting transcription for merged video...')
     try {
-      const transcriptionResult = await startTranscription(interviewId, mergedVideoUrl)
+      const transcriptionResult = await transcribeVideo(interviewId, mergedVideoUrl)
       if (transcriptionResult.success) {
-        console.log('[Merge] ✓ Transcription job created successfully')
-        console.log('[Merge] Job ID:', transcriptionResult.jobId)
+        console.log('[Merge] ✓ Transcription completed successfully')
       } else {
-        console.error('[Merge] ✗ Failed to start transcription:', transcriptionResult.error)
+        console.error('[Merge] ✗ Transcription failed:', transcriptionResult.error)
       }
     } catch (error) {
-      console.error('[Merge] ✗ Transcription start exception:', error)
+      console.error('[Merge] ✗ Transcription exception:', error)
     }
     
     return NextResponse.json({

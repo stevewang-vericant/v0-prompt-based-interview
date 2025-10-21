@@ -56,7 +56,7 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
             setTranscriptionData({
               status: data.status,
               transcription: data.transcription,
-              aiSummary: data.aiSummary,
+              aiSummary: undefined, // Temporarily disabled
               metadata: data.metadata
             })
           } else {
