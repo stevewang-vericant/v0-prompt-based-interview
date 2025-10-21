@@ -36,12 +36,16 @@ export async function POST(request: NextRequest) {
       console.log(`[Merge] Downloading segment ${i + 1}/${segments.length}:`, segment.url)
       
       // 从URL中提取B2路径
+      // B2 URL格式: https://f001.backblazeb2.com/file/bucket-name/path/to/file
       const urlParts = segment.url.split('/file/')
       if (urlParts.length !== 2) {
         throw new Error(`Invalid B2 URL format: ${segment.url}`)
       }
       
-      const key = urlParts[1]
+      // 移除bucket名称，只保留文件路径
+      const fullPath = urlParts[1]
+      const bucketName = process.env.B2_BUCKET_NAME!
+      const key = fullPath.replace(`${bucketName}/`, '')
       console.log(`[Merge] B2 Key:`, key)
       
       const getCommand = new GetObjectCommand({
