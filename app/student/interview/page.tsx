@@ -9,12 +9,13 @@ import { InterviewComplete } from "@/components/interview/interview-complete"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
 import { uploadJsonToB2 } from "@/app/actions/upload-json"
 import { saveInterview } from "@/app/actions/interviews"
-import { 
-  uploadVideoSegmentClient, 
-  mergeVideoSegmentsClient, 
+import {
+  uploadVideoSegmentClient,
+  mergeVideoSegmentsClient,
   cleanupTempFilesClient,
-  saveInterviewClient 
+  saveInterviewClient
 } from '@/lib/client-cloudinary'
+import { startTranscription } from '@/app/actions/transcription'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
@@ -197,9 +198,9 @@ function InterviewPageContent() {
         totalDuration: actualTotalDuration,
         questions: uploadedSegments.map(seg => ({
           id: seg.promptId,
+          questionNumber: seg.sequenceNumber, // 修复：使用 questionNumber 而不是 sequenceNumber
           text: seg.questionText,
           category: seg.category,
-          sequenceNumber: seg.sequenceNumber,
           startTime: uploadedSegments
             .slice(0, seg.sequenceNumber - 1)
             .reduce((acc, s) => acc + s.duration, 0),
@@ -256,6 +257,23 @@ function InterviewPageContent() {
         
         if (dbResult.success) {
           console.log("[v0] ✓ Interview saved to database:", dbResult.interview?.id)
+          
+          // 启动转录任务
+          setUploadStatus("Starting transcription...")
+          setUploadProgress(92)
+          console.log("[v0] Starting transcription for merged video...")
+          
+          try {
+            const transcriptionResult = await startTranscription(interviewId, videoUrl)
+            if (transcriptionResult.success) {
+              console.log("[v0] ✓ Transcription job started successfully!")
+            } else {
+              console.error("[v0] Transcription start failed:", transcriptionResult.error)
+            }
+          } catch (error) {
+            console.error("[v0] Transcription error:", error)
+            // 不阻止用户流程
+          }
         } else {
           console.error("[v0] Database save failed:", dbResult.error)
           // 不阻止用户流程，只记录错误

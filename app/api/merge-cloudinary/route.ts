@@ -30,39 +30,43 @@ export async function POST(request: NextRequest) {
     console.log(`[Server Cloudinary] Additional videos to splice:`, additionalVideos)
     
     // 构建拼接变换字符串
-    // 格式: l_video:video2,fl_splice/fl_layer_apply/l_video:video3,fl_splice/fl_layer_apply/...
-    let transformationString = ''
-    for (const videoId of additionalVideos) {
-      transformationString += `l_video:${videoId},fl_splice/fl_layer_apply/`
-    }
-    // 移除最后的斜杠
-    transformationString = transformationString.slice(0, -1)
+    // 注意：在 overlay/underlay 中，带有文件夹的 public_id 需要将 '/' 替换为 ':'
+    // Step 形如：l_video:folder:subfolder:public_id,fl_splice,fl_layer_apply
+    const steps: string[] = additionalVideos.map((vid) => {
+      const overlayId = vid.replace(/\//g, ':')
+      return `l_video:${overlayId},fl_splice,fl_layer_apply`
+    })
+    const transformationString = steps.join('/')
     
     console.log(`[Server Cloudinary] Transformation string:`, transformationString)
     
-    // 使用 Cloudinary SDK 进行视频拼接
-    // 直接使用 public_id 作为文件路径，SDK 会自动处理
-    const result = await cloudinary.uploader.upload(
-      baseVideoId, // 直接使用 public_id
-      {
-        resource_type: 'video',
-        public_id: `merged-interviews/${interviewId}/merged-video`,
-        transformation: transformationString,
-        format: 'mp4',
-        quality: 'auto',
-        fetch_format: 'auto'
-      }
-    )
+    // 通过 explicit 对现有视频执行派生变换（同步 eager），完成拼接
+    const explicitResult = await cloudinary.uploader.explicit(baseVideoId, {
+      resource_type: 'video',
+      type: 'upload',
+      eager: [
+        {
+          raw_transformation: transformationString,
+          format: 'mp4'
+        }
+      ],
+      eager_async: false
+    })
     
-    console.log(`[Server Cloudinary] ✓ Video merged successfully:`, result.public_id)
+    const mergedAsset = explicitResult?.eager?.[0]
+    const mergedUrl = mergedAsset?.secure_url || mergedAsset?.url
+    
+    if (!mergedUrl) {
+      console.error('[Server Cloudinary] No merged URL returned from explicit()', explicitResult)
+      throw new Error('Failed to obtain merged video URL from Cloudinary')
+    }
+    
+    console.log(`[Server Cloudinary] ✓ Video merged successfully:`, mergedUrl)
     
     return NextResponse.json({
       success: true,
-      public_id: result.public_id,
-      secure_url: result.secure_url,
-      format: result.format,
-      bytes: result.bytes,
-      duration: result.duration
+      public_id: baseVideoId,
+      secure_url: mergedUrl
     })
     
   } catch (error) {
