@@ -11,15 +11,19 @@ export async function POST(request: NextRequest) {
     // 生成 Cloudinary 签名
     const timestamp = Math.round(new Date().getTime() / 1000)
     
-    // 只对需要签名的参数进行签名（不包括 public_ids, folder, quality, fetch_format）
+    // 构建请求体（使用 urls 参数而不是 public_ids）
+    const urls = segmentIds.map(id => `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/video/upload/${id}.mp4`)
+    
+    // 包含所有需要签名的参数（包括 urls）
     const signatureParams = {
       public_id: 'merged-video',
       format: 'mp4',
       transformation: 'splice',
-      timestamp: timestamp
+      timestamp: timestamp,
+      urls: urls.join(',')
     }
     
-    // 创建签名字符串（只包含需要签名的参数）
+    // 创建签名字符串（包含所有需要签名的参数）
     const signatureString = Object.keys(signatureParams)
       .sort()
       .map(key => `${key}=${signatureParams[key as keyof typeof signatureParams]}`)
@@ -34,9 +38,7 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Generated signature:`, signature)
     
-    // 构建请求体（使用 urls 参数而不是 public_ids）
-    const urls = segmentIds.map(id => `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/video/upload/${id}.mp4`)
-    
+    // 构建请求体（使用签名参数）
     const requestBody = {
       urls: urls,
       public_id: 'merged-video',
