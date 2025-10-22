@@ -16,6 +16,7 @@ import {
   saveInterviewClient
 } from '@/lib/client-cloudinary'
 import { startTranscription } from '@/app/actions/transcription'
+import { getVideoDuration } from '../../lib/video-utils'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
@@ -152,8 +153,16 @@ function InterviewPageContent() {
           i + 1
         )
         
-        // 计算实际录制时长（从 blob 大小估算，或使用默认值）
-        const actualDuration = Math.max(30, Math.min(90, Math.round(blob.size / 20000))) // 粗略估算：20KB/秒
+        // 获取视频实际时长
+        let actualDuration: number
+        try {
+          actualDuration = await getVideoDuration(blob)
+          console.log(`[v0] Segment ${i + 1} actual duration: ${actualDuration}s`)
+        } catch (error) {
+          console.warn(`[v0] Failed to get duration for segment ${i + 1}, using fallback:`, error)
+          // 如果获取时长失败，使用基于文件大小的粗略估算
+          actualDuration = Math.max(10, Math.min(120, Math.round(blob.size / 20000)))
+        }
         
         uploadedSegments.push({
           promptId: prompt.id,
@@ -190,25 +199,27 @@ function InterviewPageContent() {
       setUploadStatus("Creating subtitle metadata...")
       setUploadProgress(80)
       
-      // 使用Cloudinary返回的实际时长
-      const actualTotalDuration = mergeResult.duration || totalDuration
+      // 使用实际的分段时长总和作为总时长
+      const actualTotalDuration = totalDuration // 这是各段实际时长的总和
       
-      // 重新计算时间轴：将总时长平均分配给所有问题
-      const questionCount = uploadedSegments.length
-      const timePerQuestion = actualTotalDuration / questionCount
-      
+      // 使用实际的分段时长计算时间轴
+      let cumulativeTime = 0
       const subtitleMetadata = {
         interviewId,
         totalDuration: actualTotalDuration,
-        questions: uploadedSegments.map((seg, index) => ({
-          id: seg.promptId,
-          questionNumber: seg.sequenceNumber,
-          text: seg.questionText,
-          category: seg.category,
-          startTime: index * timePerQuestion,
-          endTime: (index + 1) * timePerQuestion,
-          duration: timePerQuestion
-        })),
+        questions: uploadedSegments.map((seg) => {
+          const questionData = {
+            id: seg.promptId,
+            questionNumber: seg.sequenceNumber,
+            text: seg.questionText,
+            category: seg.category,
+            startTime: cumulativeTime,
+            endTime: cumulativeTime + seg.duration,
+            duration: seg.duration
+          }
+          cumulativeTime += seg.duration
+          return questionData
+        }),
         createdAt: new Date().toISOString(),
         version: "1.0"
       }
