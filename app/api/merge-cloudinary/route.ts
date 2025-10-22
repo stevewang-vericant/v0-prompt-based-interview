@@ -10,7 +10,32 @@ export async function POST(request: NextRequest) {
     
     // 生成 Cloudinary 签名
     const timestamp = Math.round(new Date().getTime() / 1000)
-    const params = {
+    
+    // 只对需要签名的参数进行签名（不包括 public_ids, folder, quality, fetch_format）
+    const signatureParams = {
+      public_id: 'merged-video',
+      format: 'mp4',
+      transformation: 'splice',
+      timestamp: timestamp
+    }
+    
+    // 创建签名字符串（只包含需要签名的参数）
+    const signatureString = Object.keys(signatureParams)
+      .sort()
+      .map(key => `${key}=${signatureParams[key as keyof typeof signatureParams]}`)
+      .join('&') + process.env.CLOUDINARY_API_SECRET
+    
+    console.log(`[Server Cloudinary] Signature string:`, signatureString)
+    
+    const signature = crypto
+      .createHash('sha1')
+      .update(signatureString)
+      .digest('hex')
+    
+    console.log(`[Server Cloudinary] Generated signature:`, signature)
+    
+    // 构建请求体（包含所有参数）
+    const requestBody = {
       public_ids: segmentIds.join(','),
       folder: `merged-interviews/${interviewId}`,
       public_id: 'merged-video',
@@ -18,23 +43,7 @@ export async function POST(request: NextRequest) {
       quality: 'auto',
       fetch_format: 'auto',
       transformation: 'splice',
-      timestamp: timestamp
-    }
-    
-    // 创建签名字符串
-    const signatureString = Object.keys(params)
-      .sort()
-      .map(key => `${key}=${params[key as keyof typeof params]}`)
-      .join('&') + process.env.CLOUDINARY_API_SECRET
-    
-    const signature = crypto
-      .createHash('sha1')
-      .update(signatureString)
-      .digest('hex')
-    
-    // 构建请求体
-    const requestBody = {
-      ...params,
+      timestamp: timestamp,
       signature: signature,
       api_key: process.env.CLOUDINARY_API_KEY
     }
