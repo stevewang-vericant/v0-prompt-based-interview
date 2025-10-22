@@ -17,10 +17,12 @@ export async function POST(request: NextRequest) {
     // 使用 public_ids 参数（Cloudinary 标准）
     const publicIds = segmentIds.join(',')
     
-    // 包含需要签名的参数（按照 Cloudinary 实际要求）
+    // 包含需要签名的参数（所有参数除了 file, cloud_name, resource_type, api_key）
     const signatureParams = {
+      command: 'concat',
       public_id: 'merged-video',
       format: 'mp4',
+      public_ids: publicIds,
       timestamp: timestamp
     }
     
