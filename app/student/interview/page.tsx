@@ -16,7 +16,7 @@ import {
   saveInterviewClient
 } from '@/lib/client-cloudinary'
 import { startTranscription } from '@/app/actions/transcription'
-import { getVideoDuration } from '../../lib/video-utils'
+import { getVideoDuration } from '@/lib/video-utils'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
@@ -291,18 +291,9 @@ function InterviewPageContent() {
         }
       }
       
-      // 清理临时文件
-      setUploadStatus("Cleaning up temporary files...")
-      setUploadProgress(95)
-      console.log("[v0] Cleaning up temporary files...")
-      
-      try {
-        await cleanupTempFilesClient(interviewId)
-        console.log("[v0] ✓ Temporary files cleaned up")
-      } catch (error) {
-        console.warn("[v0] Cleanup warning:", error)
-        // 不阻止用户流程
-      }
+      // 注意：暂时不清理临时文件，因为合并后的视频仍然依赖这些文件
+      // 可以考虑将合并后的视频上传到 B2 或保存到永久位置后再清理
+      console.log("[v0] Note: Temporary files kept for video playback")
       
       // 保存视频 URL 和字幕 URL 到 localStorage，供 dashboard 使用
       const interviewData = {

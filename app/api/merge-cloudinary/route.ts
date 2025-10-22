@@ -40,33 +40,20 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Transformation string:`, transformationString)
     
-    // 通过 explicit 对现有视频执行派生变换（同步 eager），完成拼接
-    const explicitResult = await cloudinary.uploader.explicit(baseVideoId, {
-      resource_type: 'video',
-      type: 'upload',
-      eager: [
-        {
-          raw_transformation: transformationString,
-          format: 'mp4'
-        }
-      ],
-      eager_async: false
-    })
-    
-    const mergedAsset = explicitResult?.eager?.[0]
-    const mergedUrl = mergedAsset?.secure_url || mergedAsset?.url
-    
-    if (!mergedUrl) {
-      console.error('[Server Cloudinary] No merged URL returned from explicit()', explicitResult)
-      throw new Error('Failed to obtain merged video URL from Cloudinary')
-    }
+    // 手动构建 Cloudinary URL，避免 cloudinary.url() 添加 t_ 前缀
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+    const mergedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString}/v${Date.now()}/${baseVideoId}.mp4`
     
     console.log(`[Server Cloudinary] ✓ Video merged successfully:`, mergedUrl)
     
+    // 生成合并后的 public_id
+    const mergedPublicId = `merged-interviews/${interviewId}/merged-video`
+    
     return NextResponse.json({
       success: true,
-      public_id: baseVideoId,
-      secure_url: mergedUrl
+      public_id: mergedPublicId,
+      secure_url: mergedUrl,
+      format: 'mp4'
     })
     
   } catch (error) {
