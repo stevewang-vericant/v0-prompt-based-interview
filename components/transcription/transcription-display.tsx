@@ -51,17 +51,28 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
 
   const fetchTranscriptionStatus = async () => {
     try {
+      console.log('[TranscriptionDisplay] Fetching status for interview:', interviewId)
       const response = await fetch(`/api/transcription/status?interviewId=${interviewId}`)
       const data = await response.json()
       
-          if (data.success) {
-            setTranscriptionData({
-              status: data.status,
-              transcription: data.transcription,
-              aiSummary: data.aiSummary,
-              metadata: data.metadata
-            })
-          } else {
+      console.log('[TranscriptionDisplay] API response:', {
+        success: data.success,
+        status: data.status,
+        hasTranscription: !!data.transcription,
+        hasAiSummary: !!data.aiSummary,
+        transcriptionLength: data.transcription?.length || 0,
+        summaryLength: data.aiSummary?.length || 0
+      })
+      
+      if (data.success) {
+        setTranscriptionData({
+          status: data.status,
+          transcription: data.transcription,
+          aiSummary: data.aiSummary,
+          metadata: data.metadata
+        })
+        console.log('[TranscriptionDisplay] State updated successfully')
+      } else {
         console.error('Failed to fetch transcription status:', data.error)
       }
     } catch (error) {
@@ -128,8 +139,18 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
 
       if (data.success) {
         toast.success("Transcription completed successfully!")
-        // 刷新转录状态
-        await fetchTranscriptionStatus()
+        console.log('[Manual Transcription] Updating state with API response...')
+        
+        // 直接使用 API 返回的数据更新状态
+        setTranscriptionData(prev => prev ? {
+          ...prev,
+          status: 'completed',
+          transcription: data.transcription,
+          aiSummary: data.aiSummary,
+          metadata: data.metadata
+        } : null)
+        
+        console.log('[Manual Transcription] State updated with API data')
       } else {
         console.error('[Manual Transcription] Failed:', data.error)
         toast.error(`Transcription failed: ${data.error}`)
@@ -158,8 +179,15 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
 
       if (data.success) {
         toast.success("AI summary generated successfully!")
-        // 刷新转录状态以获取新的摘要
-        await fetchTranscriptionStatus()
+        console.log('[Manual AI Summary] Updating state with API response...')
+        
+        // 直接使用 API 返回的数据更新状态
+        setTranscriptionData(prev => prev ? {
+          ...prev,
+          aiSummary: data.summary
+        } : null)
+        
+        console.log('[Manual AI Summary] State updated with API data')
       } else {
         console.error('[Manual AI Summary] Failed:', data.error)
         toast.error(`Summary generation failed: ${data.error}`)
