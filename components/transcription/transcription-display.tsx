@@ -47,6 +47,7 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [manualTranscribing, setManualTranscribing] = useState(false)
+  const [manualSummarizing, setManualSummarizing] = useState(false)
 
   const fetchTranscriptionStatus = async () => {
     try {
@@ -57,7 +58,7 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
             setTranscriptionData({
               status: data.status,
               transcription: data.transcription,
-              aiSummary: undefined, // Temporarily disabled
+              aiSummary: data.aiSummary,
               metadata: data.metadata
             })
           } else {
@@ -138,6 +139,36 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
       toast.error("Failed to start transcription")
     } finally {
       setManualTranscribing(false)
+    }
+  }
+
+  const handleManualSummary = async () => {
+    setManualSummarizing(true)
+    try {
+      console.log('[Manual AI Summary] Starting manual summary generation...')
+      const response = await fetch('/api/ai-summary/manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ interviewId }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast.success("AI summary generated successfully!")
+        // 刷新转录状态以获取新的摘要
+        await fetchTranscriptionStatus()
+      } else {
+        console.error('[Manual AI Summary] Failed:', data.error)
+        toast.error(`Summary generation failed: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('[Manual AI Summary] Error:', error)
+      toast.error("Failed to generate summary")
+    } finally {
+      setManualSummarizing(false)
     }
   }
 
@@ -353,11 +384,41 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
             )}
 
             {/* AI Summary Section */}
-            {transcriptionData?.status === 'completed' && transcriptionData.aiSummary && (
+            {transcriptionData?.status === 'completed' && (
               <div className="mt-6">
-                <AISummary 
-                  summary={transcriptionData.aiSummary}
-                />
+                {transcriptionData.aiSummary ? (
+                  <AISummary 
+                    summary={transcriptionData.aiSummary}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">AI Summary</h3>
+                      <Button
+                        onClick={handleManualSummary}
+                        disabled={manualSummarizing}
+                        size="sm"
+                      >
+                        {manualSummarizing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Generate Summary
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="bg-muted p-4 rounded-lg text-center text-muted-foreground">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No AI summary available yet.</p>
+                      <p className="text-sm">Click "Generate Summary" to create one using OpenAI GPT.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

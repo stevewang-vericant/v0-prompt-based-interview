@@ -180,6 +180,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
   success: boolean
   status?: TranscriptionStatus
   transcription?: string
+  aiSummary?: string
   metadata?: TranscriptionMetadata
   error?: string
 }> {
@@ -191,6 +192,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
       .select(`
         transcription_status,
         transcription_text,
+        ai_summary,
         transcription_metadata
       `)
       .eq('interview_id', interviewId)
@@ -214,6 +216,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
       success: true,
       status: interview.transcription_status as TranscriptionStatus,
       transcription: interview.transcription_text,
+      aiSummary: interview.ai_summary,
       metadata: interview.transcription_metadata as TranscriptionMetadata
     }
     

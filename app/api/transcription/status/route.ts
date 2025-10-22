@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
           success: true,
           status: result.status,
           transcription: result.transcription,
+          aiSummary: result.aiSummary,
           metadata: result.metadata
         })
     } else {

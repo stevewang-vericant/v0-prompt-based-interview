@@ -24,15 +24,15 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "system",
-          content: `You are an AI assistant that creates concise, professional summaries of video interview transcripts. 
+          content: `You are an AI assistant that creates concise, professional summaries of video interview transcripts.
 
 Your task is to:
 1. Summarize the key points discussed in the interview
 2. Highlight the candidate's main responses and insights
 3. Keep the summary clear, structured, and professional
 4. Focus on the most important content and avoid repetition
-5. Use bullet points or short paragraphs for better readability
-6. Keep the summary between 100-200 words
+5. Write exactly 4-5 sentences only
+6. Keep the summary between 50-100 words
 
 Format the summary in a way that would be useful for admissions officers or hiring managers.`
         },
