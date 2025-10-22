@@ -70,7 +70,7 @@ export async function uploadVideoSegmentClient(
 }
 
 /**
- * 客户端合并视频片段（通过Cloudinary API）
+ * 客户端合并视频片段（通过服务端API）
  */
 export async function mergeVideoSegmentsClient(
   segmentIds: string[],
@@ -80,37 +80,29 @@ export async function mergeVideoSegmentsClient(
     console.log(`[Client Cloudinary] Merging ${segmentIds.length} segments for interview ${interviewId}`)
     console.log(`[Client Cloudinary] Segment IDs:`, segmentIds)
     
-    // 使用Cloudinary的拼接功能
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/video/multi`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          public_ids: segmentIds,
-          folder: `merged-interviews/${interviewId}`,
-          public_id: 'merged-video',
-          format: 'mp4',
-          quality: 'auto',
-          fetch_format: 'auto',
-          transformation: [
-            {
-              flags: 'splice',
-              format: 'mp4'
-            }
-          ]
-        })
-      }
-    )
+    // 调用服务端合并API（避免CORS问题）
+    const response = await fetch('/api/merge-cloudinary', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        segmentIds,
+        interviewId
+      })
+    })
     
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Cloudinary merge failed: ${response.status} ${errorText}`)
+      throw new Error(`Server merge failed: ${response.status} ${errorText}`)
     }
     
     const result = await response.json()
+    
+    if (!result.success) {
+      throw new Error(`Merge failed: ${result.error}`)
+    }
+    
     console.log(`[Client Cloudinary] ✓ Video merged successfully:`, result.public_id)
     
     return {
