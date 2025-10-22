@@ -164,6 +164,24 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[Manual Transcription] Error:', error)
+    
+    // 更新转录状态为失败
+    try {
+      const supabase = createAdminClient()
+      await supabase
+        .from('interviews')
+        .update({ 
+          transcription_status: 'failed',
+          transcription_metadata: {
+            error: error instanceof Error ? error.message : 'Unknown error occurred',
+            failedAt: new Date().toISOString()
+          }
+        })
+        .eq('interview_id', interviewId)
+    } catch (updateError) {
+      console.error('[Manual Transcription] Failed to update error status:', updateError)
+    }
+    
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred'
