@@ -46,6 +46,7 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
   const [transcriptionData, setTranscriptionData] = useState<TranscriptionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [manualTranscribing, setManualTranscribing] = useState(false)
 
   const fetchTranscriptionStatus = async () => {
     try {
@@ -107,6 +108,36 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       toast.success("Transcription downloaded")
+    }
+  }
+
+  const handleManualTranscription = async () => {
+    setManualTranscribing(true)
+    try {
+      console.log('[Manual Transcription] Starting manual transcription...')
+      const response = await fetch('/api/transcription/manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ interviewId }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast.success("Transcription completed successfully!")
+        // 刷新转录状态
+        await fetchTranscriptionStatus()
+      } else {
+        console.error('[Manual Transcription] Failed:', data.error)
+        toast.error(`Transcription failed: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('[Manual Transcription] Error:', error)
+      toast.error("Failed to start transcription")
+    } finally {
+      setManualTranscribing(false)
     }
   }
 
@@ -197,12 +228,37 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
       
       <CardContent>
         {transcriptionData?.status === 'failed' && (
-          <Alert variant="destructive" className="mb-4">
-            <XCircle className="h-4 w-4" />
-            <AlertDescription>
-              Transcription failed. Please try refreshing or contact support if the issue persists.
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            <Alert variant="destructive" className="mb-4">
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>
+                Transcription failed. Please try refreshing or contact support if the issue persists.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={handleManualTranscription}
+                disabled={manualTranscribing}
+                className="w-full"
+              >
+                {manualTranscribing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Transcribing...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Retry Manual Transcription
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Click to manually retry transcription using OpenAI Whisper
+              </p>
+            </div>
+          </div>
         )}
 
         {transcriptionData?.status === 'processing' && (
@@ -215,12 +271,37 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
         )}
 
         {transcriptionData?.status === 'pending' && (
-          <Alert className="mb-4">
-            <Clock className="h-4 w-4" />
-            <AlertDescription>
-              Transcription is queued and will start processing shortly.
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            <Alert className="mb-4">
+              <Clock className="h-4 w-4" />
+              <AlertDescription>
+                Transcription is queued and will start processing shortly.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={handleManualTranscription}
+                disabled={manualTranscribing}
+                className="w-full"
+              >
+                {manualTranscribing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Transcribing...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Start Manual Transcription
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Click to manually trigger transcription using OpenAI Whisper
+              </p>
+            </div>
+          </div>
         )}
 
         {transcriptionData?.status === 'completed' && transcriptionData.transcription && (
