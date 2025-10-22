@@ -7,6 +7,9 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Merging ${segmentIds.length} segments for interview ${interviewId}`)
     console.log(`[Server Cloudinary] Segment IDs:`, segmentIds)
+    console.log(`[Server Cloudinary] API Key:`, process.env.CLOUDINARY_API_KEY)
+    console.log(`[Server Cloudinary] API Secret:`, process.env.CLOUDINARY_API_SECRET ? '***' + process.env.CLOUDINARY_API_SECRET.slice(-4) : 'NOT SET')
+    console.log(`[Server Cloudinary] Cloud Name:`, process.env.CLOUDINARY_CLOUD_NAME)
     
     // 生成 Cloudinary 签名
     const timestamp = Math.round(new Date().getTime() / 1000)
@@ -14,22 +17,25 @@ export async function POST(request: NextRequest) {
     // 使用 public_ids 参数（Cloudinary 标准）
     const publicIds = segmentIds.join(',')
     
-    // 包含需要签名的参数（使用 concat 命令）
+    // 包含需要签名的参数（按照 Cloudinary 实际要求）
     const signatureParams = {
-      command: 'concat',
       public_id: 'merged-video',
       format: 'mp4',
-      public_ids: publicIds,
       timestamp: timestamp
     }
     
     // 创建签名字符串（包含所有需要签名的参数）
-    const signatureString = Object.keys(signatureParams)
-      .sort()
-      .map(key => `${key}=${signatureParams[key as keyof typeof signatureParams]}`)
-      .join('&') + process.env.CLOUDINARY_API_SECRET
+    const sortedKeys = Object.keys(signatureParams).sort()
+    console.log(`[Server Cloudinary] Sorted parameter keys:`, sortedKeys)
     
-    console.log(`[Server Cloudinary] Signature string:`, signatureString)
+    const paramPairs = sortedKeys.map(key => `${key}=${signatureParams[key as keyof typeof signatureParams]}`)
+    console.log(`[Server Cloudinary] Parameter pairs:`, paramPairs)
+    
+    const queryString = paramPairs.join('&')
+    console.log(`[Server Cloudinary] Query string:`, queryString)
+    
+    const signatureString = queryString + process.env.CLOUDINARY_API_SECRET
+    console.log(`[Server Cloudinary] Full signature string (with secret):`, signatureString)
     
     const signature = crypto
       .createHash('sha1')
@@ -37,19 +43,20 @@ export async function POST(request: NextRequest) {
       .digest('hex')
     
     console.log(`[Server Cloudinary] Generated signature:`, signature)
+    console.log(`[Server Cloudinary] Expected by Cloudinary: format=mp4&public_id=merged-video&timestamp=${timestamp}`)
     
-    // 构建请求体（使用 concat 命令）
-    const requestBody = {
+    // 构建请求体（使用表单格式）
+    const formData = new URLSearchParams({
       command: 'concat',
       public_ids: publicIds,
       public_id: 'merged-video',
       format: 'mp4',
-      timestamp: timestamp,
+      timestamp: timestamp.toString(),
       signature: signature,
-      api_key: process.env.CLOUDINARY_API_KEY
-    }
+      api_key: process.env.CLOUDINARY_API_KEY!
+    })
     
-    console.log(`[Server Cloudinary] Request body:`, requestBody)
+    console.log(`[Server Cloudinary] Request body:`, formData.toString())
     
     // 使用 Cloudinary Upload API 的 concat 命令
     const response = await fetch(
@@ -57,9 +64,9 @@ export async function POST(request: NextRequest) {
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: JSON.stringify(requestBody)
+        body: formData
       }
     )
     
