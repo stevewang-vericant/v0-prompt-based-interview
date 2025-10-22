@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
       public_id: 'merged-video',
       format: 'mp4',
       public_ids: publicIds,
-      transformation: 'splice',
       timestamp: timestamp
     }
     
@@ -45,7 +44,6 @@ export async function POST(request: NextRequest) {
       public_ids: publicIds,
       public_id: 'merged-video',
       format: 'mp4',
-      transformation: 'splice',
       timestamp: timestamp,
       signature: signature,
       api_key: process.env.CLOUDINARY_API_KEY
