@@ -14,10 +14,12 @@ export async function POST(request: NextRequest) {
     // 使用 public_ids 参数（Cloudinary 标准）
     const publicIds = segmentIds.join(',')
     
-    // 包含需要签名的参数（排除 public_ids, api_key, cloud_name, resource_type）
+    // 包含需要签名的参数（使用 concat 命令）
     const signatureParams = {
+      command: 'concat',
       public_id: 'merged-video',
       format: 'mp4',
+      public_ids: publicIds,
       transformation: 'splice',
       timestamp: timestamp
     }
@@ -37,8 +39,9 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Generated signature:`, signature)
     
-    // 构建请求体（使用 public_ids 参数）
+    // 构建请求体（使用 concat 命令）
     const requestBody = {
+      command: 'concat',
       public_ids: publicIds,
       public_id: 'merged-video',
       format: 'mp4',
@@ -50,9 +53,9 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Request body:`, requestBody)
     
-    // 使用 Cloudinary 的拼接功能
+    // 使用 Cloudinary Upload API 的 concat 命令
     const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/video/multi`,
+      `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/video/upload`,
       {
         method: 'POST',
         headers: {
