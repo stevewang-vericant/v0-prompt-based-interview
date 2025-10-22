@@ -13,7 +13,8 @@ import {
   uploadVideoSegmentClient,
   mergeVideoSegmentsClient,
   cleanupTempFilesClient,
-  saveInterviewClient
+  saveInterviewClient,
+  uploadMergedVideoToB2
 } from '@/lib/client-cloudinary'
 import { startTranscription } from '@/app/actions/transcription'
 import { getVideoDuration } from '@/lib/video-utils'
@@ -192,8 +193,20 @@ function InterviewPageContent() {
       
       console.log("[v0] ✓ Videos merged in Cloudinary:", mergeResult.public_id)
       
-      // 使用合并后的视频URL
-      const videoUrl = mergeResult.secure_url
+      // 将 Cloudinary 合并后的视频上传到 B2
+      setUploadStatus("Uploading merged video to B2...")
+      setUploadProgress(85)
+      console.log("[v0] Uploading merged video to B2...")
+      
+      const b2VideoResult = await uploadMergedVideoToB2(mergeResult.secure_url, interviewId)
+      if (!b2VideoResult.success) {
+        throw new Error(`B2 upload failed: ${b2VideoResult.error}`)
+      }
+      
+      console.log("[v0] ✓ Merged video uploaded to B2:", b2VideoResult.url)
+      
+      // 使用 B2 的视频 URL
+      const videoUrl = b2VideoResult.url
       
       // 生成字幕元数据（基于合并后的视频）
       setUploadStatus("Creating subtitle metadata...")

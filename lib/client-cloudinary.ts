@@ -195,3 +195,49 @@ export async function saveInterviewClient(data: {
     }
   }
 }
+
+/**
+ * 将 Cloudinary 合并后的视频上传到 B2
+ */
+export async function uploadMergedVideoToB2(
+  cloudinaryUrl: string,
+  interviewId: string
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    console.log(`[Client B2] Uploading merged video from Cloudinary to B2...`)
+    console.log(`[Client B2] Cloudinary URL:`, cloudinaryUrl)
+    console.log(`[Client B2] Interview ID:`, interviewId)
+
+    // 通过服务端 API 上传到 B2
+    const response = await fetch('/api/upload-merged-video', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        cloudinaryUrl,
+        interviewId
+      })
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`B2 upload failed: ${response.status} ${errorText}`)
+    }
+
+    const result = await response.json()
+    console.log(`[Client B2] ✓ Merged video uploaded to B2:`, result.url)
+
+    return {
+      success: true,
+      url: result.url
+    }
+
+  } catch (error) {
+    console.error(`[Client B2] ✗ Failed to upload merged video:`, error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}

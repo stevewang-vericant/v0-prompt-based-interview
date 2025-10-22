@@ -88,7 +88,8 @@ export async function createTranscriptionJob(
       .insert({
         interview_id: interviewUuid,
         job_id: jobId,
-        status: 'pending'
+        status: 'pending',
+        video_url: videoUrl
       })
       .select()
       .single()
