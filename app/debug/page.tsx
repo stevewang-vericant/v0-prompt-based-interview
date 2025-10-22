@@ -33,8 +33,8 @@ export default function DebugPage() {
       const testData = {
         interviewId: 'test-interview-123',
         segments: [
-          { url: 'https://example.com/video1.mp4', duration: 5 },
-          { url: 'https://example.com/video2.mp4', duration: 5 }
+          { url: 'https://f001.backblazeb2.com/file/v0-interview-videos/test-video1.mp4', duration: 5 },
+          { url: 'https://f001.backblazeb2.com/file/v0-interview-videos/test-video2.mp4', duration: 5 }
         ]
       }
       

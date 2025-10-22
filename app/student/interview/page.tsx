@@ -194,7 +194,7 @@ function InterviewPageContent() {
         }))
       })
       
-      const mergeResult = await fetch('/api/merge-videos', {
+      const mergeResult = await fetch('/api/merge-videos-cloudinary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
