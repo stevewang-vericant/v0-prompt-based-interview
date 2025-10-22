@@ -34,14 +34,13 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Generated signature:`, signature)
     
-    // 构建请求体（包含所有参数）
+    // 构建请求体（使用 urls 参数而不是 public_ids）
+    const urls = segmentIds.map(id => `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/video/upload/${id}.mp4`)
+    
     const requestBody = {
-      public_ids: segmentIds.join(','),
-      folder: `merged-interviews/${interviewId}`,
+      urls: urls,
       public_id: 'merged-video',
       format: 'mp4',
-      quality: 'auto',
-      fetch_format: 'auto',
       transformation: 'splice',
       timestamp: timestamp,
       signature: signature,
