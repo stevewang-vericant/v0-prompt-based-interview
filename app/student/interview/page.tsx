@@ -193,21 +193,21 @@ function InterviewPageContent() {
       // 使用Cloudinary返回的实际时长
       const actualTotalDuration = mergeResult.duration || totalDuration
       
+      // 重新计算时间轴：将总时长平均分配给所有问题
+      const questionCount = uploadedSegments.length
+      const timePerQuestion = actualTotalDuration / questionCount
+      
       const subtitleMetadata = {
         interviewId,
         totalDuration: actualTotalDuration,
-        questions: uploadedSegments.map(seg => ({
+        questions: uploadedSegments.map((seg, index) => ({
           id: seg.promptId,
-          questionNumber: seg.sequenceNumber, // 修复：使用 questionNumber 而不是 sequenceNumber
+          questionNumber: seg.sequenceNumber,
           text: seg.questionText,
           category: seg.category,
-          startTime: uploadedSegments
-            .slice(0, seg.sequenceNumber - 1)
-            .reduce((acc, s) => acc + s.duration, 0),
-          endTime: uploadedSegments
-            .slice(0, seg.sequenceNumber)
-            .reduce((acc, s) => acc + s.duration, 0),
-          duration: seg.duration
+          startTime: index * timePerQuestion,
+          endTime: (index + 1) * timePerQuestion,
+          duration: timePerQuestion
         })),
         createdAt: new Date().toISOString(),
         version: "1.0"

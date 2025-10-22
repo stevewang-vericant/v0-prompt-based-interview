@@ -125,20 +125,16 @@ export async function cleanupTempFilesClient(interviewId: string): Promise<void>
   try {
     console.log(`[Client Cloudinary] Cleaning up temp files for interview ${interviewId}`)
     
-    // 删除临时文件夹中的所有文件
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/resources/image/delete_by_prefix`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prefix: `temp-interviews/${interviewId}/`,
-          resource_type: 'video'
-        })
-      }
-    )
+    // 通过服务端API清理，避免CORS问题
+    const response = await fetch('/api/cleanup-cloudinary', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        interviewId
+      })
+    })
     
     if (!response.ok) {
       const errorText = await response.text()
@@ -147,7 +143,11 @@ export async function cleanupTempFilesClient(interviewId: string): Promise<void>
     }
     
     const result = await response.json()
-    console.log(`[Client Cloudinary] ✓ Cleaned up temp files:`, result.deleted)
+    if (result.success) {
+      console.log(`[Client Cloudinary] ✓ Cleaned up temp files:`, result.deleted)
+    } else {
+      console.warn(`[Client Cloudinary] Cleanup warning:`, result.error)
+    }
   } catch (error) {
     console.error(`[Client Cloudinary] ✗ Failed to cleanup temp files:`, error)
     // 不抛出错误，因为清理失败不应该影响主流程
