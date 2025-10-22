@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,29 +8,48 @@ export async function POST(request: NextRequest) {
     console.log(`[Server Cloudinary] Merging ${segmentIds.length} segments for interview ${interviewId}`)
     console.log(`[Server Cloudinary] Segment IDs:`, segmentIds)
     
+    // 生成 Cloudinary 签名
+    const timestamp = Math.round(new Date().getTime() / 1000)
+    const params = {
+      public_ids: segmentIds.join(','),
+      folder: `merged-interviews/${interviewId}`,
+      public_id: 'merged-video',
+      format: 'mp4',
+      quality: 'auto',
+      fetch_format: 'auto',
+      transformation: 'splice',
+      timestamp: timestamp
+    }
+    
+    // 创建签名字符串
+    const signatureString = Object.keys(params)
+      .sort()
+      .map(key => `${key}=${params[key as keyof typeof params]}`)
+      .join('&') + process.env.CLOUDINARY_API_SECRET
+    
+    const signature = crypto
+      .createHash('sha1')
+      .update(signatureString)
+      .digest('hex')
+    
+    // 构建请求体
+    const requestBody = {
+      ...params,
+      signature: signature,
+      api_key: process.env.CLOUDINARY_API_KEY
+    }
+    
+    console.log(`[Server Cloudinary] Request body:`, requestBody)
+    
     // 使用 Cloudinary 的拼接功能
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/video/multi`,
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${Buffer.from(`${process.env.CLOUDINARY_API_KEY}:${process.env.CLOUDINARY_API_SECRET}`).toString('base64')}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          public_ids: segmentIds,
-          folder: `merged-interviews/${interviewId}`,
-          public_id: 'merged-video',
-          format: 'mp4',
-          quality: 'auto',
-          fetch_format: 'auto',
-          transformation: [
-            {
-              flags: 'splice',
-              format: 'mp4'
-            }
-          ]
-        })
+        body: JSON.stringify(requestBody)
       }
     )
     
