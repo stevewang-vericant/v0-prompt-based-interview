@@ -41,8 +41,9 @@ export async function POST(request: NextRequest) {
     console.log(`[Server Cloudinary] Transformation string:`, transformationString)
     
     // 使用 Cloudinary SDK 进行视频拼接
+    // 直接使用 public_id 作为文件路径，SDK 会自动处理
     const result = await cloudinary.uploader.upload(
-      `cld://${baseVideoId}`, // 使用 cld:// 前缀引用现有 Cloudinary 资源
+      baseVideoId, // 直接使用 public_id
       {
         resource_type: 'video',
         public_id: `merged-interviews/${interviewId}/merged-video`,
