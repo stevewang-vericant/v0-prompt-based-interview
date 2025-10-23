@@ -10,10 +10,11 @@ import {
   getInterviews, 
   getInterviewsBySchoolCode,
   getSchoolByAdminEmail,
+  bulkDeleteInterviews,
   InterviewRecord 
 } from "@/app/actions/interviews"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
-import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut } from "lucide-react"
+import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut, Trash2, X } from "lucide-react"
 import { format } from "date-fns"
 
 function SchoolDashboardContent() {
@@ -33,6 +34,11 @@ function SchoolDashboardContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [linkCopied, setLinkCopied] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  
+  // Bulk selection state
+  const [selectedInterviews, setSelectedInterviews] = useState<Set<string>>(new Set())
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const loadUserAndSchool = async () => {
     try {
@@ -117,6 +123,50 @@ function SchoolDashboardContent() {
     if (loggingOut) return
     setLoggingOut(true)
     await signOut()
+  }
+
+  // Bulk selection handlers
+  const handleSelectInterview = (interviewId: string) => {
+    const newSelected = new Set(selectedInterviews)
+    if (newSelected.has(interviewId)) {
+      newSelected.delete(interviewId)
+    } else {
+      newSelected.add(interviewId)
+    }
+    setSelectedInterviews(newSelected)
+  }
+
+  const handleSelectAll = () => {
+    if (selectedInterviews.size === filteredInterviews.length) {
+      setSelectedInterviews(new Set())
+    } else {
+      setSelectedInterviews(new Set(filteredInterviews.map(i => i.id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedInterviews.size === 0) return
+    
+    setIsDeleting(true)
+    try {
+      const result = await bulkDeleteInterviews(Array.from(selectedInterviews))
+      
+      if (result.success) {
+        // Remove deleted interviews from state
+        setInterviews(prev => prev.filter(i => !selectedInterviews.has(i.id)))
+        setSelectedInterviews(new Set())
+        setShowDeleteConfirm(false)
+        console.log(`Successfully deleted ${result.deletedCount} interviews`)
+      } else {
+        console.error("Bulk delete failed:", result.error)
+        setError(result.error || "Failed to delete interviews")
+      }
+    } catch (error) {
+      console.error("Bulk delete error:", error)
+      setError("Failed to delete interviews")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const handleWatchInterview = (interview: InterviewRecord) => {
@@ -413,6 +463,37 @@ function SchoolDashboardContent() {
                 )}
               </div>
             </div>
+            
+            {/* Super Admin Bulk Actions */}
+            {schoolInfo?.is_super_admin && filteredInterviews.length > 0 && (
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedInterviews.size === filteredInterviews.length && filteredInterviews.length > 0}
+                      onChange={handleSelectAll}
+                      className="rounded border-slate-300"
+                    />
+                    <span className="text-sm text-slate-600">
+                      Select All ({selectedInterviews.size} selected)
+                    </span>
+                  </label>
+                  
+                  {selectedInterviews.size > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Selected ({selectedInterviews.size})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -465,6 +546,18 @@ function SchoolDashboardContent() {
                     key={interview.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
                   >
+                    {/* Selection checkbox for super admins */}
+                    {schoolInfo?.is_super_admin && (
+                      <div className="flex items-center mr-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedInterviews.has(interview.id)}
+                          onChange={() => handleSelectInterview(interview.id)}
+                          className="rounded border-slate-300"
+                        />
+                      </div>
+                    )}
+                    
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="flex items-center gap-2">
@@ -528,6 +621,58 @@ function SchoolDashboardContent() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Delete Interviews</h3>
+                <p className="text-sm text-slate-600">
+                  Are you sure you want to delete {selectedInterviews.size} interview{selectedInterviews.size !== 1 ? 's' : ''}?
+                </p>
+              </div>
+            </div>
+            
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> This action cannot be undone. The selected interviews and all associated data will be permanently deleted.
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete {selectedInterviews.size} Interview{selectedInterviews.size !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
