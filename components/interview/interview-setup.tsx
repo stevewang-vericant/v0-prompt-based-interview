@@ -282,7 +282,7 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
             <div>
               <p className="font-medium">Record your response</p>
               <p className="text-sm text-muted-foreground">
-                You'll have 60-90 seconds to record your video response to each prompt
+                You'll have 60 seconds to record your video response to each prompt
               </p>
             </div>
           </div>

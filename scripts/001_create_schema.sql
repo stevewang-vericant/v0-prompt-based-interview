@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS prompts (
   category VARCHAR(100) NOT NULL, -- 'critical_thinking', 'conversational_fluency', 'general_knowledge'
   prompt_text TEXT NOT NULL,
   preparation_time INTEGER DEFAULT 30, -- seconds
-  response_time INTEGER DEFAULT 90, -- seconds
+  response_time INTEGER DEFAULT 60, -- seconds
   difficulty_level VARCHAR(50), -- 'easy', 'medium', 'hard'
   is_active BOOLEAN DEFAULT true,
   school_id UUID REFERENCES schools(id), -- NULL for standard prompts, school_id for custom prompts

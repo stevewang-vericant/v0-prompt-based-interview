@@ -1,7 +1,7 @@
 {
   "functions": {
     "app/**/*.{js,ts,tsx}": {
-      "maxDuration": 60
+      "maxDuration": 300
     }
   },
   "buildCommand": "npm run build",

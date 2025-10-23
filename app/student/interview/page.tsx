@@ -35,28 +35,28 @@ const mockPrompts: Prompt[] = [
     category: "Conversational Fluency",
     text: "Tell me about your favorite hobby and why you enjoy it.",
     preparationTime: 5, // TODO: 测试完成后改回 15
-    responseTime: 90,
+    responseTime: 60,
   },
   {
     id: "2",
     category: "Critical Thinking",
     text: "Describe a time when you had to solve a complex problem. What approach did you take and what was the outcome?",
     preparationTime: 5, // TODO: 测试完成后改回 15
-    responseTime: 90,
+    responseTime: 60,
   },
   {
     id: "3",
     category: "General Knowledge",
     text: "What do you think is the most important global challenge facing our generation?",
     preparationTime: 5, // TODO: 测试完成后改回 15
-    responseTime: 90,
+    responseTime: 60,
   },
   {
     id: "4",
     category: "Critical Thinking",
     text: "Describe a situation where you had to work with someone whose perspective was very different from yours. How did you handle it?",
     preparationTime: 5, // TODO: 测试完成后改回 15
-    responseTime: 90,
+    responseTime: 60,
   },
 ]
 
@@ -162,7 +162,7 @@ function InterviewPageContent() {
         } catch (error) {
           console.warn(`[v0] Failed to get duration for segment ${i + 1}, using fallback:`, error)
           // 如果获取时长失败，使用基于文件大小的粗略估算
-          actualDuration = Math.max(10, Math.min(120, Math.round(blob.size / 20000)))
+          actualDuration = Math.max(10, Math.min(60, Math.round(blob.size / 20000)))
         }
         
         uploadedSegments.push({
@@ -206,7 +206,7 @@ function InterviewPageContent() {
       console.log("[v0] ✓ Merged video uploaded to B2:", b2VideoResult.url)
       
       // 使用 B2 的视频 URL
-      const videoUrl = b2VideoResult.url
+      const videoUrl = b2VideoResult.url!
       
       // 生成字幕元数据（基于合并后的视频）
       setUploadStatus("Creating subtitle metadata...")
@@ -267,7 +267,7 @@ function InterviewPageContent() {
           student_email: studentEmail,
           student_name: studentName,
           video_url: videoUrl,
-          subtitle_url: subtitleResult.url,
+          subtitle_url: subtitleResult.url!,
           total_duration: actualTotalDuration,
           school_code: schoolCode || undefined,
           metadata: {
@@ -404,7 +404,7 @@ function InterviewPageContent() {
         }
         
         // 计算实际录制时长（从 blob 大小估算，或使用默认值）
-        const actualDuration = Math.max(30, Math.min(90, Math.round(blob.size / 20000))) // 粗略估算：20KB/秒
+        const actualDuration = Math.max(30, Math.min(60, Math.round(blob.size / 20000))) // 粗略估算：20KB/秒
         
         uploadedSegments.push({
           promptId: prompt.id,
