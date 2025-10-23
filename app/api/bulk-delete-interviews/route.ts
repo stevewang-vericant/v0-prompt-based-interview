@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/app/actions/auth'
 
 export async function POST(request: NextRequest) {
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
     
     // Get interview details before deletion for logging
     const { data: interviewsToDelete, error: fetchError } = await supabase
@@ -59,11 +61,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Delete the interviews
-    const { error: deleteError } = await supabase
+    // Delete the interviews using admin client (bypasses RLS)
+    console.log('[Bulk Delete] Attempting to delete interviews with IDs:', interviewIds)
+    
+    const { data: deleteData, error: deleteError } = await adminSupabase
       .from('interviews')
       .delete()
       .in('id', interviewIds)
+      .select('id, interview_id, student_email')
     
     if (deleteError) {
       console.error('[Bulk Delete] Error deleting interviews:', deleteError)
@@ -71,6 +76,23 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Failed to delete interviews' },
         { status: 500 }
       )
+    }
+    
+    console.log('[Bulk Delete] Successfully deleted interviews:', deleteData)
+
+    // Verify deletion by checking if interviews still exist
+    const { data: verifyData, error: verifyError } = await adminSupabase
+      .from('interviews')
+      .select('id')
+      .in('id', interviewIds)
+    
+    if (verifyError) {
+      console.error('[Bulk Delete] Error verifying deletion:', verifyError)
+    } else {
+      console.log('[Bulk Delete] Verification - remaining interviews with deleted IDs:', verifyData)
+      if (verifyData && verifyData.length > 0) {
+        console.warn('[Bulk Delete] WARNING: Some interviews were not deleted!', verifyData)
+      }
     }
 
     // Log the deletion for audit purposes

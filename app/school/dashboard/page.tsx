@@ -10,7 +10,6 @@ import {
   getInterviews, 
   getInterviewsBySchoolCode,
   getSchoolByAdminEmail,
-  bulkDeleteInterviews,
   InterviewRecord 
 } from "@/app/actions/interviews"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
@@ -149,7 +148,23 @@ function SchoolDashboardContent() {
     
     setIsDeleting(true)
     try {
-      const result = await bulkDeleteInterviews(Array.from(selectedInterviews))
+      console.log("[Bulk Delete] Deleting interviews:", Array.from(selectedInterviews))
+      
+      const response = await fetch('/api/bulk-delete-interviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ interviewIds: Array.from(selectedInterviews) }),
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        console.error("[Bulk Delete] API error:", result)
+        setError(result.error || "Failed to delete interviews")
+        return
+      }
       
       if (result.success) {
         // Remove deleted interviews from state
