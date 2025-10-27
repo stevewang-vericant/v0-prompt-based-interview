@@ -20,6 +20,20 @@ const nextConfig = {
     return [
       {
         // 播放页面不需要严格的 COEP，允许加载外部视频
+        source: '/school/watch',
+        headers: [
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'unsafe-none',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+        ],
+      },
+      {
+        // 学生观看页面也不需要严格的 COEP
         source: '/student/watch',
         headers: [
           {

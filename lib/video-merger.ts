@@ -442,6 +442,8 @@ export async function mergeVideos(
       '-c:v', 'libx264',      // 使用 H.264 视频编码
       '-preset', 'fast',      // 快速编码预设
       '-crf', '23',           // 质量控制
+      '-profile:v', 'baseline', // 使用 baseline profile
+      '-level', '4.1',        // iOS 兼容级别（最高支持到 5.2，使用 4.1 更安全）
       '-c:a', 'aac',          // 使用 AAC 音频编码
       '-b:a', '128k',         // 音频比特率
       '-movflags', '+faststart', // 优化 Web 播放
@@ -510,6 +512,8 @@ async function convertToMP4(videoBlob: Blob, onProgress?: (progress: number) => 
       '-c:v', 'libx264',
       '-preset', 'fast',
       '-crf', '23',
+      '-profile:v', 'baseline', // 使用 baseline profile
+      '-level', '4.1',          // iOS 兼容级别（最高支持到 5.2，使用 4.1 更安全）
       '-c:a', 'aac',
       '-b:a', '128k',
       '-movflags', '+faststart',
