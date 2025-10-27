@@ -60,8 +60,8 @@ export function InterviewComplete({
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-green-900">Interview Complete!</h2>
-              <p className="text-green-700">You've successfully recorded all {responsesCount} responses</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-green-900">Interview Complete!</h2>
+              <p className="text-sm sm:text-base text-green-700">You've successfully recorded all {responsesCount} responses</p>
             </div>
           </div>
         </CardContent>
@@ -73,37 +73,37 @@ export function InterviewComplete({
           <CardDescription>Your interview will be reviewed and scored</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <Clock className="h-5 w-5 text-blue-600" />
+          <div className="flex gap-3 sm:gap-4">
+            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
             </div>
-            <div>
-              <p className="font-medium">Verification Process</p>
-              <p className="text-sm text-muted-foreground">
+            <div className="min-w-0">
+              <p className="font-medium text-sm sm:text-base">Verification Process</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Your identity and responses will be verified by our operations team to ensure authenticity
               </p>
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <Award className="h-5 w-5 text-blue-600" />
+          <div className="flex gap-3 sm:gap-4">
+            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <Award className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
             </div>
-            <div>
-              <p className="font-medium">AI + Human Scoring</p>
-              <p className="text-sm text-muted-foreground">
+            <div className="min-w-0">
+              <p className="font-medium text-sm sm:text-base">AI + Human Scoring</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Your responses will be evaluated for fluency, coherence, vocabulary, grammar, and pronunciation
               </p>
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5 text-blue-600" />
+          <div className="flex gap-3 sm:gap-4">
+            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
             </div>
-            <div>
-              <p className="font-medium">Results Delivery</p>
-              <p className="text-sm text-muted-foreground">
+            <div className="min-w-0">
+              <p className="font-medium text-sm sm:text-base">Results Delivery</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Your scores will be delivered to your school within 48 hours. You'll receive an email notification when
                 complete.
               </p>

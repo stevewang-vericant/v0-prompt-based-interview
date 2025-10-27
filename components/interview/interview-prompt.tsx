@@ -237,9 +237,9 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       {/* Main Content */}
       <Card>
         <CardHeader>
-          {stage !== "reading" && <CardTitle className="text-2xl text-balance">{prompt.text}</CardTitle>}
+          {stage !== "reading" && <CardTitle className="text-xl sm:text-2xl text-balance">{prompt.text}</CardTitle>}
           {stage === "reading" && (
-            <CardDescription>Read the prompt carefully and click "Start Preparation" when ready</CardDescription>
+            <CardDescription className="text-sm sm:text-base">Read the prompt carefully and click "Start Preparation" when ready</CardDescription>
           )}
         </CardHeader>
         <CardContent className="space-y-6">
@@ -270,12 +270,12 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
                   <li>You'll have {prompt.responseTime} seconds to respond</li>
                 </ul>
               </div>
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-blue-100 mb-4">
-                  <span className="text-5xl font-bold text-blue-600">{timeRemaining}</span>
+              <div className="text-center py-6 sm:py-8">
+                <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-blue-100 mb-4">
+                  <span className="text-4xl sm:text-5xl font-bold text-blue-600">{timeRemaining}</span>
                 </div>
-                <p className="text-xl font-medium">Preparation Time</p>
-                <p className="text-sm text-muted-foreground">Get ready to record your response</p>
+                <p className="text-lg sm:text-xl font-medium">Preparation Time</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Get ready to record your response</p>
               </div>
               <Progress value={getProgressPercentage()} className="h-2" />
             </div>
@@ -285,13 +285,13 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
           {stage === "recording" && (
             <div className="space-y-4">
               <div className="relative rounded-lg overflow-hidden border-2 border-red-500 bg-slate-900">
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto min-h-[400px] bg-slate-900" />
-                <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded-full">
-                  <Circle className="h-3 w-3 fill-current animate-pulse" />
-                  <span className="text-sm font-medium">Recording</span>
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto min-h-[250px] sm:min-h-[400px] bg-slate-900" />
+                <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex items-center gap-1 sm:gap-2 bg-red-600 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                  <Circle className="h-2 w-2 sm:h-3 sm:w-3 fill-current animate-pulse" />
+                  <span className="font-medium">Recording</span>
                 </div>
-                <div className="absolute top-4 right-4 bg-black/75 text-white px-4 py-2 rounded-full">
-                  <span className="text-2xl font-bold">{formatTime(timeRemaining)}</span>
+                <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black/75 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full">
+                  <span className="text-lg sm:text-2xl font-bold">{formatTime(timeRemaining)}</span>
                 </div>
               </div>
               <Progress value={getProgressPercentage()} className="h-2" />
