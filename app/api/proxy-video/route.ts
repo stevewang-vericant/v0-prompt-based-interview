@@ -12,18 +12,22 @@ export async function GET(request: NextRequest) {
 
   try {
     console.log('[Proxy] Fetching video from:', url)
+    console.log('[Proxy] Request headers:', Object.fromEntries(request.headers.entries()))
     
-    const range = request.headers.get('range') || undefined
+    const range = request.headers.get('range')
+    const headers: HeadersInit = {}
+    
+    if (range) {
+      headers['Range'] = range
+    }
+    
     const response = await fetch(url, { 
-      headers: { ...(range ? { Range: range } : {}) },
-      // 增加超时时间
-      signal: AbortSignal.timeout(60000), // 60 seconds
+      headers,
+      signal: AbortSignal.timeout(60000),
     })
 
-    if (!response.ok) {
-      console.error('[Proxy] Fetch failed with status:', response.status)
-      throw new Error(`Failed to fetch: ${response.status}`)
-    }
+    console.log('[Proxy] Response status:', response.status)
+    console.log('[Proxy] Response headers:', Object.fromEntries(response.headers.entries()))
 
     const data = await response.arrayBuffer()
     console.log('[Proxy] Fetched video data, size:', data.byteLength, 'bytes')
@@ -31,11 +35,11 @@ export async function GET(request: NextRequest) {
     return new NextResponse(data, {
       status: response.status,
       headers: {
-        'Content-Type': response.headers.get('content-type') || 'video/webm',
+        'Content-Type': response.headers.get('content-type') || 'video/mp4',
         'Content-Length': response.headers.get('content-length') || '',
         'Accept-Ranges': 'bytes',
         ...(response.headers.get('content-range') ? { 'Content-Range': response.headers.get('content-range')! } : {}),
-        'Cache-Control': response.headers.get('cache-control') || 'no-store',
+        'Cache-Control': 'public, max-age=3600',
       },
     })
   } catch (error) {
