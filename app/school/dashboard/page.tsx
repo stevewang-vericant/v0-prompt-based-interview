@@ -321,20 +321,18 @@ function SchoolDashboardContent() {
                 disabled={isRefreshing}
                 variant="outline"
                 size="sm"
-                className="flex-1 sm:flex-none"
               >
-                <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 sm:mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
               </Button>
               <Button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="flex-1 sm:flex-none"
               >
-                <LogOut className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                <span className="hidden sm:inline">{loggingOut ? "Logging out..." : "Logout"}</span>
+                <LogOut className="h-4 w-4 mr-2" />
+                {loggingOut ? "Logging out..." : "Logout"}
               </Button>
             </div>
           </div>
@@ -354,7 +352,7 @@ function SchoolDashboardContent() {
           </Alert>
         ) : (
           <Card className="mb-6 bg-blue-50 border-blue-200">
-            <CardHeader>
+            <CardHeader className="space-y-2">
               <div className="flex items-center gap-2">
                 <LinkIcon className="h-5 w-5 text-blue-600" />
                 <CardTitle className="text-blue-900 text-sm sm:text-base">Student Interview Link</CardTitle>
@@ -430,7 +428,7 @@ function SchoolDashboardContent() {
 
         {/* Interview List */}
         <Card>
-          <CardHeader>
+          <CardHeader className="space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <CardTitle>Recent Interviews</CardTitle>
