@@ -11,43 +11,60 @@ export default function TestFFmpegPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [level, setLevel] = useState<number | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(null)
 
   // 录制视频
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: 1280, height: 720 },
         audio: true,
       })
+      
+      setStream(mediaStream)
+      setIsRecording(true)
 
-      const mediaRecorder = new MediaRecorder(stream, {
+      const mediaRecorder = new MediaRecorder(mediaStream, {
         mimeType: 'video/webm',
         videoBitsPerSecond: 2500000,
       })
 
       const chunks: Blob[] = []
+      let countdownValue = 5
 
       mediaRecorder.ondataavailable = (e) => {
-        chunks.push(e.data)
+        if (e.data.size > 0) {
+          chunks.push(e.data)
+        }
       }
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' })
         setVideoBlob(blob)
+        setIsRecording(false)
+        setCountdown(null)
+        // 停止所有 tracks
+        mediaStream.getTracks().forEach((track) => track.stop())
+        setStream(null)
       }
 
-      mediaRecorder.start()
-      stream.getTracks().forEach((track) => track.stop())
+      mediaRecorder.start(1000) // 每 1 秒触发一次 dataavailable
 
-      // 5 秒后停止录制
-      setTimeout(() => {
-        mediaRecorder.stop()
-      }, 5000)
-
-      alert('Recording started! It will stop in 5 seconds.')
+      // 倒计时显示
+      const countdownInterval = setInterval(() => {
+        countdownValue--
+        setCountdown(countdownValue)
+        if (countdownValue <= 0) {
+          clearInterval(countdownInterval)
+          mediaRecorder.stop()
+        }
+      }, 1000)
     } catch (err) {
       console.error('Error recording:', err)
       setError(err instanceof Error ? err.message : 'Failed to record')
+      setIsRecording(false)
     }
   }
 
@@ -59,10 +76,8 @@ export default function TestFFmpegPage() {
     setError(null)
 
     try {
-      const { load } = await import('@ffmpeg/ffmpeg')
-      const { toBlobURL } = await import('@ffmpeg/util')
-      const { fetchFile } = await import('@ffmpeg/util')
       const { FFmpeg } = await import('@ffmpeg/ffmpeg')
+      const { toBlobURL, fetchFile } = await import('@ffmpeg/util')
 
       const ffmpeg = new FFmpeg()
       const CORE_VERSION = '0.12.6'
@@ -88,25 +103,32 @@ export default function TestFFmpegPage() {
       const command = [
         '-i', 'input.webm',
         '-c:v', 'libx264',
-        '-preset', 'slow',
+        '-preset', 'medium',
         '-crf', '23',
         '-profile:v', 'high',
         '-level', '41',          // Level 4.1
         '-pix_fmt', 'yuv420p',
+        '-vsync', 'cfr',         // 使用恒定帧率，解决 duplicate frames 问题
+        '-r', '30',             // 强制帧率为 30fps
         '-c:a', 'aac',
         '-b:a', '128k',
-        '-maxrate', '2M',
-        '-bufsize', '4M',
         '-movflags', '+faststart',
         'output.mp4'
       ]
 
       console.log('Executing command:', command.join(' '))
+      
+      // 监听进度
+      ffmpeg.on('log', ({ type, message }) => {
+        console.log(`[FFmpeg ${type}]:`, message)
+      })
+      
       await ffmpeg.exec(command)
       console.log('Conversion complete')
 
       // 读取输出
       const data = await ffmpeg.readFile('output.mp4')
+      // @ts-ignore - FFmpeg FileData type compatibility
       const blob = new Blob([data], { type: 'video/mp4' })
       setConvertedBlob(blob)
 
@@ -161,8 +183,8 @@ export default function TestFFmpegPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-x-2">
-            <Button onClick={startRecording} disabled={loading || !!videoBlob}>
-              Record Video (5s)
+            <Button onClick={startRecording} disabled={loading || !!videoBlob || isRecording}>
+              {isRecording ? `Recording... ${countdown}s` : 'Record Video (5s)'}
             </Button>
             {videoBlob && (
               <Button onClick={convertVideo} disabled={loading}>
@@ -177,6 +199,23 @@ export default function TestFFmpegPage() {
               </Button>
             )}
           </div>
+
+          {/* 录制预览 */}
+          {isRecording && stream && (
+            <div className="bg-black rounded-lg overflow-hidden max-w-2xl">
+              <video
+                ref={(video) => {
+                  if (video && stream) {
+                    video.srcObject = stream
+                    video.play()
+                  }
+                }}
+                autoPlay
+                muted
+                className="w-full h-auto"
+              />
+            </div>
+          )}
 
           {videoBlob && (
             <div>

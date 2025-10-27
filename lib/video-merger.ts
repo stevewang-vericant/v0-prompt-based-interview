@@ -439,17 +439,17 @@ export async function mergeVideos(
       '-f', 'concat',
       '-safe', '0',
       '-i', 'concat.txt',
-      '-c:v', 'libx264',      // 使用 H.264 视频编码
-      '-preset', 'slow',      // 使用 slow 预设确保质量
-      '-crf', '23',           // 质量控制
-      '-profile:v', 'high',    // 使用 high profile
-      '-level', '41',         // iOS 兼容级别（使用 41 而不是 4.1）
-      '-pix_fmt', 'yuv420p',  // YUV 420 格式，确保兼容性
-      '-c:a', 'aac',          // 使用 AAC 音频编码
-      '-b:a', '128k',         // 音频比特率
-      '-maxrate', '2M',       // 限制最大比特率（Level 4.1 限制）
-      '-bufsize', '4M',       // 缓冲区大小
-      '-movflags', '+faststart', // 优化 Web 播放
+      '-c:v', 'libx264',
+      '-preset', 'medium',     // 使用 medium 更快
+      '-crf', '23',
+      '-profile:v', 'high',
+      '-level', '41',         // iOS 兼容级别（使用 41）
+      '-pix_fmt', 'yuv420p',
+      '-vsync', 'cfr',        // 使用恒定帧率，解决 duplicate frames 问题
+      '-r', '30',            // 强制帧率为 30fps
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
       'output.mp4'
     ])
 
@@ -513,15 +513,15 @@ async function convertToMP4(videoBlob: Blob, onProgress?: (progress: number) => 
     await ffmpeg.exec([
       '-i', 'input.webm',
       '-c:v', 'libx264',
-      '-preset', 'slow',
+      '-preset', 'medium',
       '-crf', '23',
-      '-profile:v', 'high',     // 使用 high profile
-      '-level', '41',           // iOS 兼容级别（使用 41 而不是 4.1）
-      '-pix_fmt', 'yuv420p',    // YUV 420 格式，确保兼容性
+      '-profile:v', 'high',
+      '-level', '41',
+      '-pix_fmt', 'yuv420p',
+      '-vsync', 'cfr',         // 使用恒定帧率，解决 duplicate frames 问题
+      '-r', '30',             // 强制帧率为 30fps
       '-c:a', 'aac',
       '-b:a', '128k',
-      '-maxrate', '2M',         // 限制最大比特率（Level 4.1 限制）
-      '-bufsize', '4M',         // 缓冲区大小
       '-movflags', '+faststart',
       'output.mp4'
     ])
