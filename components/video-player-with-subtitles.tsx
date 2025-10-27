@@ -44,16 +44,6 @@ export function VideoPlayerWithSubtitles({
   const [error, setError] = useState<string | null>(null)
   const [videoReady, setVideoReady] = useState(false)
 
-  // 将 B2 URL 转换为代理 URL 以避免 COEP 限制
-  const getProxyVideoUrl = (url: string): string => {
-    // 如果已经是代理 URL，直接返回
-    if (url.includes('/api/proxy-video')) {
-      return url
-    }
-    // 如果是 B2 URL，通过代理访问
-    return `/api/proxy-video?url=${encodeURIComponent(url)}`
-  }
-
   // 检查视频是否已经准备好（处理缓存情况）
   useEffect(() => {
     const video = videoRef.current
@@ -233,7 +223,7 @@ export function VideoPlayerWithSubtitles({
           <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
             <video
               ref={videoRef}
-              src={getProxyVideoUrl(videoUrl)}
+              src={videoUrl}
               className="w-full h-full cursor-pointer"
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
