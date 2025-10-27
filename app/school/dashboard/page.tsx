@@ -289,50 +289,52 @@ function SchoolDashboardContent() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-slate-900">School Dashboard</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <h1 className="text-xl sm:text-3xl font-bold text-slate-900">School Dashboard</h1>
                 {schoolInfo?.is_super_admin && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                  <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full whitespace-nowrap">
                     <Shield className="h-3 w-3" />
                     Super Admin
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-4 text-sm text-slate-600">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-2 text-xs sm:text-sm text-slate-600">
                 {schoolInfo && (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <Building2 className="h-4 w-4" />
-                      <span>{schoolInfo.name}</span>
-                    </div>
-                    {currentUser && (
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-4 w-4" />
-                        <span>{currentUser.email}</span>
-                      </div>
-                    )}
-                  </>
+                  <div className="flex items-center gap-1 truncate">
+                    <Building2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="truncate">{schoolInfo.name}</span>
+                  </div>
+                )}
+                {currentUser && (
+                  <div className="flex items-center gap-1 truncate">
+                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="truncate">{currentUser.email}</span>
+                  </div>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh
+                <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 sm:mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
               <Button
                 onClick={handleLogout}
                 disabled={loggingOut}
                 variant="ghost"
+                size="sm"
+                className="flex-1 sm:flex-none"
               >
-                <LogOut className="h-4 w-4 mr-2" />
-                {loggingOut ? "Logging out..." : "Logout"}
+                <LogOut className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{loggingOut ? "Logging out..." : "Logout"}</span>
               </Button>
             </div>
           </div>
@@ -355,64 +357,53 @@ function SchoolDashboardContent() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <LinkIcon className="h-5 w-5 text-blue-600" />
-                <CardTitle className="text-blue-900">Student Interview Link</CardTitle>
+                <CardTitle className="text-blue-900 text-sm sm:text-base">Student Interview Link</CardTitle>
               </div>
-              <CardDescription className="text-blue-700">
-                Share this link with students to start their video interview for <strong>{schoolInfo?.name}</strong>
+              <CardDescription className="text-blue-700 text-xs sm:text-sm">
+                <strong>{schoolInfo?.name}</strong> students can start their video interview at: {" "}
+                <button
+                  onClick={handleCopyLink}
+                  className="underline text-blue-800 hover:text-blue-900 font-medium"
+                >
+                  {typeof window !== 'undefined' && `${window.location.origin}/student/interview?school=${schoolInfo?.code}`}
+                </button>
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-white rounded-lg border border-blue-300 px-4 py-3 font-mono text-sm text-slate-700 overflow-x-auto">
-                  {typeof window !== 'undefined' && `${window.location.origin}/student/interview?school=${schoolInfo?.code}`}
-                </div>
+            <CardContent className="pt-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <Button
                   onClick={handleCopyLink}
                   variant={linkCopied ? "default" : "outline"}
-                  className={linkCopied ? "bg-green-600 hover:bg-green-700" : ""}
+                  className={`${linkCopied ? "bg-green-600 hover:bg-green-700" : ""} w-full sm:w-auto`}
                 >
                   {linkCopied ? (
                     <>
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Copied!
+                      Link Copied!
                     </>
                   ) : (
                     <>
                       <Copy className="h-4 w-4 mr-2" />
-                      Copy Link
+                      Copy Interview Link
                     </>
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-blue-600 mt-2">
-                Students can use this link to start their interview. No login required.
-              </p>
             </CardContent>
           </Card>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Interviews</CardTitle>
-              <Video className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{interviews.length}</div>
-              <p className="text-xs text-muted-foreground">
-                {schoolInfo?.is_super_admin ? 'All schools' : 'Your school only'}
-              </p>
+        {/* Stats Cards - Compressed for mobile */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+          <Card className="py-3">
+            <CardContent className="p-0 text-center">
+              <div className="text-lg sm:text-2xl font-bold">{interviews.length}</div>
+              <p className="text-xs text-muted-foreground">Total</p>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">This Week</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+          <Card className="py-3">
+            <CardContent className="p-0 text-center">
+              <div className="text-lg sm:text-2xl font-bold">
                 {interviews.filter(i => {
                   const interviewDate = new Date(i.created_at)
                   const weekAgo = new Date()
@@ -420,28 +411,19 @@ function SchoolDashboardContent() {
                   return interviewDate > weekAgo
                 }).length}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Last 7 days
-              </p>
+              <p className="text-xs text-muted-foreground">This Week</p>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Duration</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+          <Card className="py-3">
+            <CardContent className="p-0 text-center">
+              <div className="text-lg sm:text-2xl font-bold">
                 {interviews.length > 0
                   ? formatDuration(
                       interviews.reduce((sum, i) => sum + (i.total_duration || 0), 0) / interviews.length
                     )
                   : 'N/A'}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Average video length
-              </p>
+              <p className="text-xs text-muted-foreground">Avg Duration</p>
             </CardContent>
           </Card>
         </div>
@@ -449,15 +431,15 @@ function SchoolDashboardContent() {
         {/* Interview List */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <CardTitle>Recent Interviews</CardTitle>
                 <CardDescription>
                   View and review student interview assessments
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="relative w-64">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     type="text"
@@ -559,11 +541,11 @@ function SchoolDashboardContent() {
                   {filteredInterviews.map((interview) => (
                   <div
                     key={interview.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors"
                   >
                     {/* Selection checkbox for super admins */}
                     {schoolInfo?.is_super_admin && (
-                      <div className="flex items-center mr-4">
+                      <div className="flex items-center sm:mr-4">
                         <input
                           type="checkbox"
                           checked={selectedInterviews.has(interview.id)}
@@ -573,28 +555,29 @@ function SchoolDashboardContent() {
                       </div>
                     )}
                     
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-slate-400" />
-                          <div className="flex flex-col">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      {/* First row: Name and badges */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400 flex-shrink-0" />
+                          <div className="flex flex-col min-w-0">
                             {interview.student_name && (
-                              <span className="font-medium text-slate-900">
+                              <span className="font-medium text-slate-900 truncate text-sm sm:text-base">
                                 {interview.student_name}
                               </span>
                             )}
-                            <span className={interview.student_name ? "text-sm text-slate-600" : "font-medium text-slate-900"}>
+                            <span className={`${interview.student_name ? "text-xs sm:text-sm text-slate-600" : "text-sm sm:text-base font-medium text-slate-900"} truncate`}>
                               {interview.student_email || 'Unknown'}
                             </span>
                           </div>
                         </div>
                         {interview.school_code && (
-                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
                             {interview.school_code}
                           </span>
                         )}
                         {interview.status && (
-                          <span className={`px-2 py-1 text-xs rounded-full ${
+                          <span className={`px-2 py-0.5 text-xs rounded-full whitespace-nowrap ${
                             interview.status === 'completed' 
                               ? 'bg-green-100 text-green-800' 
                               : interview.status === 'reviewing'
@@ -605,18 +588,19 @@ function SchoolDashboardContent() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-slate-600">
+                      {/* Second row: Date, duration, ID */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-600">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {format(new Date(interview.created_at), 'MMM dd, yyyy HH:mm')}
+                          <span className="whitespace-nowrap">{format(new Date(interview.created_at), 'MMM dd, yyyy HH:mm')}</span>
                         </div>
                         {interview.total_duration && (
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {formatDuration(interview.total_duration)}
+                            <span>{formatDuration(interview.total_duration)}</span>
                           </div>
                         )}
-                        <div className="text-xs text-slate-500 font-mono">
+                        <div className="text-xs text-slate-500 font-mono truncate hidden sm:block">
                           ID: {interview.interview_id}
                         </div>
                       </div>
@@ -624,9 +608,10 @@ function SchoolDashboardContent() {
                     <Button
                       onClick={() => handleWatchInterview(interview)}
                       size="sm"
+                      className="w-full sm:w-auto shrink-0"
                     >
-                      <Video className="h-4 w-4 mr-2" />
-                      Watch
+                      <Video className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                      <span className="sm:inline">Watch</span>
                     </Button>
                   </div>
                 ))}
