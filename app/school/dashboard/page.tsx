@@ -358,16 +358,14 @@ function SchoolDashboardContent() {
                 <CardTitle className="text-blue-900 text-sm sm:text-base">Student Interview Link</CardTitle>
               </div>
               <CardDescription className="text-blue-700 text-xs sm:text-sm">
-                <strong>{schoolInfo?.name}</strong> students can start their video interview at: {" "}
-                <button
-                  onClick={handleCopyLink}
-                  className="underline text-blue-800 hover:text-blue-900 font-medium"
-                >
-                  {typeof window !== 'undefined' && `${window.location.origin}/student/interview?school=${schoolInfo?.code}`}
-                </button>
+                <strong>{schoolInfo?.name}</strong> students can start their video interview at:
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-4">
+            <CardContent className="space-y-4 pt-4">
+              {/* Link display - separate line for better visibility */}
+              <div className="bg-white rounded-lg border border-blue-300 px-4 py-3 font-mono text-xs sm:text-sm text-slate-700 break-all">
+                {typeof window !== 'undefined' && `${window.location.origin}/student/interview?school=${schoolInfo?.code}`}
+              </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <Button
                   onClick={handleCopyLink}
