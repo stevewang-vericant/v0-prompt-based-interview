@@ -14,13 +14,19 @@ export async function GET(request: NextRequest) {
     console.log('[Proxy] Fetching video from:', url)
     
     const range = request.headers.get('range') || undefined
-    const response = await fetch(url, { headers: { ...(range ? { Range: range } : {}) } })
+    const response = await fetch(url, { 
+      headers: { ...(range ? { Range: range } : {}) },
+      // 增加超时时间
+      signal: AbortSignal.timeout(60000), // 60 seconds
+    })
 
     if (!response.ok) {
+      console.error('[Proxy] Fetch failed with status:', response.status)
       throw new Error(`Failed to fetch: ${response.status}`)
     }
 
     const data = await response.arrayBuffer()
+    console.log('[Proxy] Fetched video data, size:', data.byteLength, 'bytes')
     
     return new NextResponse(data, {
       status: response.status,
@@ -33,8 +39,16 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('[Proxy] Error:', error)
-    return new NextResponse('Failed to fetch video', { status: 500 })
+    console.error('[Proxy] Error details:', error)
+    console.error('[Proxy] Error message:', error instanceof Error ? error.message : 'Unknown error')
+    return NextResponse.json(
+      { 
+        error: 'Failed to fetch video', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        url: url 
+      }, 
+      { status: 500 }
+    )
   }
 }
 
