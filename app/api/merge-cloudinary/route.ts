@@ -44,16 +44,11 @@ export async function POST(request: NextRequest) {
     console.log(`[Server Cloudinary] Using SDK multi method with transcoding...`)
     
     const result = await cloudinary.uploader.multi(
-      segmentIds,
+      segmentIds.join(','), // 第一个参数必须是逗号分隔的字符串
       {
+        format: 'mp4',
         transformation: [
-          {
-            flags: 'splice',
-            format: 'mp4',
-            video_codec: 'h264',
-            video_profile: 'high',
-            video_level: '41'
-          }
+          { video_codec: 'h264:high:4.1' }
         ]
       }
     )
