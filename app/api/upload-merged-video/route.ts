@@ -23,8 +23,43 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Server B2] Uploading merged video from Cloudinary to B2...`)
-    console.log(`[Server B2] Cloudinary URL:`, cloudinaryUrl)
+    console.log(`[Server B2] Cloudinary URL (input):`, cloudinaryUrl)
     console.log(`[Server B2] Interview ID:`, interviewId)
+
+    // 如果是 Cloudinary 的 splice-only URL，则在 download 之前追加转码参数
+    const ensureTranscode = (urlStr: string): string => {
+      try {
+        // 仅处理 Cloudinary upload 路径
+        const marker = '/video/upload/'
+        const pos = urlStr.indexOf(marker)
+        if (pos === -1) return urlStr
+
+        const after = urlStr.substring(pos + marker.length)
+        // 版本段通常形如 v<digits>/...
+        const versionMatch = after.match(/v\d+\//)
+        if (!versionMatch) return urlStr
+
+        const beforeVersion = after.substring(0, versionMatch.index!)
+        const afterVersion = after.substring(versionMatch.index!)
+
+        // 已经包含 vc_ 或 f_mp4 则直接返回
+        if (/\bvc_/.test(beforeVersion) || /\bf_?mp4\b/.test(beforeVersion)) {
+          return urlStr
+        }
+
+        const injected = beforeVersion.length > 0
+          ? `${beforeVersion.replace(/\/$/, '')}/vc_h264:high:4.1,f_mp4/`
+          : 'vc_h264:high:4.1,f_mp4/'
+
+        const finalUrl = urlStr.substring(0, pos + marker.length) + injected + afterVersion
+        console.log('[Server B2] Cloudinary URL (with transcode):', finalUrl)
+        return finalUrl
+      } catch {
+        return urlStr
+      }
+    }
+
+    const downloadUrl = ensureTranscode(cloudinaryUrl)
 
     // 检查环境变量
     if (!process.env.B2_BUCKET_NAME) {
@@ -49,7 +84,7 @@ export async function POST(request: NextRequest) {
     const maxRetries = 5
     
     while (retryCount < maxRetries) {
-      response = await fetch(cloudinaryUrl)
+      response = await fetch(downloadUrl)
       
       if (response.ok) {
         console.log(`[Server B2] Video ready after ${retryCount} retries`)
