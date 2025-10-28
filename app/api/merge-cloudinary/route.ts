@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Transformation string:`, transformationString)
     
-    // 第一步：只做拼接，不转码
-    console.log(`[Server Cloudinary] Step 1: Building splice-only URL (no transcoding)...`)
+    // 第一步：构建拼接变换字符串
+    console.log(`[Server Cloudinary] Step 1: Build splice transformation string`)
     
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME
     
@@ -52,32 +52,22 @@ export async function POST(request: NextRequest) {
     console.log(`  - Transformation string: ${transformationString}`)
     
     const timestamp = Date.now()
-    // 只拼接，不转码
-    const splicedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString}/v${timestamp}/${baseVideoId}.mp4`
     
-    console.log(`[Server Cloudinary] Step 1 - Spliced URL:`, splicedUrl)
+    // 将拼接与转码放在同一路径中：先 fl_splice 拼接，再 vc_h264 转码
+    const finalUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString ? transformationString + '/' : ''}vc_h264:high:4.1,f_mp4/v${timestamp}/${baseVideoId}.mp4`
     
-    // 第二步：对拼接结果应用转码
-    console.log(`[Server Cloudinary] Step 2: Adding transcoding to spliced result...`)
+    console.log(`[Server Cloudinary] Final merge+transcode URL:`, finalUrl)
     
-    // 使用拼接后的视频作为输入，应用转码
-    const transcodeUrl = `https://res.cloudinary.com/${cloudName}/video/upload/vc_h264:high:4.1,f_mp4/v${timestamp}/${baseVideoId}.mp4`
-    
-    console.log(`[Server Cloudinary] Step 2 - Transcode URL:`, transcodeUrl)
-    console.log(`[Server Cloudinary] Note: Currently returning spliced URL only (no transcoding) for testing`)
-    
-    // 生成合并后的 public_id
+    // 生成合并后的 public_id（仅用于标识，不会在 Cloudinary 中创建同名资源）
     const mergedPublicId = `merged-interviews/${interviewId}/merged-video`
     
-    // 切换到第二步：返回转码结果
-    console.log(`[Server Cloudinary] Switching to Step 2: Returning transcoded URL`)
-    
+    // 返回最终URL（包含拼接与转码）。下游将轮询/重试直至 Cloudinary 派生资源可用
     return NextResponse.json({
       success: true,
       public_id: mergedPublicId,
-      secure_url: transcodeUrl, // 返回转码结果
+      secure_url: finalUrl,
       format: 'mp4',
-      step: 'transcoded' // 标记这是第二步
+      step: 'splice_and_transcode'
     })
     
   } catch (error) {
