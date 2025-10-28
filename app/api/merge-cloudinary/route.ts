@@ -40,23 +40,31 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Transformation string:`, transformationString)
     
-    // 手动构建 Cloudinary URL，避免 cloudinary.url() 添加 t_ 前缀
-    // 在拼接完成后，追加转码参数，强制输出 H.264 High Profile Level 4.1
-    // 参考文档：vc（video codec）https://cloudinary.com/documentation/transformation_reference#vc_codec_value
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME
-    const reencodeTransform = 'vc_h264:high:4.1,f_mp4'
-    const mergedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString}/${reencodeTransform}/v${Date.now()}/${baseVideoId}.mp4`
+    // 使用 Cloudinary SDK 的 multi 方法进行合并，并应用转码参数
+    console.log(`[Server Cloudinary] Using SDK multi method with transcoding...`)
     
-    console.log(`[Server Cloudinary] ✓ Video merged successfully:`, mergedUrl)
+    const result = await cloudinary.uploader.multi(
+      segmentIds,
+      {
+        transformation: [
+          {
+            flags: 'splice',
+            format: 'mp4',
+            video_codec: 'h264',
+            video_profile: 'high',
+            video_level: '41'
+          }
+        ]
+      }
+    )
     
-    // 生成合并后的 public_id
-    const mergedPublicId = `merged-interviews/${interviewId}/merged-video`
+    console.log(`[Server Cloudinary] ✓ Video merged successfully:`, result.public_id)
     
     return NextResponse.json({
       success: true,
-      public_id: mergedPublicId,
-      secure_url: mergedUrl,
-      format: 'mp4'
+      public_id: result.public_id,
+      secure_url: result.secure_url,
+      format: result.format
     })
     
   } catch (error) {
