@@ -69,13 +69,15 @@ export async function POST(request: NextRequest) {
     // 生成合并后的 public_id
     const mergedPublicId = `merged-interviews/${interviewId}/merged-video`
     
-    // 先测试第一步：只返回拼接结果，不转码
+    // 切换到第二步：返回转码结果
+    console.log(`[Server Cloudinary] Switching to Step 2: Returning transcoded URL`)
+    
     return NextResponse.json({
       success: true,
       public_id: mergedPublicId,
-      secure_url: splicedUrl, // 返回拼接结果，不转码
+      secure_url: transcodeUrl, // 返回转码结果
       format: 'mp4',
-      step: 'splice_only' // 标记这是第一步
+      step: 'transcoded' // 标记这是第二步
     })
     
   } catch (error) {

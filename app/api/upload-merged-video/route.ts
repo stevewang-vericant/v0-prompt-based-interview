@@ -40,12 +40,36 @@ export async function POST(request: NextRequest) {
       throw new Error("B2_APPLICATION_KEY not configured")
     }
 
-    // 从 Cloudinary 下载视频
-    console.log(`[Server B2] Downloading video from Cloudinary...`)
-    const response = await fetch(cloudinaryUrl)
+    // 从 Cloudinary 下载视频（带派生就绪检查）
+    console.log(`[Server B2] Downloading video from Cloudinary with readiness check...`)
     
-    if (!response.ok) {
+    // 检查派生是否就绪（最多重试5次，每次等待2秒）
+    let response: Response | undefined
+    let retryCount = 0
+    const maxRetries = 5
+    
+    while (retryCount < maxRetries) {
+      response = await fetch(cloudinaryUrl)
+      
+      if (response.ok) {
+        console.log(`[Server B2] Video ready after ${retryCount} retries`)
+        break
+      }
+      
+      if (response.status === 404) {
+        console.log(`[Server B2] Video not ready yet (404), retrying in 2s... (${retryCount + 1}/${maxRetries})`)
+        retryCount++
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          continue
+        }
+      }
+      
       throw new Error(`Failed to download video from Cloudinary: ${response.status}`)
+    }
+    
+    if (!response || !response.ok) {
+      throw new Error(`Failed to download video from Cloudinary after ${maxRetries} retries: ${response?.status}`)
     }
 
     const arrayBuffer = await response.arrayBuffer()
