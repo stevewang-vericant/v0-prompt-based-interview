@@ -40,36 +40,42 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Transformation string:`, transformationString)
     
-    // 使用 fl_splice 拼接视频，并在最后应用 vc_h264:high:4.1 转码
-    // 参考文档：https://cloudinary.com/documentation/video_manipulation_and_delivery#video_codec_settings
-    console.log(`[Server Cloudinary] Building splice URL with vc_h264:high:4.1 transcoding...`)
+    // 第一步：只做拼接，不转码
+    console.log(`[Server Cloudinary] Step 1: Building splice-only URL (no transcoding)...`)
     
-    // 构建拼接变换字符串
-    const spliceSteps: string[] = []
-    for (const vid of additionalVideos) {
-      const overlayId = vid.replace(/\//g, ':') // 文件夹路径需要替换为冒号
-      spliceSteps.push(`l_video:${overlayId},fl_splice,fl_layer_apply`)
-    }
-    
-    // 添加转码参数：vc_h264:high:4.1 和输出格式 mp4
-    const finalTransformationString = spliceSteps.join('/') + '/vc_h264:high:4.1,f_mp4'
-    
-    console.log(`[Server Cloudinary] Final transformation string:`, finalTransformationString)
-    
-    // 构建最终 URL
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME
-    const mergedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${finalTransformationString}/v${Date.now()}/${baseVideoId}.mp4`
     
-    console.log(`[Server Cloudinary] ✓ Video merged URL:`, mergedUrl)
+    console.log(`[Server Cloudinary] Debug Info:`)
+    console.log(`  - Base video ID: ${baseVideoId}`)
+    console.log(`  - Additional videos count: ${additionalVideos.length}`)
+    console.log(`  - Additional video IDs: ${JSON.stringify(additionalVideos)}`)
+    console.log(`  - Transformation string: ${transformationString}`)
+    
+    const timestamp = Date.now()
+    // 只拼接，不转码
+    const splicedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString}/v${timestamp}/${baseVideoId}.mp4`
+    
+    console.log(`[Server Cloudinary] Step 1 - Spliced URL:`, splicedUrl)
+    
+    // 第二步：对拼接结果应用转码
+    console.log(`[Server Cloudinary] Step 2: Adding transcoding to spliced result...`)
+    
+    // 使用拼接后的视频作为输入，应用转码
+    const transcodeUrl = `https://res.cloudinary.com/${cloudName}/video/upload/vc_h264:high:4.1,f_mp4/v${timestamp}/${baseVideoId}.mp4`
+    
+    console.log(`[Server Cloudinary] Step 2 - Transcode URL:`, transcodeUrl)
+    console.log(`[Server Cloudinary] Note: Currently returning spliced URL only (no transcoding) for testing`)
     
     // 生成合并后的 public_id
     const mergedPublicId = `merged-interviews/${interviewId}/merged-video`
     
+    // 先测试第一步：只返回拼接结果，不转码
     return NextResponse.json({
       success: true,
       public_id: mergedPublicId,
-      secure_url: mergedUrl,
-      format: 'mp4'
+      secure_url: splicedUrl, // 返回拼接结果，不转码
+      format: 'mp4',
+      step: 'splice_only' // 标记这是第一步
     })
     
   } catch (error) {
