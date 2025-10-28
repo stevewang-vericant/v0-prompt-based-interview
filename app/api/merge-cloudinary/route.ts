@@ -41,11 +41,9 @@ export async function POST(request: NextRequest) {
     console.log(`[Server Cloudinary] Transformation string:`, transformationString)
     
     // 手动构建 Cloudinary URL，避免 cloudinary.url() 添加 t_ 前缀
-    // 在拼接完成后，追加转码参数，强制输出 H.264 High Profile Level 4.1，容器 mp4，30fps，AAC 128k
-    // 参考文档：vc（video codec）https://cloudinary.com/documentation/transformation_reference#vc_codec_value
+    // 先合并视频，生成临时的合并视频
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME
-    const reencodeTransform = 'vc_h264:high:4.1,f_mp4/fps_30/ac_aac,ab_128k'
-    const mergedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString}/${reencodeTransform}/v${Date.now()}/${baseVideoId}.mp4`
+    const mergedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString}/v${Date.now()}/${baseVideoId}.mp4`
     
     console.log(`[Server Cloudinary] ✓ Video merged successfully:`, mergedUrl)
     
