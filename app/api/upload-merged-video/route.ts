@@ -70,28 +70,30 @@ export async function POST(request: NextRequest) {
     // 从 Cloudinary 下载视频（带派生就绪检查）
     console.log(`[Server B2] Downloading video from Cloudinary with readiness check...`)
     
-    // 检查派生是否就绪（最多重试5次，每次等待2秒）
+    // 检查派生是否就绪（支持长视频：最多重试15次，指数退避 2s→4s→... 最长约60s）
     let response: Response | undefined
     let retryCount = 0
-    const maxRetries = 5
+    const maxRetries = 15
     
     while (retryCount < maxRetries) {
       response = await fetch(withTranscode)
-      
+
       if (response.ok) {
         console.log(`[Server B2] Video ready after ${retryCount} retries`)
         break
       }
-      
-      if (response.status === 404) {
-        console.log(`[Server B2] Video not ready yet (404), retrying in 2s... (${retryCount + 1}/${maxRetries})`)
+
+      const shouldRetry = response.status === 404 || response.status === 400 || response.status === 423
+      if (shouldRetry) {
+        const delayMs = Math.min(2000 * Math.pow(1.5, retryCount), 8000) // 2s 起步，指数退避，最大 8s
+        console.log(`[Server B2] Video not ready yet (${response.status}), retrying in ${Math.round(delayMs)}ms... (${retryCount + 1}/${maxRetries})`)
         retryCount++
         if (retryCount < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 2000))
+          await new Promise(resolve => setTimeout(resolve, delayMs))
           continue
         }
       }
-      
+
       throw new Error(`Failed to download video from Cloudinary: ${response.status}`)
     }
     
