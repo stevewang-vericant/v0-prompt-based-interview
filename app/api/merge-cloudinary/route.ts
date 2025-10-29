@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Server Cloudinary] Transformation string:`, transformationString)
     
-    // 构建拼接变换字符串
-    console.log(`[Server Cloudinary] Step 1: Build splice transformation string`)
+    // 构建拼接变换字符串（仅拼接，不做任何转码）
+    console.log(`[Server Cloudinary] Step 1: Build splice-only transformation string`)
     
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME
     
@@ -53,21 +53,21 @@ export async function POST(request: NextRequest) {
     
     const timestamp = Date.now()
     
-    // 将拼接与转码放在同一路径中：先 fl_splice 拼接，再 vc_h264 转码
-    const finalUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString ? transformationString + '/' : ''}vc_h264:high:4.1,f_mp4/v${timestamp}/${baseVideoId}.mp4`
+    // 仅返回“拼接后”的派生资源 URL（无转码参数）
+    const splicedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString ? transformationString + '/' : ''}v${timestamp}/${baseVideoId}.mp4`
     
-    console.log(`[Server Cloudinary] Final merge+transcode URL:`, finalUrl)
+    console.log(`[Server Cloudinary] Splice-only URL:`, splicedUrl)
     
     // 生成合并后的 public_id（仅用于标识，不会在 Cloudinary 中创建同名资源）
     const mergedPublicId = `merged-interviews/${interviewId}/merged-video`
     
-    // 返回最终URL（包含拼接与转码）。下游将轮询/重试直至 Cloudinary 派生资源可用
+    // 返回拼接后的 URL。下游 /api/upload-merged-video 会在下载前追加转码参数并轮询直至可用
     return NextResponse.json({
       success: true,
       public_id: mergedPublicId,
-      secure_url: finalUrl,
+      secure_url: splicedUrl,
       format: 'mp4',
-      step: 'splice_and_transcode'
+      step: 'splice_only'
     })
     
   } catch (error) {

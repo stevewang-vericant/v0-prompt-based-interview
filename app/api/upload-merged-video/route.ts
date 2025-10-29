@@ -23,8 +23,35 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Server B2] Uploading merged video from Cloudinary to B2...`)
-    console.log(`[Server B2] Cloudinary URL:`, cloudinaryUrl)
+    console.log(`[Server B2] Cloudinary URL (input):`, cloudinaryUrl)
     console.log(`[Server B2] Interview ID:`, interviewId)
+
+    // 在下载前确保附加 H.264 Level 4.1 等完整转码参数
+    const withTranscode = (() => {
+      try {
+        const marker = '/video/upload/'
+        const idx = cloudinaryUrl.indexOf(marker)
+        if (idx === -1) return cloudinaryUrl
+        const head = cloudinaryUrl.slice(0, idx + marker.length)
+        const tail = cloudinaryUrl.slice(idx + marker.length)
+        // 找到版本段 v<digits>/
+        const m = tail.match(/v\d+\//)
+        if (!m || m.index === undefined) return cloudinaryUrl
+        const transforms = tail.slice(0, m.index)
+        const rest = tail.slice(m.index)
+        // 若已包含 vc_ 或 f_mp4 或 fps_ 则视为已转码
+        if (/(^|\/)vc_/.test(transforms) || /(^|\/)f_?mp4(\/|$)/.test(transforms)) {
+          return cloudinaryUrl
+        }
+        const reencode = 'vc_h264:high:4.1,f_mp4/fps_30/ac_aac,ab_128k'
+        const newTransforms = (transforms ? transforms.replace(/\/$/, '') + '/' : '') + reencode + '/'
+        const finalUrl = head + newTransforms + rest
+        console.log('[Server B2] Cloudinary URL (with transcode):', finalUrl)
+        return finalUrl
+      } catch (e) {
+        return cloudinaryUrl
+      }
+    })()
 
     // 检查环境变量
     if (!process.env.B2_BUCKET_NAME) {
@@ -49,7 +76,7 @@ export async function POST(request: NextRequest) {
     const maxRetries = 5
     
     while (retryCount < maxRetries) {
-      response = await fetch(cloudinaryUrl)
+      response = await fetch(withTranscode)
       
       if (response.ok) {
         console.log(`[Server B2] Video ready after ${retryCount} retries`)
