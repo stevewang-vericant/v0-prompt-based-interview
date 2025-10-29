@@ -26,32 +26,36 @@ export async function POST(request: NextRequest) {
     console.log(`[Server B2] Cloudinary URL (input):`, cloudinaryUrl)
     console.log(`[Server B2] Interview ID:`, interviewId)
 
-    // 在下载前确保附加 H.264 Level 4.1 等完整转码参数
-    const withTranscode = (() => {
+    // 构建若干候选下载URL（优先强制 Level 4.1，其次降级，最后原始）
+    const buildCandidates = (): string[] => {
       try {
         const marker = '/video/upload/'
         const idx = cloudinaryUrl.indexOf(marker)
-        if (idx === -1) return cloudinaryUrl
+        if (idx === -1) return [cloudinaryUrl]
         const head = cloudinaryUrl.slice(0, idx + marker.length)
         const tail = cloudinaryUrl.slice(idx + marker.length)
         // 找到版本段 v<digits>/
         const m = tail.match(/v\d+\//)
-        if (!m || m.index === undefined) return cloudinaryUrl
+        if (!m || m.index === undefined) return [cloudinaryUrl]
         const transforms = tail.slice(0, m.index)
         const rest = tail.slice(m.index)
         // 若已包含 vc_ 或 f_mp4 或 fps_ 则视为已转码
         if (/(^|\/)vc_/.test(transforms) || /(^|\/)f_?mp4(\/|$)/.test(transforms)) {
-          return cloudinaryUrl
+          return [cloudinaryUrl]
         }
-        const reencode = 'vc_h264:high:4.1,f_mp4/fps_30/ac_aac,ab_128k'
-        const newTransforms = (transforms ? transforms.replace(/\/$/, '') + '/' : '') + reencode + '/'
-        const finalUrl = head + newTransforms + rest
-        console.log('[Server B2] Cloudinary URL (with transcode):', finalUrl)
-        return finalUrl
+        const base = (extra: string) => head + ((transforms ? transforms.replace(/\/$/, '') + '/' : '') + extra + '/') + rest
+        const candidates: string[] = [
+          base('vc_h264:high:4.1,f_mp4/fps_30/ac_aac,ab_128k'),
+          base('vc_h264:high:4.1,f_mp4'),
+          base('vc_h264:high:4.1'),
+          cloudinaryUrl,
+        ]
+        console.log('[Server B2] Candidate Cloudinary URLs (in order):', candidates)
+        return candidates
       } catch (e) {
-        return cloudinaryUrl
+        return [cloudinaryUrl]
       }
-    })()
+    }
 
     // 检查环境变量
     if (!process.env.B2_BUCKET_NAME) {
@@ -70,35 +74,36 @@ export async function POST(request: NextRequest) {
     // 从 Cloudinary 下载视频（带派生就绪检查）
     console.log(`[Server B2] Downloading video from Cloudinary with readiness check...`)
     
-    // 检查派生是否就绪（支持长视频：最多重试15次，指数退避 2s→4s→... 最长约60s）
+    // 尝试依次使用候选URL，每个各自重试直到就绪
+    const candidates = buildCandidates()
     let response: Response | undefined
-    let retryCount = 0
-    const maxRetries = 15
-    
-    while (retryCount < maxRetries) {
-      response = await fetch(withTranscode)
-
-      if (response.ok) {
-        console.log(`[Server B2] Video ready after ${retryCount} retries`)
-        break
-      }
-
-      const shouldRetry = response.status === 404 || response.status === 400 || response.status === 423
-      if (shouldRetry) {
-        const delayMs = Math.min(2000 * Math.pow(1.5, retryCount), 8000) // 2s 起步，指数退避，最大 8s
-        console.log(`[Server B2] Video not ready yet (${response.status}), retrying in ${Math.round(delayMs)}ms... (${retryCount + 1}/${maxRetries})`)
+    let lastStatus = 0
+    let usedUrl = ''
+    for (const candidate of candidates) {
+      console.log('[Server B2] Trying candidate URL:', candidate)
+      let retryCount = 0
+      const maxRetries = 15
+      while (retryCount < maxRetries) {
+        response = await fetch(candidate)
+        if (response.ok) {
+          console.log(`[Server B2] Video ready using candidate after ${retryCount} retries`)
+          usedUrl = candidate
+          break
+        }
+        lastStatus = response.status
+        const shouldRetry = lastStatus === 404 || lastStatus === 400 || lastStatus === 423
+        if (!shouldRetry) break
+        const delayMs = Math.min(2000 * Math.pow(1.5, retryCount), 8000)
+        console.log(`[Server B2] Candidate not ready (${lastStatus}), retrying in ${Math.round(delayMs)}ms... (${retryCount + 1}/${maxRetries})`)
         retryCount++
         if (retryCount < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, delayMs))
-          continue
         }
       }
-
-      throw new Error(`Failed to download video from Cloudinary: ${response.status}`)
+      if (response && response.ok) break
     }
-    
     if (!response || !response.ok) {
-      throw new Error(`Failed to download video from Cloudinary after ${maxRetries} retries: ${response?.status}`)
+      throw new Error(`Failed to download video from Cloudinary: ${lastStatus}`)
     }
 
     const arrayBuffer = await response.arrayBuffer()
@@ -139,3 +144,4 @@ export async function POST(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
