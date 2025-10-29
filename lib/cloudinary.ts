@@ -104,7 +104,9 @@ export async function mergeVideoSegments(
     const timestamp = Date.now()
     
     // 构建合并URL：拼接 + H.264 Level 4.1转码
-    const mergedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString}/vc_h264:high:4.1,f_mp4/v${timestamp}/${baseVideoId}.mp4`
+    // 使用完整的转码参数：H.264 High Profile Level 4.1，容器 mp4，30fps，AAC 128k
+    const reencodeTransform = 'vc_h264:high:4.1,f_mp4/fps_30/ac_aac,ab_128k'
+    const mergedUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${transformationString}/${reencodeTransform}/v${timestamp}/${baseVideoId}.mp4`
     
     console.log(`[Cloudinary] Merged URL with transcoding:`, mergedUrl)
     
@@ -157,7 +159,7 @@ export async function cleanupTempFiles(interviewId: string): Promise<void> {
     console.log(`[Cloudinary] Cleaning up temp files for interview ${interviewId}`)
     
     // 删除临时文件夹中的所有文件
-    const result = await cloudinary.v2.api.delete_resources_by_prefix(
+    const result = await cloudinary.api.delete_resources_by_prefix(
       `temp-interviews/${interviewId}/`,
       {
         resource_type: 'video'
