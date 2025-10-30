@@ -23,8 +23,39 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Server B2] Uploading merged video from Cloudinary to B2...`)
-    console.log(`[Server B2] Cloudinary URL:`, cloudinaryUrl)
+    console.log(`[Server B2] Cloudinary URL (input):`, cloudinaryUrl)
     console.log(`[Server B2] Interview ID:`, interviewId)
+
+    // 构建若干候选下载URL（优先强制 Level 4.1，其次降级，最后原始）
+    const buildCandidates = (): string[] => {
+      try {
+        const marker = '/video/upload/'
+        const idx = cloudinaryUrl.indexOf(marker)
+        if (idx === -1) return [cloudinaryUrl]
+        const head = cloudinaryUrl.slice(0, idx + marker.length)
+        const tail = cloudinaryUrl.slice(idx + marker.length)
+        // 找到版本段 v<digits>/
+        const m = tail.match(/v\d+\//)
+        if (!m || m.index === undefined) return [cloudinaryUrl]
+        const transforms = tail.slice(0, m.index)
+        const rest = tail.slice(m.index)
+        // 若已包含 vc_ 或 f_mp4 或 fps_ 则视为已转码
+        if (/(^|\/)vc_/.test(transforms) || /(^|\/)f_?mp4(\/|$)/.test(transforms)) {
+          return [cloudinaryUrl]
+        }
+        const base = (extra: string) => head + ((transforms ? transforms.replace(/\/$/, '') + '/' : '') + extra + '/') + rest
+        const candidates: string[] = [
+          base('vc_h264:high:4.1,f_mp4/fps_30/ac_aac,ab_128k'),
+          base('vc_h264:high:4.1,f_mp4'),
+          base('vc_h264:high:4.1'),
+          cloudinaryUrl,
+        ]
+        console.log('[Server B2] Candidate Cloudinary URLs (in order):', candidates)
+        return candidates
+      } catch (e) {
+        return [cloudinaryUrl]
+      }
+    }
 
     // 检查环境变量
     if (!process.env.B2_BUCKET_NAME) {
@@ -40,12 +71,39 @@ export async function POST(request: NextRequest) {
       throw new Error("B2_APPLICATION_KEY not configured")
     }
 
-    // 从 Cloudinary 下载视频
-    console.log(`[Server B2] Downloading video from Cloudinary...`)
-    const response = await fetch(cloudinaryUrl)
+    // 从 Cloudinary 下载视频（带派生就绪检查）
+    console.log(`[Server B2] Downloading video from Cloudinary with readiness check...`)
     
-    if (!response.ok) {
-      throw new Error(`Failed to download video from Cloudinary: ${response.status}`)
+    // 尝试依次使用候选URL，每个各自重试直到就绪
+    const candidates = buildCandidates()
+    let response: Response | undefined
+    let lastStatus = 0
+    let usedUrl = ''
+    for (const candidate of candidates) {
+      console.log('[Server B2] Trying candidate URL:', candidate)
+      let retryCount = 0
+      const maxRetries = 15
+      while (retryCount < maxRetries) {
+        response = await fetch(candidate)
+        if (response.ok) {
+          console.log(`[Server B2] Video ready using candidate after ${retryCount} retries`)
+          usedUrl = candidate
+          break
+        }
+        lastStatus = response.status
+        const shouldRetry = lastStatus === 404 || lastStatus === 400 || lastStatus === 423
+        if (!shouldRetry) break
+        const delayMs = Math.min(2000 * Math.pow(1.5, retryCount), 8000)
+        console.log(`[Server B2] Candidate not ready (${lastStatus}), retrying in ${Math.round(delayMs)}ms... (${retryCount + 1}/${maxRetries})`)
+        retryCount++
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delayMs))
+        }
+      }
+      if (response && response.ok) break
+    }
+    if (!response || !response.ok) {
+      throw new Error(`Failed to download video from Cloudinary: ${lastStatus}`)
     }
 
     const arrayBuffer = await response.arrayBuffer()
@@ -86,3 +144,4 @@ export async function POST(request: NextRequest) {
     }, { status: 500 })
   }
 }
+

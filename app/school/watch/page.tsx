@@ -42,30 +42,31 @@ function SchoolWatchPageContent() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => window.location.href = '/school/dashboard'}
+              className="w-full sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
             </Button>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Interview Review</h1>
-              <div className="space-y-1 mt-1">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">Interview Review</h1>
+              <div className="space-y-1">
                 {studentName && (
-                  <p className="text-sm text-slate-700">
+                  <p className="text-xs sm:text-sm text-slate-700 truncate">
                     <span className="font-medium">Student:</span> {studentName}
                   </p>
                 )}
                 {studentEmail && (
-                  <p className="text-sm text-slate-600">
+                  <p className="text-xs sm:text-sm text-slate-600 truncate">
                     <span className="font-medium">Email:</span> {studentEmail}
                   </p>
                 )}
                 {interviewId && (
-                  <p className="text-xs text-slate-500 font-mono">
+                  <p className="text-xs text-slate-500 font-mono truncate">
                     Interview ID: {interviewId}
                   </p>
                 )}

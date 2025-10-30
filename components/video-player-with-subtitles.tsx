@@ -49,6 +49,8 @@ export function VideoPlayerWithSubtitles({
     const video = videoRef.current
     if (!video) return
     
+    console.log('[Player] Video element created, src:', video.src)
+    
     // 如果视频已经加载了元数据，直接设置为准备好
     if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
       console.log('[Player] Video already loaded (cached), readyState:', video.readyState)
@@ -238,8 +240,16 @@ export function VideoPlayerWithSubtitles({
                 setIsPlaying(false)
               }}
               onError={(e) => {
-                console.error('[Player] Video error:', e)
-                setError('Failed to load video')
+                const video = e.currentTarget
+                console.error('[Player] Video error:', {
+                  error: e,
+                  errorCode: video.error?.code,
+                  errorMessage: video.error?.message,
+                  networkState: video.networkState,
+                  readyState: video.readyState,
+                  src: video.src,
+                })
+                setError(`Failed to load video: ${video.error?.message || 'Unknown error'}`)
               }}
               onClick={togglePlay}
             />

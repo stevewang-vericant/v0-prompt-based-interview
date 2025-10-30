@@ -104,15 +104,15 @@ export default function StudentDashboardPage() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
                 Welcome, {student.firstName} {student.lastName}
               </h1>
-              <p className="text-sm text-slate-600">{student.email}</p>
-              <p className="text-xs text-slate-500">{student.schoolName}</p>
+              <p className="text-sm text-slate-600 truncate">{student.email}</p>
+              <p className="text-xs text-slate-500 truncate">{student.schoolName}</p>
             </div>
-            <Button variant="outline" onClick={handleSignOut}>
+            <Button variant="outline" onClick={handleSignOut} className="w-full sm:w-auto">
               Sign Out
             </Button>
           </div>
@@ -123,7 +123,7 @@ export default function StudentDashboardPage() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Status Alert */}
         {statusInfo && (
-          <Alert className={statusInfo.variant === "destructive" ? "border-red-200 bg-red-50" : ""}>
+          <Alert className={statusInfo.variant === "default" && statusInfo.title?.toLowerCase().includes("completed") ? "border-green-200 bg-green-50" : ""}>
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>{statusInfo.title}</AlertTitle>
             <AlertDescription className="mt-2">
@@ -218,9 +218,9 @@ export default function StudentDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Interview ID: {latestInterview.interviewId}</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-sm font-medium truncate">Interview ID: {latestInterview.interviewId}</p>
                   <p className="text-sm text-muted-foreground">
                     Duration: {Math.floor(latestInterview.totalDuration / 60)}m {Math.floor(latestInterview.totalDuration % 60)}s
                   </p>
@@ -232,6 +232,7 @@ export default function StudentDashboardPage() {
                     const proxySubtitleUrl = `/api/proxy-json?url=${encodeURIComponent(latestInterview.subtitleUrl)}`
                     window.location.href = `/student/watch?videoUrl=${encodeURIComponent(proxyVideoUrl)}&subtitleUrl=${encodeURIComponent(proxySubtitleUrl)}`
                   }}
+                  className="w-full sm:w-auto"
                 >
                   <Video className="h-4 w-4 mr-2" />
                   Watch Interview
