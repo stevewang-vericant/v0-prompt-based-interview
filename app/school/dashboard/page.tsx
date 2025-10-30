@@ -431,7 +431,7 @@ function SchoolDashboardContent() {
               <div>
                 <CardTitle>Recent Interviews</CardTitle>
                 <CardDescription>
-                  View and review student interview assessments
+                  View and review student interviews
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">

@@ -10,11 +10,10 @@ export default function HomePage() {
       <header className="container mx-auto px-4 py-16 sm:py-24">
         <div className="text-center space-y-6 max-w-3xl mx-auto">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 text-balance">
-            Prompt-Based Interview Platform
+            Vericant’s Prompt-Based Interview Platform
           </h1>
           <p className="text-lg sm:text-xl text-slate-600 text-pretty">
-            Streamlined video interview assessments for undergraduate admissions. Evaluate critical thinking, fluency,
-            and communication skills efficiently.
+            School customized video interviews plus AI summaries. Trusted by top universities and K-12 programs.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
             <Button asChild size="lg" className="text-lg">
@@ -37,7 +36,7 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <CardDescription>
-                3-5 minute structured video interviews with timed prompts for consistent evaluation
+                Up to 6 minutes of structured video interviews with timed prompts
               </CardDescription>
             </CardContent>
           </Card>
@@ -72,7 +71,7 @@ export default function HomePage() {
               <CardTitle>Quick & Affordable</CardTitle>
             </CardHeader>
             <CardContent>
-              <CardDescription>Under $49 per interview with results delivered within 48 hours</CardDescription>
+              <CardDescription>Tiered, industry-leading pricing with results delivered immediately.</CardDescription>
             </CardContent>
           </Card>
         </div>
