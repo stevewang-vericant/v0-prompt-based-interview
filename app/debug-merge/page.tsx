@@ -23,7 +23,7 @@ export default function DebugMergePage() {
     try {
       console.log("[Debug] Testing merge API with:", { segmentIds, interviewId })
       
-      const response = await fetch('/api/merge-cloudinary', {
+      const response = await fetch('/api/merge-videos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,8 +63,8 @@ export default function DebugMergePage() {
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Cloudinary Merge API 调试页面</h1>
-          <p className="text-slate-600 mt-2">测试视频合并 API 的功能和参数</p>
+          <h1 className="text-3xl font-bold text-slate-900">视频合并 API 调试页面</h1>
+          <p className="text-slate-600 mt-2">测试服务端 FFmpeg 视频合并 API 的功能和参数</p>
         </div>
 
         <Card>
@@ -171,8 +171,8 @@ export default function DebugMergePage() {
             <CardTitle>调试说明</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-slate-600">
-            <p>• 这个页面用于测试 Cloudinary 视频合并 API</p>
-            <p>• 使用之前上传的 4 个视频片段进行测试</p>
+            <p>• 这个页面用于测试服务端 FFmpeg 视频合并 API</p>
+            <p>• 使用之前上传到 B2 的视频片段进行测试</p>
             <p>• 查看浏览器控制台获取详细的调试信息</p>
             <p>• 如果成功，会显示合并后的视频 URL</p>
             <p>• 如果失败，会显示具体的错误信息</p>

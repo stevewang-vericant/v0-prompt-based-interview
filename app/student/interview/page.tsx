@@ -9,13 +9,6 @@ import { InterviewComplete } from "@/components/interview/interview-complete"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
 import { uploadJsonToB2 } from "@/app/actions/upload-json"
 import { saveInterview } from "@/app/actions/interviews"
-import {
-  uploadVideoSegmentClient,
-  mergeVideoSegmentsClient,
-  cleanupTempFilesClient,
-  saveInterviewClient,
-  uploadMergedVideoToB2
-} from '@/lib/client-cloudinary'
 import { startTranscription } from '@/app/actions/transcription'
 import { getVideoDuration } from '@/lib/video-utils'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -97,241 +90,6 @@ function InterviewPageContent() {
       console.log("[v0] All prompts completed, waiting for student information...")
       setInterviewCompleted(true)
       setStage("complete")
-    }
-  }
-
-  const uploadSegmentVideosClient = async (
-    allResponses: Record<string, Blob>,
-    studentEmail?: string,
-    studentName?: string,
-    schoolCode?: string | null
-  ): Promise<{ success: boolean; error?: string }> => {
-    setIsUploading(true)
-    setUploadProgress(0)
-    
-    try {
-      console.log("[v0] Uploading", Object.keys(allResponses).length, "video segments directly to Cloudinary...")
-      setUploadStatus("Preparing to upload video segments...")
-      
-      // 按顺序排列视频
-      const segments = mockPrompts
-        .map((prompt, index) => ({
-          prompt,
-          blob: allResponses[prompt.id],
-          index
-        }))
-        .filter(seg => seg.blob !== undefined)
-      
-      if (segments.length === 0) {
-        throw new Error("No video segments to upload")
-      }
-
-      console.log("[v0] Uploading", segments.length, "video segments to Cloudinary...")
-      
-      const uploadedSegments: Array<{
-        promptId: string
-        publicId: string
-        sequenceNumber: number
-        duration: number
-        questionText: string
-        category: string
-      }> = []
-      
-      let totalDuration = 0
-      
-      // 直接上传到Cloudinary（客户端）
-      for (let i = 0; i < segments.length; i++) {
-        const { prompt, blob, index } = segments[i]
-        const progressBase = (i / segments.length) * 60 // 0-60% 用于上传
-        setUploadProgress(Math.floor(progressBase))
-        setUploadStatus(`Uploading segment ${i + 1}/${segments.length} to Cloudinary...`)
-        
-        console.log(`[v0] Uploading segment ${i + 1}/${segments.length}: ${prompt.text.substring(0, 50)}...`)
-        
-        const result = await uploadVideoSegmentClient(
-          blob,
-          interviewId,
-          i + 1
-        )
-        
-        // 获取视频实际时长
-        let actualDuration: number
-        try {
-          actualDuration = await getVideoDuration(blob)
-          console.log(`[v0] Segment ${i + 1} actual duration: ${actualDuration}s`)
-        } catch (error) {
-          console.warn(`[v0] Failed to get duration for segment ${i + 1}, using fallback:`, error)
-          // 如果获取时长失败，使用基于文件大小的粗略估算
-          actualDuration = Math.max(10, Math.min(60, Math.round(blob.size / 20000)))
-        }
-        
-        uploadedSegments.push({
-          promptId: prompt.id,
-          publicId: result.public_id,
-          sequenceNumber: i + 1,
-          duration: actualDuration,
-          questionText: prompt.text,
-          category: prompt.category
-        })
-        
-        totalDuration += actualDuration
-        console.log(`[v0] ✓ Segment ${i + 1} uploaded to Cloudinary:`, result.public_id)
-      }
-      
-      console.log("[v0] ✓ All", segments.length, "segments uploaded to Cloudinary successfully")
-      console.log("[v0] Total estimated duration:", totalDuration, "seconds")
-      
-      // 在Cloudinary中合并视频
-      setUploadStatus("Merging videos in Cloudinary...")
-      setUploadProgress(60)
-      console.log("[v0] Merging videos in Cloudinary...")
-      
-      const mergeResult = await mergeVideoSegmentsClient(
-        uploadedSegments.map(seg => seg.publicId),
-        interviewId
-      )
-      
-      console.log("[v0] ✓ Videos merged in Cloudinary:", mergeResult.public_id)
-      
-      // 将 Cloudinary 合并后的视频上传到 B2
-      setUploadStatus("Uploading merged video to B2...")
-      setUploadProgress(85)
-      console.log("[v0] Uploading merged video to B2...")
-      
-      const b2VideoResult = await uploadMergedVideoToB2(mergeResult.secure_url, interviewId)
-      if (!b2VideoResult.success) {
-        throw new Error(`B2 upload failed: ${b2VideoResult.error}`)
-      }
-      
-      console.log("[v0] ✓ Merged video uploaded to B2:", b2VideoResult.url)
-      
-      // 使用 B2 的视频 URL
-      const videoUrl = b2VideoResult.url!
-      
-      // 生成字幕元数据（基于合并后的视频）
-      setUploadStatus("Creating subtitle metadata...")
-      setUploadProgress(80)
-      
-      // 使用实际的分段时长总和作为总时长
-      const actualTotalDuration = totalDuration // 这是各段实际时长的总和
-      
-      // 使用实际的分段时长计算时间轴
-      let cumulativeTime = 0
-      const subtitleMetadata = {
-        interviewId,
-        totalDuration: actualTotalDuration,
-        questions: uploadedSegments.map((seg) => {
-          const questionData = {
-            id: seg.promptId,
-            questionNumber: seg.sequenceNumber,
-            text: seg.questionText,
-            category: seg.category,
-            startTime: cumulativeTime,
-            endTime: cumulativeTime + seg.duration,
-            duration: seg.duration
-          }
-          cumulativeTime += seg.duration
-          return questionData
-        }),
-        createdAt: new Date().toISOString(),
-        version: "1.0"
-      }
-      
-      console.log("[v0] Subtitle metadata created:", subtitleMetadata)
-      
-      // 上传字幕元数据到B2
-      setUploadStatus("Uploading subtitle metadata...")
-      setUploadProgress(85)
-      console.log("[v0] Uploading subtitle metadata to B2...")
-      
-      const subtitleResult = await uploadJsonToB2(
-        subtitleMetadata,
-        interviewId,
-        "interview-subtitles"
-      )
-      
-      if (!subtitleResult.success) {
-        throw new Error(`Failed to upload subtitle metadata: ${subtitleResult.error}`)
-      }
-      
-      console.log("[v0] ✓ Subtitle metadata uploaded successfully:", subtitleResult.url)
-      
-      // 保存到数据库（如果提供了学生邮箱）
-      if (studentEmail) {
-        setUploadStatus("Saving to database...")
-        setUploadProgress(90)
-        console.log("[v0] Saving interview to database...")
-        
-        const dbResult = await saveInterviewClient({
-          interview_id: interviewId,
-          student_email: studentEmail,
-          student_name: studentName,
-          video_url: videoUrl,
-          subtitle_url: subtitleResult.url!,
-          total_duration: actualTotalDuration,
-          school_code: schoolCode || undefined,
-          metadata: {
-            questions: subtitleMetadata.questions,
-            mergedVideoUrl: videoUrl,
-            segmentCount: uploadedSegments.length,
-            completedAt: new Date().toISOString(),
-            cloudinaryPublicId: mergeResult.public_id
-          }
-        })
-        
-        if (dbResult.success) {
-          console.log("[v0] ✓ Interview saved to database:", dbResult.interview?.id)
-          
-          // 启动转录任务
-          setUploadStatus("Starting transcription...")
-          setUploadProgress(92)
-          console.log("[v0] Starting transcription for merged video...")
-          
-          try {
-            const transcriptionResult = await startTranscription(interviewId, videoUrl)
-            if (transcriptionResult.success) {
-              console.log("[v0] ✓ Transcription job started successfully!")
-            } else {
-              console.error("[v0] Transcription start failed:", transcriptionResult.error)
-            }
-          } catch (error) {
-            console.error("[v0] Transcription error:", error)
-            // 不阻止用户流程
-          }
-        } else {
-          console.error("[v0] Database save failed:", dbResult.error)
-          // 不阻止用户流程，只记录错误
-        }
-      }
-      
-      // 注意：暂时不清理临时文件，因为合并后的视频仍然依赖这些文件
-      // 可以考虑将合并后的视频上传到 B2 或保存到永久位置后再清理
-      console.log("[v0] Note: Temporary files kept for video playback")
-      
-      // 保存视频 URL 和字幕 URL 到 localStorage，供 dashboard 使用
-      const interviewData = {
-        videoUrl: videoUrl,
-        subtitleUrl: subtitleResult.url,
-        interviewId,
-        totalDuration: actualTotalDuration,
-        completedAt: new Date().toISOString()
-      }
-      
-      localStorage.setItem('latestInterview', JSON.stringify(interviewData))
-      console.log("[v0] Interview data saved to localStorage")
-      
-      setUploadProgress(100)
-      setUploadStatus("Upload complete!")
-      console.log("[v0] ✓ All operations completed successfully!")
-      return { success: true }
-    } catch (error) {
-      console.error("[v0] Upload error:", error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      return { success: false, error: `Failed to upload videos: ${errorMessage}` }
-    } finally {
-      setIsUploading(false)
-      setUploadProgress(0)
-      setUploadStatus("")
     }
   }
 
@@ -438,7 +196,7 @@ function InterviewPageContent() {
         }))
       })
       
-      const mergeResult = await fetch('/api/merge-videos-cloudinary', {
+      const mergeResult = await fetch('/api/merge-videos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -595,8 +353,8 @@ function InterviewPageContent() {
     console.log("[v0] Student email:", studentEmail)
     console.log("[v0] School code:", schoolCode || "Not specified")
     
-    // 上传所有视频分段，传入学生信息和学校代码（使用客户端直接上传到Cloudinary）
-    const result = await uploadSegmentVideosClient(responses, studentEmail, studentName, schoolCode)
+    // 上传所有视频分段到 B2，然后在服务端使用 FFmpeg 合并
+    const result = await uploadSegmentVideos(responses, studentEmail, studentName, schoolCode)
     
     // 根据结果跳转到完成页面
     const params = new URLSearchParams({

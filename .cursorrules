@@ -1,0 +1,30 @@
+# Cursor Project Rules
+
+## Editor Preferences
+
+### Text Editor Commands
+- **Always use `vim` (or `vi`/`nvim`) for file editing commands in documentation and scripts**
+- **Never use `nano` or other editors in examples or instructions**
+- When providing file editing commands for Linux or macOS, always use:
+  - `vim filename` (preferred)
+  - `vi filename` (fallback)
+  - `nvim filename` (if nvim is available)
+
+### Examples
+- ✅ Correct: `vim .env.production`
+- ✅ Correct: `sudo vim /etc/nginx/sites-available/app`
+- ❌ Incorrect: `nano .env.production`
+- ❌ Incorrect: `sudo nano /etc/nginx/sites-available/app`
+
+## Code Style
+
+- Use TypeScript/JavaScript best practices
+- Follow Next.js conventions
+- Maintain consistent code formatting
+
+## Documentation
+
+- All documentation should use `vim` for file editing examples
+- Scripts should use `vim` in echo statements and instructions
+- When creating new documentation or scripts, always default to `vim`
+

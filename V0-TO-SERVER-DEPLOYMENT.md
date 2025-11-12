@@ -71,7 +71,7 @@ sudo apt install nginx -y
 
 创建配置文件：
 ```bash
-sudo nano /etc/nginx/sites-available/myapp
+sudo vim /etc/nginx/sites-available/myapp
 ```
 
 添加内容：
@@ -288,7 +288,7 @@ on:
 ```bash
 ssh user@your-server-ip
 cd /opt/v0-prompt-based-interview
-nano .env.production
+vim .env.production
 ```
 
 添加内容：

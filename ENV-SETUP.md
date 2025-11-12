@@ -2,40 +2,7 @@
 
 ## 必需配置
 
-### Cloudinary (视频处理和存储)
-
-在项目根目录创建 `.env.local` 文件：
-
-```env
-# Cloudinary配置（客户端直接上传）
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
-NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your-upload-preset
-
-# Cloudinary服务端配置（用于服务器端操作）
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-```
-
-#### 如何获取 Cloudinary Credentials
-
-1. 访问 [Cloudinary](https://cloudinary.com/)
-2. 注册/登录账户
-3. 在 Dashboard 中找到：
-   - **Cloud Name**: 在 Account Details 中
-   - **API Key**: 在 Account Details 中
-   - **API Secret**: 在 Account Details 中（点击显示）
-4. 创建 Upload Preset：
-   - 进入 **Settings** → **Upload**
-   - 点击 **Add upload preset**
-   - 设置：
-     - **Preset name**: `v0-interview-upload`（或任意名称）
-     - **Signing Mode**: `Unsigned`（允许客户端直接上传）
-     - **Resource Type**: `Video`
-     - **Folder**: `temp-interviews`（可选）
-   - 点击 **Save**
-
-### Backblaze B2 (字幕元数据存储)
+### Backblaze B2 (视频和元数据存储)
 
 在项目根目录创建 `.env.local` 文件：
 

@@ -23,8 +23,16 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 设置环境变量
-ENV NEXT_TELEMETRY_DISABLED 1
+# 构建参数（从 docker-compose 传递）
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_APP_URL
+
+# 设置环境变量（Next.js 的 NEXT_PUBLIC_* 需要在构建时可用）
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 
 # 构建应用
 RUN pnpm build
@@ -32,6 +40,9 @@ RUN pnpm build
 # 生产运行阶段
 FROM base AS runner
 WORKDIR /app
+
+# 安装 FFmpeg 和 ffprobe（视频处理）
+RUN apk add --no-cache ffmpeg
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1

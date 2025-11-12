@@ -72,7 +72,7 @@ sudo apt install nginx -y
 
 创建 Nginx 配置：
 ```bash
-sudo nano /etc/nginx/sites-available/your-app
+sudo vim /etc/nginx/sites-available/your-app
 ```
 
 添加以下配置：
