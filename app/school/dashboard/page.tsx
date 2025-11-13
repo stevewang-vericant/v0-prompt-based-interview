@@ -220,19 +220,53 @@ function SchoolDashboardContent() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
-  // 复制面试链接到剪贴板
+  // 复制面试链接到剪贴板（支持多种方法）
   const handleCopyLink = async () => {
     if (!schoolInfo) return
     
     const interviewUrl = `${window.location.origin}/student/interview?school=${schoolInfo.code}`
     
     try {
-      await navigator.clipboard.writeText(interviewUrl)
-      setLinkCopied(true)
-      setTimeout(() => setLinkCopied(false), 2000)
+      // 方法1: 尝试使用现代 Clipboard API（需要 HTTPS 或 localhost）
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(interviewUrl)
+        setLinkCopied(true)
+        setTimeout(() => setLinkCopied(false), 2000)
+        return
+      }
+      
+      // 方法2: 使用传统的 execCommand 作为 fallback
+      const textArea = document.createElement('textarea')
+      textArea.value = interviewUrl
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      
+      try {
+        const successful = document.execCommand('copy')
+        if (successful) {
+          setLinkCopied(true)
+          setTimeout(() => setLinkCopied(false), 2000)
+        } else {
+          throw new Error('execCommand failed')
+        }
+      } finally {
+        document.body.removeChild(textArea)
+      }
     } catch (err) {
       console.error('Failed to copy link:', err)
-      alert('Failed to copy link to clipboard')
+      // 如果所有方法都失败，至少选中文本让用户可以手动复制
+      const linkElement = document.querySelector('[data-interview-link]') as HTMLInputElement
+      if (linkElement) {
+        linkElement.select()
+        linkElement.setSelectionRange(0, 99999) // 对于移动设备
+        alert('请手动复制链接（已选中）')
+      } else {
+        alert('无法复制链接，请手动复制：\n' + interviewUrl)
+      }
     }
   }
 
@@ -363,9 +397,19 @@ function SchoolDashboardContent() {
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               {/* Link display - separate line for better visibility */}
-              <div className="bg-white rounded-lg border border-blue-300 px-4 py-3 font-mono text-xs sm:text-sm text-slate-700 break-all">
-                {typeof window !== 'undefined' && `${window.location.origin}/student/interview?school=${schoolInfo?.code}`}
-              </div>
+              <input
+                type="text"
+                readOnly
+                value={typeof window !== 'undefined' ? `${window.location.origin}/student/interview?school=${schoolInfo?.code}` : ''}
+                data-interview-link
+                className="w-full bg-white rounded-lg border border-blue-300 px-4 py-3 font-mono text-xs sm:text-sm text-slate-700 break-all focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-text"
+                onClick={(e) => {
+                  // 点击时自动选中文本
+                  const target = e.target as HTMLInputElement
+                  target.select()
+                  target.setSelectionRange(0, 99999) // 对于移动设备
+                }}
+              />
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <Button
                   onClick={handleCopyLink}
