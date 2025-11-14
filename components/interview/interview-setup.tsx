@@ -22,27 +22,6 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
   const testDevices = async () => {
     setIsTestingCamera(true)
     setErrorMessage("")
-    
-    // 检查是否在安全上下文中（HTTPS 或 localhost）
-    const isSecureContext = window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    
-    if (!isSecureContext) {
-      setCameraPermission(false)
-      setMicPermission(false)
-      setErrorMessage("⚠️ Camera and microphone access requires HTTPS. The current connection is not secure. Please contact your administrator to set up HTTPS for this application.")
-      setIsTestingCamera(false)
-      return
-    }
-    
-    // 检查 navigator.mediaDevices 是否可用
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setCameraPermission(false)
-      setMicPermission(false)
-      setErrorMessage("⚠️ Camera and microphone access is not available. This may be due to:\n1. Using HTTP instead of HTTPS (required for security)\n2. Browser doesn't support media access\n3. Running in an insecure context\n\nPlease use HTTPS or contact your administrator.")
-      setIsTestingCamera(false)
-      return
-    }
-    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       streamRef.current = stream
@@ -68,16 +47,12 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
           setErrorMessage("Camera is already in use by another application.")
         } else if (err.name === 'OverconstrainedError') {
           setErrorMessage("Camera settings not supported.")
-        } else if (err.name === 'SecurityError' || err.message.includes('getUserMedia')) {
-          setErrorMessage("⚠️ Security Error: Camera and microphone access requires HTTPS. The current connection (HTTP) is not secure. Please contact your administrator to set up HTTPS.")
+        } else if (err.name === 'SecurityError') {
+          setErrorMessage("Access denied due to security restrictions. Make sure you're using HTTPS.")
         } else {
           setErrorMessage(`Error: ${err.message}`)
         }
-      } else {
-        setErrorMessage("Unknown error occurred while accessing camera and microphone.")
       }
-    } finally {
-      setIsTestingCamera(false)
     }
   }
 
