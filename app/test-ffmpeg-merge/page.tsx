@@ -123,7 +123,7 @@ export default function TestFFmpegMergePage() {
         '-preset', 'medium',
         '-crf', '23',
         '-profile:v', 'high',
-        '-level', '41',
+        '-level', '40',          // Level 4.0 (iOS compatible)
         '-pix_fmt', 'yuv420p',
         '-vsync', 'cfr',
         '-r', '30',

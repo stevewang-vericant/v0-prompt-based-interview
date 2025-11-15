@@ -443,7 +443,7 @@ export async function mergeVideos(
       '-preset', 'medium',     // 使用 medium 更快
       '-crf', '23',
       '-profile:v', 'high',
-      '-level', '41',         // iOS 兼容级别（使用 41）
+      '-level', '40',         // iOS 兼容级别（使用 4.0，确保苹果设备可以播放）
       '-pix_fmt', 'yuv420p',
       '-vsync', 'cfr',        // 使用恒定帧率，解决 duplicate frames 问题
       '-r', '30',            // 强制帧率为 30fps
@@ -516,7 +516,7 @@ async function convertToMP4(videoBlob: Blob, onProgress?: (progress: number) => 
       '-preset', 'medium',
       '-crf', '23',
       '-profile:v', 'high',
-      '-level', '41',
+      '-level', '40',         // iOS 兼容级别（使用 4.0，确保苹果设备可以播放）
       '-pix_fmt', 'yuv420p',
       '-vsync', 'cfr',         // 使用恒定帧率，解决 duplicate frames 问题
       '-r', '30',             // 强制帧率为 30fps

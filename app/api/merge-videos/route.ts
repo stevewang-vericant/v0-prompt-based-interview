@@ -123,28 +123,45 @@ export async function POST(request: NextRequest) {
       writeFileSync(concatFile, concatContent)
       tempFiles.push(concatFile)
       
-      // 输出文件
-      const outputFile = join(tempDir, `merged_${Date.now()}.webm`)
-      tempFiles.push(outputFile)
+      // 先合并为临时 webm 文件
+      const tempMergedFile = join(tempDir, `temp_merged_${Date.now()}.webm`)
+      tempFiles.push(tempMergedFile)
       
-      console.log('[Merge] Running FFmpeg to merge videos...')
+      console.log('[Merge] Step 1: Merging videos...')
       console.log('[Merge] Input files:', inputFiles.length)
       console.log('[Merge] Concat file:', concatFile)
-      console.log('[Merge] Output file:', outputFile)
       
-      // 使用FFmpeg合并视频
-      const ffmpegCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c copy "${outputFile}" -y`
-      console.log('[Merge] FFmpeg command:', ffmpegCommand)
+      // 第一步：合并视频（使用 copy 模式，快速）
+      const mergeCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c copy "${tempMergedFile}" -y`
+      console.log('[Merge] FFmpeg merge command:', mergeCommand)
       
-      const { stdout, stderr } = await execAsync(ffmpegCommand)
-      console.log('[Merge] FFmpeg stdout:', stdout)
-      if (stderr) console.log('[Merge] FFmpeg stderr:', stderr)
+      const { stdout: mergeStdout, stderr: mergeStderr } = await execAsync(mergeCommand)
+      console.log('[Merge] FFmpeg merge stdout:', mergeStdout)
+      if (mergeStderr) console.log('[Merge] FFmpeg merge stderr:', mergeStderr)
       
-      if (!existsSync(outputFile)) {
-        throw new Error('FFmpeg failed to create output file')
+      if (!existsSync(tempMergedFile)) {
+        throw new Error('FFmpeg failed to create merged file')
       }
       
-      // 读取合并后的视频
+      // 第二步：转码为 MP4，指定 level 4.0 以确保 iOS 兼容性
+      const outputFile = join(tempDir, `merged_${Date.now()}.mp4`)
+      tempFiles.push(outputFile)
+      
+      console.log('[Merge] Step 2: Transcoding to MP4 with level 4.0 for iOS compatibility...')
+      
+      // 转码命令：合并后转码为 MP4，使用 level 4.0（iOS 兼容）
+      const transcodeCommand = `ffmpeg -i "${tempMergedFile}" -c:v libx264 -preset medium -crf 23 -profile:v high -level 40 -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart "${outputFile}" -y`
+      console.log('[Merge] FFmpeg transcode command:', transcodeCommand)
+      
+      const { stdout: transcodeStdout, stderr: transcodeStderr } = await execAsync(transcodeCommand)
+      console.log('[Merge] FFmpeg transcode stdout:', transcodeStdout)
+      if (transcodeStderr) console.log('[Merge] FFmpeg transcode stderr:', transcodeStderr)
+      
+      if (!existsSync(outputFile)) {
+        throw new Error('FFmpeg failed to create transcoded output file')
+      }
+      
+      // 读取转码后的视频
       mergedBuffer = require('fs').readFileSync(outputFile)
       totalDuration = segmentDurations.reduce((sum, dur) => sum + dur, 0)
       
@@ -192,15 +209,15 @@ export async function POST(request: NextRequest) {
       throw error
     }
     
-    // 上传合并后的视频
+    // 上传合并后的视频（现在是 MP4 格式）
     const timestamp = Date.now()
-    const mergedKey = `interviews/${interviewId}/merged-interview-${timestamp}.webm`
+    const mergedKey = `interviews/${interviewId}/merged-interview-${timestamp}.mp4`
     
     const putCommand = new PutObjectCommand({
       Bucket: process.env.B2_BUCKET_NAME!,
       Key: mergedKey,
       Body: mergedBuffer,
-      ContentType: 'video/webm',
+      ContentType: 'video/mp4',
     })
     
     await s3Client.send(putCommand)
@@ -236,8 +253,8 @@ export async function POST(request: NextRequest) {
     let actualDuration = totalDuration // 默认使用估算时长
     
     try {
-      // 使用本地临时文件来获取时长
-      const tempDurationFile = join(tempDir, `duration_check_${Date.now()}.webm`)
+      // 使用本地临时文件来获取时长（现在是 MP4 格式）
+      const tempDurationFile = join(tempDir, `duration_check_${Date.now()}.mp4`)
       writeFileSync(tempDurationFile, mergedBuffer as any)
       
       const durationCommand = `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${tempDurationFile}"`

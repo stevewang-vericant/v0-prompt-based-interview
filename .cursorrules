@@ -28,3 +28,20 @@
 - Scripts should use `vim` in echo statements and instructions
 - When creating new documentation or scripts, always default to `vim`
 
+## Git Workflow
+
+### Branch-Based Development
+- **Always create a feature/fix branch** before making changes that need testing
+- **Branch naming convention**: 
+  - Features: `feature/description`
+  - Fixes: `fix/description`
+  - Examples: `fix/ios-video-level-4`, `feature/school-management`
+- **Workflow**:
+  1. Create branch: `git checkout -b fix/description`
+  2. Make changes and commit
+  3. Test thoroughly on the branch
+  4. Only merge to `main` after testing passes
+  5. Deploy from `main` branch
+- **Never commit directly to `main`** for changes that require testing
+- **Deployment**: Always deploy from `main` branch after merge
+

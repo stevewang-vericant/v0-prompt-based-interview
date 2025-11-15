@@ -106,7 +106,7 @@ export default function TestFFmpegPage() {
         '-preset', 'medium',
         '-crf', '23',
         '-profile:v', 'high',
-        '-level', '41',          // Level 4.1
+        '-level', '40',          // Level 4.0 (iOS compatible)
         '-pix_fmt', 'yuv420p',
         '-vsync', 'cfr',         // 使用恒定帧率，解决 duplicate frames 问题
         '-r', '30',             // 强制帧率为 30fps
