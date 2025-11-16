@@ -213,11 +213,57 @@ export function VideoPlayerWithSubtitles({
       // 检查视频是否已暂停
       if (video.paused) {
         console.log('[Player] Attempting to play...')
-        // 先确保视频已加载元数据
+        console.log('[Player] Current readyState:', video.readyState)
+        
+        // iOS 上，如果只有元数据（readyState < 2），需要调用 load() 开始加载视频数据
         if (video.readyState < 2) {
-          console.log('[Player] Waiting for video to load...')
-          return
+          console.log('[Player] Only metadata loaded, calling load() to start loading video data...')
+          setLoading(true)
+          video.load() // 强制开始加载视频数据
+          
+          // 等待视频数据开始加载
+          return new Promise<void>((resolve) => {
+            const onCanPlay = () => {
+              console.log('[Player] Video data loaded, ready to play')
+              video.removeEventListener('canplay', onCanPlay)
+              video.removeEventListener('error', onError)
+              video.play().then(() => {
+                console.log('[Player] Playing after load()')
+                updateVideoStats()
+                resolve()
+              }).catch((playError) => {
+                console.error('[Player] Play error after load():', playError)
+                updateVideoStats()
+                resolve()
+              })
+            }
+            
+            const onError = () => {
+              console.error('[Player] Error loading video data')
+              video.removeEventListener('canplay', onCanPlay)
+              video.removeEventListener('error', onError)
+              updateVideoStats()
+              resolve()
+            }
+            
+            video.addEventListener('canplay', onCanPlay, { once: true })
+            video.addEventListener('error', onError, { once: true })
+            
+            // 超时保护
+            setTimeout(() => {
+              video.removeEventListener('canplay', onCanPlay)
+              video.removeEventListener('error', onError)
+              console.log('[Player] Load timeout, attempting to play anyway...')
+              video.play().catch((err) => {
+                console.error('[Player] Play error after timeout:', err)
+              })
+              updateVideoStats()
+              resolve()
+            }, 10000) // 10秒超时
+          })
         }
+        
+        // 如果已经有足够的数据，直接播放
         await video.play()
         console.log('[Player] Playing')
       } else {
@@ -237,7 +283,10 @@ export function VideoPlayerWithSubtitles({
           updateVideoStats()
         } catch (retryError) {
           console.error('[Player] Retry play error:', retryError)
+          updateVideoStats()
         }
+      } else {
+        updateVideoStats()
       }
     }
   }
@@ -288,6 +337,24 @@ export function VideoPlayerWithSubtitles({
               onLoadedMetadata={handleLoadedMetadata}
               onLoadedData={handleLoadedData}
               onCanPlay={handleCanPlay}
+              onProgress={() => {
+                // 追踪视频数据加载进度
+                if (debug) {
+                  updateVideoStats()
+                }
+              }}
+              onWaiting={() => {
+                console.log('[Player] Video waiting for data...')
+                if (debug) {
+                  updateVideoStats()
+                }
+              }}
+              onStalled={() => {
+                console.log('[Player] Video stalled (network issue?)')
+                if (debug) {
+                  updateVideoStats()
+                }
+              }}
               preload="metadata"
               playsInline
               // @ts-ignore - webkit-playsinline for iOS Safari
