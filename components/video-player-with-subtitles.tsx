@@ -229,8 +229,14 @@ export function VideoPlayerWithSubtitles({
               onLoadedMetadata={handleLoadedMetadata}
               onLoadedData={handleLoadedData}
               onCanPlay={handleCanPlay}
-              preload="auto"
+              preload="metadata"
               playsInline
+              // @ts-ignore - webkit-playsinline for iOS Safari
+              webkit-playsinline="true"
+              // @ts-ignore - x5-playsinline for Android browsers
+              x5-playsinline="true"
+              controls={false}
+              crossOrigin="anonymous"
               onPlay={() => {
                 console.log('[Player] Video play event')
                 setIsPlaying(true)
