@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = "force-dynamic"
 
+function parseRange(rangeHeader: string | null, fallbackSize?: number) {
+  if (!rangeHeader || !rangeHeader.startsWith('bytes=')) {
+    return null
+  }
+
+  const [startStr, endStr] = rangeHeader.replace('bytes=', '').split('-')
+  const start = parseInt(startStr, 10)
+  const end = endStr ? parseInt(endStr, 10) : fallbackSize ? fallbackSize - 1 : undefined
+
+  if (isNaN(start) || start < 0) {
+    return null
+  }
+
+  return { start, end }
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const url = searchParams.get('url')
@@ -14,11 +30,11 @@ export async function GET(request: NextRequest) {
     console.log('[Proxy] Fetching video from:', url)
     console.log('[Proxy] Request headers:', Object.fromEntries(request.headers.entries()))
     
-    const range = request.headers.get('range')
+    const rangeHeader = request.headers.get('range')
     const headers: HeadersInit = {}
     
-    if (range) {
-      headers['Range'] = range
+    if (rangeHeader) {
+      headers['Range'] = rangeHeader
     }
     
     const response = await fetch(url, { 
@@ -29,28 +45,38 @@ export async function GET(request: NextRequest) {
     console.log('[Proxy] Response status:', response.status)
     console.log('[Proxy] Response headers:', Object.fromEntries(response.headers.entries()))
 
-    // 对于 Range 请求，需要返回 206 Partial Content
-    const isRangeRequest = !!range
-    const status = isRangeRequest && response.status === 206 ? 206 : response.status
+    const isRangeRequest = !!rangeHeader
+    const upstreamContentLength = response.headers.get('content-length')
+    const upstreamContentRange = response.headers.get('content-range')
+    const parsedRange = parseRange(rangeHeader, upstreamContentLength ? parseInt(upstreamContentLength, 10) : undefined)
 
-    // 如果是 Range 请求，直接流式传输，不要全部加载到内存
-    if (isRangeRequest && response.status === 206) {
+    // 如果是 Range 请求，直接流式传输，并确保响应状态为 206
+    if (isRangeRequest) {
       const responseHeaders: HeadersInit = {
         'Content-Type': response.headers.get('content-type') || 'video/mp4',
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'public, max-age=3600',
       }
-      
-      const contentRange = response.headers.get('content-range')
-      const contentLength = response.headers.get('content-length')
-      
-      if (contentRange) {
-        responseHeaders['Content-Range'] = contentRange
+
+      if (upstreamContentRange) {
+        responseHeaders['Content-Range'] = upstreamContentRange
+      } else if (parsedRange) {
+        const totalSize = upstreamContentLength ? parseInt(upstreamContentLength, 10) : parsedRange.end !== undefined ? parsedRange.end + 1 : undefined
+        if (totalSize !== undefined) {
+          const end = parsedRange.end !== undefined ? parsedRange.end : totalSize - 1
+          responseHeaders['Content-Range'] = `bytes ${parsedRange.start}-${end}/${totalSize}`
+          responseHeaders['Content-Length'] = (end - parsedRange.start + 1).toString()
+        } else if (upstreamContentLength) {
+          responseHeaders['Content-Length'] = upstreamContentLength
+        }
+      } else if (upstreamContentLength) {
+        responseHeaders['Content-Length'] = upstreamContentLength
       }
-      if (contentLength) {
-        responseHeaders['Content-Length'] = contentLength
+
+      if (!responseHeaders['Content-Length'] && upstreamContentLength) {
+        responseHeaders['Content-Length'] = upstreamContentLength
       }
-      
+
       return new NextResponse(response.body, {
         status: 206,
         headers: responseHeaders,
@@ -62,7 +88,7 @@ export async function GET(request: NextRequest) {
     console.log('[Proxy] Fetched video data, size:', data.byteLength, 'bytes')
     
     return new NextResponse(data, {
-      status: status,
+      status: response.status,
       headers: {
         'Content-Type': response.headers.get('content-type') || 'video/mp4',
         'Content-Length': response.headers.get('content-length') || data.byteLength.toString(),
