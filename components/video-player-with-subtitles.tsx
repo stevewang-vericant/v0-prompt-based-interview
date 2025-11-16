@@ -26,12 +26,25 @@ interface VideoPlayerWithSubtitlesProps {
   videoUrl: string
   subtitleUrl?: string
   autoPlay?: boolean
+  debug?: boolean
+}
+
+interface VideoStats {
+  readyState: number
+  networkState: number
+  paused: boolean
+  ended: boolean
+  errorCode: number | null
+  errorMessage: string | null
+  bufferedRanges: string
+  currentSrc: string
 }
 
 export function VideoPlayerWithSubtitles({ 
   videoUrl, 
   subtitleUrl,
-  autoPlay = false 
+  autoPlay = false,
+  debug = false,
 }: VideoPlayerWithSubtitlesProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -43,6 +56,41 @@ export function VideoPlayerWithSubtitles({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [videoReady, setVideoReady] = useState(false)
+  const [videoStats, setVideoStats] = useState<VideoStats>({
+    readyState: 0,
+    networkState: 0,
+    paused: true,
+    ended: false,
+    errorCode: null,
+    errorMessage: null,
+    bufferedRanges: '',
+    currentSrc: videoUrl,
+  })
+
+  const updateVideoStats = () => {
+    const video = videoRef.current
+    if (!video) return
+
+    try {
+      let bufferedRanges = ''
+      for (let i = 0; i < video.buffered.length; i++) {
+        bufferedRanges += `[${video.buffered.start(i).toFixed(2)}-${video.buffered.end(i).toFixed(2)}] `
+      }
+
+      setVideoStats({
+        readyState: video.readyState,
+        networkState: video.networkState,
+        paused: video.paused,
+        ended: video.ended,
+        errorCode: video.error?.code ?? null,
+        errorMessage: video.error?.message ?? null,
+        bufferedRanges: bufferedRanges.trim(),
+        currentSrc: video.currentSrc,
+      })
+    } catch (statsError) {
+      console.warn('[Player] Failed to update video stats:', statsError)
+    }
+  }
 
   // 检查视频是否已经准备好（处理缓存情况）
   useEffect(() => {
@@ -60,6 +108,8 @@ export function VideoPlayerWithSubtitles({
         setDuration(video.duration)
       }
     }
+
+    updateVideoStats()
   }, [])
 
   // 加载字幕元数据
@@ -123,6 +173,9 @@ export function VideoPlayerWithSubtitles({
   const handleTimeUpdate = () => {
     if (videoRef.current) {
       setCurrentTime(videoRef.current.currentTime)
+      if (debug) {
+        updateVideoStats()
+      }
     }
   }
 
@@ -133,6 +186,7 @@ export function VideoPlayerWithSubtitles({
       // 视频元数据加载完成，可以播放了
       setVideoReady(true)
       setLoading(false)
+      updateVideoStats()
     }
   }
 
@@ -140,12 +194,14 @@ export function VideoPlayerWithSubtitles({
     console.log('[Player] Video can play')
     setVideoReady(true)
     setLoading(false)
+    updateVideoStats()
   }
   
   const handleLoadedData = () => {
     console.log('[Player] Video data loaded')
     setVideoReady(true)
     setLoading(false)
+    updateVideoStats()
   }
 
   const togglePlay = async () => {
@@ -168,6 +224,7 @@ export function VideoPlayerWithSubtitles({
         console.log('[Player] Pausing')
         video.pause()
       }
+      updateVideoStats()
     } catch (error) {
       console.error('[Player] Play error:', error)
       // 如果自动播放被阻止，尝试静音播放
@@ -177,6 +234,7 @@ export function VideoPlayerWithSubtitles({
           setIsMuted(true)
           await video.play()
           console.log('[Player] Playing (muted due to browser policy)')
+          updateVideoStats()
         } catch (retryError) {
           console.error('[Player] Retry play error:', retryError)
         }
@@ -188,6 +246,7 @@ export function VideoPlayerWithSubtitles({
     if (videoRef.current) {
       videoRef.current.muted = !isMuted
       setIsMuted(!isMuted)
+      updateVideoStats()
     }
   }
 
@@ -240,10 +299,12 @@ export function VideoPlayerWithSubtitles({
               onPlay={() => {
                 console.log('[Player] Video play event')
                 setIsPlaying(true)
+                updateVideoStats()
               }}
               onPause={() => {
                 console.log('[Player] Video pause event')
                 setIsPlaying(false)
+                updateVideoStats()
               }}
               onError={(e) => {
                 const video = e.currentTarget
@@ -256,6 +317,7 @@ export function VideoPlayerWithSubtitles({
                   src: video.src,
                 })
                 setError(`Failed to load video: ${video.error?.message || 'Unknown error'}`)
+                updateVideoStats()
               }}
               onClick={togglePlay}
             />
@@ -345,6 +407,20 @@ export function VideoPlayerWithSubtitles({
               </Button>
             </div>
           </div>
+
+          {debug && (
+            <div className="mt-4 p-4 border border-dashed rounded-lg bg-slate-50 text-xs font-mono text-slate-700 space-y-1">
+              <p className="font-semibold">Debug Info</p>
+              <p>readyState: {videoStats.readyState}</p>
+              <p>networkState: {videoStats.networkState}</p>
+              <p>paused: {videoStats.paused ? 'true' : 'false'} | ended: {videoStats.ended ? 'true' : 'false'}</p>
+              <p>buffered: {videoStats.bufferedRanges || 'N/A'}</p>
+              <p>errorCode: {videoStats.errorCode ?? 'N/A'}</p>
+              <p>errorMessage: {videoStats.errorMessage ?? 'N/A'}</p>
+              <p>currentSrc: {videoStats.currentSrc}</p>
+              <p>userAgent: {typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'}</p>
+            </div>
+          )}
 
           {/* 字幕信息 */}
           {subtitles && (

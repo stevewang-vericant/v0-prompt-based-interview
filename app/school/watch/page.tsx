@@ -15,6 +15,7 @@ function SchoolWatchPageContent() {
   const interviewId = searchParams.get('interviewId')
   const studentEmail = searchParams.get('studentEmail')
   const studentName = searchParams.get('studentName')
+  const debugMode = searchParams.get('debug') === 'true'
 
   if (!videoUrl) {
     return (
@@ -71,6 +72,11 @@ function SchoolWatchPageContent() {
                   </p>
                 )}
               </div>
+              {debugMode && (
+                <p className="text-xs text-amber-600 font-mono mt-2">
+                  Debug mode active – use this to capture playback details.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -84,6 +90,7 @@ function SchoolWatchPageContent() {
                 <VideoPlayerWithSubtitles 
                   videoUrl={videoUrl} 
                   subtitleUrl={subtitleUrl || undefined}
+                  debug={debugMode}
                 />
               </div>
 

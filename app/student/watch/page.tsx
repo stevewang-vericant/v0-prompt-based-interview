@@ -10,6 +10,7 @@ function WatchPageContent() {
   const searchParams = useSearchParams()
   const videoUrl = searchParams.get("videoUrl")
   const subtitleUrl = searchParams.get("subtitleUrl")
+  const debugMode = searchParams.get("debug") === "true"
 
   if (!videoUrl) {
     return (
@@ -44,6 +45,11 @@ function WatchPageContent() {
                 Interview Playback
               </h1>
               <p className="text-sm text-slate-600">Watch your interview with subtitles</p>
+              {debugMode && (
+                <p className="text-xs text-amber-600 font-mono mt-1">
+                  Debug mode active – collect playback diagnostics below.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -55,6 +61,7 @@ function WatchPageContent() {
           videoUrl={videoUrl}
           subtitleUrl={subtitleUrl || undefined}
           autoPlay={false}
+          debug={debugMode}
         />
 
         {/* Information */}
