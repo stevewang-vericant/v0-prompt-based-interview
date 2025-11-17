@@ -12,7 +12,7 @@ import {
 } from "@/app/actions/interviews"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
 import { listSchools, createSchool, deleteSchool, type ManagedSchool } from "@/app/actions/schools"
-import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut, Trash2, X, PlusCircle } from "lucide-react"
+import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut, Trash2, X, PlusCircle, Upload } from "lucide-react"
 import { format } from "date-fns"
 
 function SchoolDashboardContent() {
@@ -814,18 +814,35 @@ function SchoolDashboardContent() {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      onClick={() => handleWatchInterview(interview)}
-                      size="sm"
-                      className="w-full sm:w-auto shrink-0"
-                      disabled={!interview.video_url}
-                      title={!interview.video_url ? 'Video is still processing...' : 'Watch interview'}
-                    >
-                      <Video className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                      <span className="sm:inline">
-                        {interview.video_url ? 'Watch' : 'Processing...'}
-                      </span>
-                    </Button>
+                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                      {!interview.video_url && (
+                        <Button
+                          onClick={() => {
+                            // 跳转到重新上传页面
+                            window.location.href = `/student/interview/resume?interviewId=${interview.interview_id}&school=${interview.school_code || ''}`
+                          }}
+                          size="sm"
+                          variant="outline"
+                          className="w-full sm:w-auto"
+                          title="Resume upload if video segments are stored locally"
+                        >
+                          <Upload className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                          <span className="sm:inline">Resume Upload</span>
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => handleWatchInterview(interview)}
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        disabled={!interview.video_url}
+                        title={!interview.video_url ? 'Video is still processing...' : 'Watch interview'}
+                      >
+                        <Video className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                        <span className="sm:inline">
+                          {interview.video_url ? 'Watch' : 'Processing...'}
+                        </span>
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
