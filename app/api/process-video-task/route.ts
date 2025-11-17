@@ -50,7 +50,8 @@ export async function processVideoMergeTask(taskId: string) {
       const now = new Date()
       const hoursElapsed = (now.getTime() - startedAt.getTime()) / (1000 * 60 * 60)
       
-      if (hoursElapsed < 1) {
+      // 如果超过 30 分钟，认为可能卡住了，允许重新处理
+      if (hoursElapsed < 0.5) {
         console.log(`[Task ${taskId}] Already processing (started ${Math.round(hoursElapsed * 60)} minutes ago)`)
         return { success: true, task }
       } else {
