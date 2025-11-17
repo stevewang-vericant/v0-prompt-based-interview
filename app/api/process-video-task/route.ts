@@ -58,8 +58,14 @@ export async function processVideoMergeTask(taskId: string) {
       })
       .eq('id', taskId)
     
-    const { interviewId, segments } = task
+    // 注意：数据库字段是 interview_id（下划线），不是 interviewId（驼峰）
+    const interviewId = task.interview_id || task.interviewId
+    const segments = task.segments
     console.log(`[Task ${taskId}] Processing video merge for interview: ${interviewId}`)
+    
+    if (!interviewId) {
+      throw new Error(`Interview ID is missing in task ${taskId}`)
+    }
     console.log(`[Task ${taskId}] Segments count:`, segments.length)
     
     // 下载所有分段视频并获取实际时长
@@ -204,6 +210,10 @@ export async function processVideoMergeTask(taskId: string) {
     
     // 上传合并后的视频
     const timestamp = Date.now()
+    // 确保 interviewId 不为空
+    if (!interviewId) {
+      throw new Error(`Interview ID is missing when uploading merged video for task ${taskId}`)
+    }
     const mergedKey = `interviews/${interviewId}/merged-interview-${timestamp}.mp4`
     
     const putCommand = new PutObjectCommand({
@@ -272,6 +282,9 @@ export async function processVideoMergeTask(taskId: string) {
     console.log(`[Task ${taskId}] Uploading subtitle metadata to B2...`)
     let subtitleUrl: string | null = null
     try {
+      if (!interviewId) {
+        throw new Error(`Interview ID is missing when uploading subtitle metadata for task ${taskId}`)
+      }
       const jsonString = JSON.stringify(subtitleMetadata, null, 2)
       const buffer = Buffer.from(jsonString, 'utf-8')
       const timestamp = Date.now()
@@ -292,7 +305,11 @@ export async function processVideoMergeTask(taskId: string) {
     }
     
     // 更新数据库中的视频URL和字幕URL
-    const { error: updateError } = await supabase
+    console.log(`[Task ${taskId}] Updating database for interview_id: ${interviewId}`)
+    console.log(`[Task ${taskId}] Video URL: ${mergedVideoUrl}`)
+    console.log(`[Task ${taskId}] Subtitle URL: ${subtitleUrl}`)
+    
+    const { data: updatedData, error: updateError } = await supabase
       .from('interviews')
       .update({
         video_url: mergedVideoUrl,
@@ -309,11 +326,29 @@ export async function processVideoMergeTask(taskId: string) {
         }
       })
       .eq('interview_id', interviewId)
+      .select()
     
     if (updateError) {
       console.error(`[Task ${taskId}] ⚠️ Failed to update database:`, updateError)
+      console.error(`[Task ${taskId}] Update error details:`, JSON.stringify(updateError, null, 2))
     } else {
-      console.log(`[Task ${taskId}] ✓ Database updated with video and subtitle URLs`)
+      if (updatedData && updatedData.length > 0) {
+        console.log(`[Task ${taskId}] ✓ Database updated successfully, affected rows: ${updatedData.length}`)
+        console.log(`[Task ${taskId}] Updated interview ID: ${updatedData[0].interview_id}`)
+      } else {
+        console.warn(`[Task ${taskId}] ⚠️ Update returned no rows - interview_id '${interviewId}' may not exist in database`)
+        // 尝试查找是否存在该记录
+        const { data: existingInterview } = await supabase
+          .from('interviews')
+          .select('interview_id, student_email')
+          .eq('interview_id', interviewId)
+          .single()
+        if (existingInterview) {
+          console.log(`[Task ${taskId}] Found interview record:`, existingInterview)
+        } else {
+          console.error(`[Task ${taskId}] Interview record not found for interview_id: ${interviewId}`)
+        }
+      }
     }
     
     // 更新任务状态为 completed
