@@ -281,7 +281,7 @@ export async function hasPendingUploads(interviewId: string): Promise<boolean> {
 }
 
 /**
- * 获取所有有未完成上传的面试ID列表
+ * 获取所有有未完成上传的面试ID列表（按时间倒序，最新的在前）
  */
 export async function getInterviewsWithPendingUploads(): Promise<string[]> {
   try {
@@ -294,8 +294,22 @@ export async function getInterviewsWithPendingUploads(): Promise<string[]> {
       const request = index.getAll(false) // false = 未上传的
       request.onsuccess = () => {
         const segments = request.result as VideoSegment[]
-        const interviewIds = [...new Set(segments.map(seg => seg.interviewId))]
-        console.log(`[IndexedDB] Found ${interviewIds.length} interviews with pending uploads`)
+        
+        // 按时间戳分组，获取每个面试的最新时间戳
+        const interviewMap = new Map<string, number>()
+        segments.forEach(seg => {
+          const existing = interviewMap.get(seg.interviewId)
+          if (!existing || seg.timestamp > existing) {
+            interviewMap.set(seg.interviewId, seg.timestamp)
+          }
+        })
+        
+        // 按时间戳倒序排序（最新的在前）
+        const interviewIds = Array.from(interviewMap.entries())
+          .sort((a, b) => b[1] - a[1]) // 按时间戳倒序
+          .map(([interviewId]) => interviewId)
+        
+        console.log(`[IndexedDB] Found ${interviewIds.length} interviews with pending uploads (sorted by timestamp)`)
         resolve(interviewIds)
       }
       request.onerror = () => reject(request.error)

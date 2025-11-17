@@ -19,6 +19,7 @@ import {
   markSegmentAsUploaded, 
   clearUploadedSegments,
   hasPendingUploads,
+  getInterviewsWithPendingUploads,
   type VideoSegment
 } from "@/lib/indexeddb"
 
@@ -70,7 +71,23 @@ function InterviewPageContent() {
   const [stage, setStage] = useState<InterviewStage>("setup")
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
   const [responses, setResponses] = useState<Record<string, Blob>>({})
-  const [interviewId] = useState(() => `interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+  // 从 localStorage 恢复 interviewId，如果没有则生成新的
+  const [interviewId, setInterviewId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      // 尝试从 localStorage 恢复
+      const saved = localStorage.getItem('currentInterviewId')
+      if (saved) {
+        console.log('[v0] Restored interviewId from localStorage:', saved)
+        return saved
+      }
+    }
+    // 生成新的 interviewId
+    const newId = `interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentInterviewId', newId)
+    }
+    return newId
+  })
   const [isUploading, setIsUploading] = useState(false)
   const [interviewCompleted, setInterviewCompleted] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -81,6 +98,7 @@ function InterviewPageContent() {
   useEffect(() => {
     const checkPendingUploads = async () => {
       try {
+        // 首先检查当前 interviewId 是否有未完成的上传
         const pending = await hasPendingUploads(interviewId)
         if (pending) {
           setHasPending(true)
@@ -102,6 +120,32 @@ function InterviewPageContent() {
             setStage("complete")
             // 注意：这里不自动触发上传，需要用户点击提交按钮
           }
+        } else {
+          // 如果没有当前 interviewId 的未完成上传，检查是否有其他未完成的上传
+          const allPendingInterviews = await getInterviewsWithPendingUploads()
+          if (allPendingInterviews.length > 0) {
+            console.log(`[v0] Found ${allPendingInterviews.length} interviews with pending uploads:`, allPendingInterviews)
+            
+            // 如果有其他未完成的上传，询问用户是否恢复
+            const shouldResume = confirm(
+              `检测到 ${allPendingInterviews.length} 个未完成的面试，是否恢复最近的面试？`
+            )
+            
+            if (shouldResume && allPendingInterviews.length > 0) {
+              // 使用最近的 interviewId
+              const resumeInterviewId = allPendingInterviews[0]
+              setInterviewId(resumeInterviewId)
+              localStorage.setItem('currentInterviewId', resumeInterviewId)
+              
+              const pendingSegments = await getPendingSegments(resumeInterviewId)
+              const allResponses: Record<string, Blob> = {}
+              pendingSegments.forEach(seg => {
+                allResponses[seg.promptId] = seg.blob
+              })
+              setResponses(allResponses)
+              setStage("complete")
+            }
+          }
         }
       } catch (error) {
         console.error('[v0] Failed to check pending uploads:', error)
@@ -112,6 +156,11 @@ function InterviewPageContent() {
   }, [interviewId])
 
   const handleSetupComplete = () => {
+    // 确保 interviewId 已保存到 localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentInterviewId', interviewId)
+      console.log('[v0] Saved interviewId to localStorage:', interviewId)
+    }
     setStage("interview")
   }
 
@@ -392,6 +441,12 @@ function InterviewPageContent() {
         console.log("[v0] ✓ Cleared uploaded segments from IndexedDB")
       } catch (error) {
         console.warn("[v0] ⚠️ Failed to clear uploaded segments:", error)
+      }
+      
+      // 清理 localStorage 中的 interviewId（上传完成后）
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('currentInterviewId')
+        console.log("[v0] ✓ Cleared interviewId from localStorage")
       }
       
       setHasPending(false)
