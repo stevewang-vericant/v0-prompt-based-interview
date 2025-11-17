@@ -56,11 +56,11 @@ export default function HomePage() {
           <Card>
             <CardHeader>
               <Award className="h-8 w-8 text-blue-600 mb-2" />
-              <CardTitle>AI + Human Scoring</CardTitle>
+              <CardTitle>AI Transcripts and Summaries</CardTitle>
             </CardHeader>
             <CardContent>
               <CardDescription>
-                Comprehensive assessment of fluency, coherence, vocabulary, grammar, and pronunciation
+                A full transcript and detailed summary of an applicant's responses, allowing you to quickly focus on the most important information.
               </CardDescription>
             </CardContent>
           </Card>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle2, Clock, Award, Mail } from "lucide-react"
+import { CheckCircle2, Clock, Mail } from "lucide-react"
 
 interface InterviewCompleteProps {
   responsesCount: number
@@ -81,18 +81,6 @@ export function InterviewComplete({
               <p className="font-medium text-sm sm:text-base">Verification Process</p>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Your identity and responses will be verified by our operations team to ensure authenticity
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-3 sm:gap-4">
-            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <Award className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-medium text-sm sm:text-base">AI + Human Scoring</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Your responses will be evaluated for fluency, coherence, vocabulary, grammar, and pronunciation
               </p>
             </div>
           </div>
