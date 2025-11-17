@@ -105,20 +105,47 @@ function InterviewPageContent() {
           const pendingSegments = await getPendingSegments(interviewId)
           console.log(`[v0] Found ${pendingSegments.length} pending segments for ${interviewId}`)
           
-          // 询问用户是否继续上传
-          const shouldResume = confirm(
-            `检测到 ${pendingSegments.length} 个未上传的视频片段，是否继续上传？`
-          )
+          // 检查是否所有问题都已录制完成
+          const totalPrompts = mockPrompts.length
+          const recordedPrompts = pendingSegments.length
           
-          if (shouldResume) {
-            // 自动继续上传
-            const allResponses: Record<string, Blob> = {}
-            pendingSegments.forEach(seg => {
-              allResponses[seg.promptId] = seg.blob
-            })
-            setResponses(allResponses)
-            setStage("complete")
-            // 注意：这里不自动触发上传，需要用户点击提交按钮
+          if (recordedPrompts < totalPrompts) {
+            // 面试未完成，需要继续录制
+            const shouldResume = confirm(
+              `检测到未完成的面试（已录制 ${recordedPrompts}/${totalPrompts} 个问题）。是否继续完成面试？`
+            )
+            
+            if (shouldResume) {
+              // 恢复已录制的片段
+              const allResponses: Record<string, Blob> = {}
+              pendingSegments.forEach(seg => {
+                allResponses[seg.promptId] = seg.blob
+              })
+              setResponses(allResponses)
+              
+              // 设置当前问题索引为已录制的问题数量
+              setCurrentPromptIndex(recordedPrompts)
+              
+              // 继续面试流程（从下一个问题开始）
+              setStage("interview")
+              console.log(`[v0] Resuming interview from question ${recordedPrompts + 1}`)
+            }
+          } else {
+            // 所有问题都已录制完成，可以上传
+            const shouldResume = confirm(
+              `检测到 ${recordedPrompts} 个未上传的视频片段，是否继续上传？`
+            )
+            
+            if (shouldResume) {
+              // 自动继续上传
+              const allResponses: Record<string, Blob> = {}
+              pendingSegments.forEach(seg => {
+                allResponses[seg.promptId] = seg.blob
+              })
+              setResponses(allResponses)
+              setStage("complete")
+              // 注意：这里不自动触发上传，需要用户点击提交按钮
+            }
           }
         } else {
           // 如果没有当前 interviewId 的未完成上传，检查是否有其他未完成的上传
@@ -138,12 +165,28 @@ function InterviewPageContent() {
               localStorage.setItem('currentInterviewId', resumeInterviewId)
               
               const pendingSegments = await getPendingSegments(resumeInterviewId)
-              const allResponses: Record<string, Blob> = {}
-              pendingSegments.forEach(seg => {
-                allResponses[seg.promptId] = seg.blob
-              })
-              setResponses(allResponses)
-              setStage("complete")
+              const totalPrompts = mockPrompts.length
+              const recordedPrompts = pendingSegments.length
+              
+              if (recordedPrompts < totalPrompts) {
+                // 面试未完成，需要继续录制
+                const allResponses: Record<string, Blob> = {}
+                pendingSegments.forEach(seg => {
+                  allResponses[seg.promptId] = seg.blob
+                })
+                setResponses(allResponses)
+                setCurrentPromptIndex(recordedPrompts)
+                setStage("interview")
+                console.log(`[v0] Resuming interview from question ${recordedPrompts + 1}`)
+              } else {
+                // 所有问题都已录制完成，可以上传
+                const allResponses: Record<string, Blob> = {}
+                pendingSegments.forEach(seg => {
+                  allResponses[seg.promptId] = seg.blob
+                })
+                setResponses(allResponses)
+                setStage("complete")
+              }
             }
           }
         }
@@ -195,6 +238,9 @@ function InterviewPageContent() {
     
     setResponses((prev) => ({ ...prev, [promptId]: videoBlob }))
 
+    // 检查是否所有问题都已完成
+    const allPromptsRecorded = Object.keys({ ...responses, [promptId]: videoBlob }).length >= mockPrompts.length
+    
     if (currentPromptIndex < mockPrompts.length - 1) {
       // 还有更多问题，继续下一题
       setCurrentPromptIndex((prev) => prev + 1)
