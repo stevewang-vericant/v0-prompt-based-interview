@@ -151,9 +151,9 @@ export async function processVideoMergeTask(taskId: string) {
       const tempMergedFile = join(tempDir, `temp_merged_${Date.now()}.webm`)
       tempFiles.push(tempMergedFile)
       
-      console.log(`[Task ${taskId}] Step 1: Merging videos...`)
+      console.log(`[Task ${taskId}] Merging videos (WebM format, no transcoding)...`)
       
-      // 第一步：合并视频（使用 copy 模式，快速）
+      // 合并视频（使用 copy 模式，快速，保留 WebM 格式）
       const mergeCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c copy "${tempMergedFile}" -y`
       const { stdout: mergeStdout, stderr: mergeStderr } = await execAsync(mergeCommand)
       if (mergeStderr) console.log(`[Task ${taskId}] FFmpeg merge stderr:`, mergeStderr)
@@ -162,22 +162,10 @@ export async function processVideoMergeTask(taskId: string) {
         throw new Error('FFmpeg failed to create merged file')
       }
       
-      // 第二步：转码为 MP4，指定 level 4.0 以确保 iOS 兼容性
-      const outputFile = join(tempDir, `merged_${Date.now()}.mp4`)
-      tempFiles.push(outputFile)
+      console.log(`[Task ${taskId}] ✓ Video merge completed (WebM format)`)
       
-      console.log(`[Task ${taskId}] Step 2: Transcoding to MP4 with level 4.0...`)
-      
-      const transcodeCommand = `ffmpeg -i "${tempMergedFile}" -c:v libx264 -preset medium -crf 23 -profile:v high -level 40 -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart "${outputFile}" -y`
-      const { stdout: transcodeStdout, stderr: transcodeStderr } = await execAsync(transcodeCommand)
-      if (transcodeStderr) console.log(`[Task ${taskId}] FFmpeg transcode stderr:`, transcodeStderr)
-      
-      if (!existsSync(outputFile)) {
-        throw new Error('FFmpeg failed to create transcoded output file')
-      }
-      
-      // 读取转码后的视频
-      mergedBuffer = require('fs').readFileSync(outputFile)
+      // 直接使用合并后的 WebM 文件（跳过转码步骤以加快处理速度）
+      mergedBuffer = require('fs').readFileSync(tempMergedFile)
       totalDuration = segmentDurations.reduce((sum, dur) => sum + dur, 0)
       
       // 清理临时文件
@@ -208,19 +196,19 @@ export async function processVideoMergeTask(taskId: string) {
       throw error
     }
     
-    // 上传合并后的视频
+    // 上传合并后的视频（WebM 格式）
     const timestamp = Date.now()
     // 确保 interviewId 不为空
     if (!interviewId) {
       throw new Error(`Interview ID is missing when uploading merged video for task ${taskId}`)
     }
-    const mergedKey = `interviews/${interviewId}/merged-interview-${timestamp}.mp4`
+    const mergedKey = `interviews/${interviewId}/merged-interview-${timestamp}.webm`
     
     const putCommand = new PutObjectCommand({
       Bucket: process.env.B2_BUCKET_NAME!,
       Key: mergedKey,
       Body: mergedBuffer,
-      ContentType: 'video/mp4',
+      ContentType: 'video/webm',
     })
     
     await s3Client.send(putCommand)
@@ -232,7 +220,7 @@ export async function processVideoMergeTask(taskId: string) {
     // 获取合并后视频的实际时长
     let actualDuration = totalDuration
     try {
-      const tempDurationFile = join(tempDir, `duration_check_${Date.now()}.mp4`)
+      const tempDurationFile = join(tempDir, `duration_check_${Date.now()}.webm`)
       writeFileSync(tempDurationFile, mergedBuffer as any)
       
       const durationCommand = `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${tempDurationFile}"`
