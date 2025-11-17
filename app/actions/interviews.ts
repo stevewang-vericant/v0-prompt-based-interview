@@ -10,8 +10,8 @@ export interface InterviewData {
   interview_id: string
   student_email: string
   student_name?: string
-  video_url: string
-  subtitle_url?: string
+  video_url?: string | null
+  subtitle_url?: string | null
   total_duration?: number
   school_code?: string
   metadata?: Record<string, any>

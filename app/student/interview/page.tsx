@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { InterviewSetup } from "@/components/interview/interview-setup"
@@ -13,6 +13,14 @@ import { startTranscription } from '@/app/actions/transcription'
 import { getVideoDuration } from '@/lib/video-utils'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { 
+  saveVideoSegment, 
+  getPendingSegments, 
+  markSegmentAsUploaded, 
+  clearUploadedSegments,
+  hasPendingUploads,
+  type VideoSegment
+} from "@/lib/indexeddb"
 
 interface Prompt {
   id: string
@@ -67,6 +75,41 @@ function InterviewPageContent() {
   const [interviewCompleted, setInterviewCompleted] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState("")
+  const [hasPending, setHasPending] = useState(false)
+
+  // 页面加载时检查是否有未完成的上传
+  useEffect(() => {
+    const checkPendingUploads = async () => {
+      try {
+        const pending = await hasPendingUploads(interviewId)
+        if (pending) {
+          setHasPending(true)
+          const pendingSegments = await getPendingSegments(interviewId)
+          console.log(`[v0] Found ${pendingSegments.length} pending segments for ${interviewId}`)
+          
+          // 询问用户是否继续上传
+          const shouldResume = confirm(
+            `检测到 ${pendingSegments.length} 个未上传的视频片段，是否继续上传？`
+          )
+          
+          if (shouldResume) {
+            // 自动继续上传
+            const allResponses: Record<string, Blob> = {}
+            pendingSegments.forEach(seg => {
+              allResponses[seg.promptId] = seg.blob
+            })
+            setResponses(allResponses)
+            setStage("complete")
+            // 注意：这里不自动触发上传，需要用户点击提交按钮
+          }
+        }
+      } catch (error) {
+        console.error('[v0] Failed to check pending uploads:', error)
+      }
+    }
+    
+    checkPendingUploads()
+  }, [interviewId])
 
   const handleSetupComplete = () => {
     setStage("interview")
@@ -80,6 +123,27 @@ function InterviewPageContent() {
     }
 
     console.log("[v0] Prompt completed:", promptId, "Blob size:", videoBlob.size)
+    
+    // 立即保存到 IndexedDB（持久化存储）
+    try {
+      const prompt = mockPrompts.find(p => p.id === promptId)
+      if (prompt) {
+        await saveVideoSegment(
+          interviewId,
+          promptId,
+          currentPromptIndex + 1,
+          videoBlob,
+          prompt.text,
+          prompt.category,
+          prompt.responseTime
+        )
+        console.log(`[v0] ✓ Saved segment to IndexedDB: ${promptId}`)
+      }
+    } catch (error) {
+      console.error("[v0] Failed to save segment to IndexedDB:", error)
+      // 即使保存失败，也继续流程（视频仍在内存中）
+    }
+    
     setResponses((prev) => ({ ...prev, [promptId]: videoBlob }))
 
     if (currentPromptIndex < mockPrompts.length - 1) {
@@ -103,21 +167,46 @@ function InterviewPageContent() {
     setUploadProgress(0)
     
     try {
-      console.log("[v0] Uploading", Object.keys(allResponses).length, "video segments separately...")
-      setUploadStatus("Preparing to upload video segments...")
+      // 优先从 IndexedDB 读取（如果存在），否则使用内存中的数据
+      console.log("[v0] Checking IndexedDB for stored segments...")
+      const storedSegments = await getPendingSegments(interviewId)
       
-      // 按顺序排列视频
-      const segments = mockPrompts
-        .map((prompt, index) => ({
-          prompt,
-          blob: allResponses[prompt.id],
-          index
-        }))
-        .filter(seg => seg.blob !== undefined)
+      let segments: Array<{ prompt: Prompt; blob: Blob; index: number }>
+      
+      if (storedSegments.length > 0) {
+        // 使用 IndexedDB 中的数据
+        console.log(`[v0] Found ${storedSegments.length} segments in IndexedDB, using stored data`)
+        segments = storedSegments
+          .sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+          .map(seg => {
+            const prompt = mockPrompts.find(p => p.id === seg.promptId)
+            if (!prompt) {
+              throw new Error(`Prompt not found: ${seg.promptId}`)
+            }
+            return {
+              prompt,
+              blob: seg.blob,
+              index: seg.sequenceNumber - 1
+            }
+          })
+      } else {
+        // 使用内存中的数据
+        console.log("[v0] No stored segments found, using in-memory data")
+        segments = mockPrompts
+          .map((prompt, index) => ({
+            prompt,
+            blob: allResponses[prompt.id],
+            index
+          }))
+          .filter(seg => seg.blob !== undefined)
+      }
       
       if (segments.length === 0) {
         throw new Error("No video segments to upload")
       }
+      
+      console.log("[v0] Uploading", segments.length, "video segments separately...")
+      setUploadStatus("Preparing to upload video segments...")
 
       console.log("[v0] Uploading", segments.length, "video segments...")
       
@@ -161,6 +250,15 @@ function InterviewPageContent() {
           throw new Error(`Failed to upload segment ${i + 1}: ${result.error}`)
         }
         
+        // 标记为已上传（更新 IndexedDB）
+        try {
+          await markSegmentAsUploaded(interviewId, prompt.id, result.videoUrl!)
+          console.log(`[v0] ✓ Marked segment ${i + 1} as uploaded in IndexedDB`)
+        } catch (error) {
+          console.warn(`[v0] ⚠️ Failed to mark segment as uploaded:`, error)
+          // 继续流程，即使标记失败
+        }
+        
         // 计算实际录制时长（从 blob 大小估算，或使用默认值）
         const actualDuration = Math.max(30, Math.min(60, Math.round(blob.size / 20000))) // 粗略估算：20KB/秒
         
@@ -176,6 +274,9 @@ function InterviewPageContent() {
         totalDuration += actualDuration
         console.log(`[v0] ✓ Segment ${i + 1} uploaded:`, result.videoUrl)
       }
+      
+      // 上传完成后，清理已上传的片段（可选，保留一段时间以便恢复）
+      // await clearUploadedSegments(interviewId)
       
       console.log("[v0] ✓ All", segments.length, "segments uploaded successfully")
       console.log("[v0] Total estimated duration:", totalDuration, "seconds")
@@ -244,8 +345,8 @@ function InterviewPageContent() {
           interview_id: interviewId,
           student_email: studentEmail,
           student_name: studentName,
-          video_url: null, // 将在后台处理完成后更新
-          subtitle_url: null, // 将在后台处理完成后更新
+          video_url: undefined, // 将在后台处理完成后更新
+          subtitle_url: undefined, // 将在后台处理完成后更新
           total_duration: totalDuration, // 估算时长，将在后台处理完成后更新
           school_code: schoolCode || undefined,
           metadata: {
@@ -285,6 +386,15 @@ function InterviewPageContent() {
       localStorage.setItem('latestInterview', JSON.stringify(interviewData))
       console.log("[v0] Interview data saved to localStorage")
       
+      // 清理已上传的片段（上传成功后）
+      try {
+        await clearUploadedSegments(interviewId)
+        console.log("[v0] ✓ Cleared uploaded segments from IndexedDB")
+      } catch (error) {
+        console.warn("[v0] ⚠️ Failed to clear uploaded segments:", error)
+      }
+      
+      setHasPending(false)
       setUploadProgress(100)
       setUploadStatus("Upload complete! Video processing will continue in the background.")
       console.log("[v0] ✓ All segments uploaded successfully! Video merge will complete in the background.")
