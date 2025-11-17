@@ -776,7 +776,12 @@ function SchoolDashboardContent() {
                             {interview.school_code}
                           </span>
                         )}
-                        {interview.status && (
+                        {/* 显示处理状态 */}
+                        {!interview.video_url ? (
+                          <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-amber-100 text-amber-800">
+                            Processing
+                          </span>
+                        ) : interview.status ? (
                           <span className={`px-2 py-0.5 text-xs rounded-full whitespace-nowrap ${
                             interview.status === 'completed' 
                               ? 'bg-green-100 text-green-800' 
@@ -785,6 +790,10 @@ function SchoolDashboardContent() {
                               : 'bg-slate-100 text-slate-800'
                           }`}>
                             {interview.status}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-green-100 text-green-800">
+                            Ready
                           </span>
                         )}
                       </div>
@@ -809,9 +818,13 @@ function SchoolDashboardContent() {
                       onClick={() => handleWatchInterview(interview)}
                       size="sm"
                       className="w-full sm:w-auto shrink-0"
+                      disabled={!interview.video_url}
+                      title={!interview.video_url ? 'Video is still processing...' : 'Watch interview'}
                     >
                       <Video className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                      <span className="sm:inline">Watch</span>
+                      <span className="sm:inline">
+                        {interview.video_url ? 'Watch' : 'Processing...'}
+                      </span>
                     </Button>
                   </div>
                 ))}

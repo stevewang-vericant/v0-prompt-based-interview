@@ -315,6 +315,8 @@ export async function processVideoMergeTask(taskId: string) {
         video_url: mergedVideoUrl,
         subtitle_url: subtitleUrl,
         total_duration: actualDuration,
+        status: 'completed', // 视频处理完成，更新状态为 completed
+        completed_at: new Date().toISOString(), // 设置完成时间
         metadata: {
           merged: true,
           mergedAt: new Date().toISOString(),
@@ -322,7 +324,8 @@ export async function processVideoMergeTask(taskId: string) {
           totalDuration: actualDuration,
           actualDuration: actualDuration,
           estimatedDuration: totalDuration,
-          subtitleMetadata: subtitleMetadata
+          subtitleMetadata: subtitleMetadata,
+          status: 'completed' // 在 metadata 中也更新状态
         }
       })
       .eq('interview_id', interviewId)

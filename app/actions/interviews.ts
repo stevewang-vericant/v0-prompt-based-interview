@@ -65,6 +65,9 @@ export async function saveInterview(data: InterviewData): Promise<{
     const supabase = createAdminClient()
     
     // 准备插入数据
+    // 如果 video_url 为空，状态为 'processing'，否则为 'completed'
+    const interviewStatus = data.video_url ? 'completed' : 'processing'
+    
     const insertData = {
       interview_id: data.interview_id,
       student_email: data.student_email,
@@ -74,8 +77,8 @@ export async function saveInterview(data: InterviewData): Promise<{
       total_duration: data.total_duration,
       school_code: data.school_code,
       metadata: data.metadata || {},
-      status: 'completed',
-      completed_at: new Date().toISOString(),
+      status: interviewStatus,
+      completed_at: data.video_url ? new Date().toISOString() : null, // 只有完成时才设置
       submitted_at: new Date().toISOString(),
     }
     
@@ -133,10 +136,10 @@ export async function getInterviews(
     const supabase = await createClient()
     
     // 查询面试列表，按创建时间倒序排列
+    // 移除 .not('video_url', 'is', null) 条件，以显示所有面试（包括处理中的）
     const { data: interviews, error, count } = await supabase
       .from('interviews')
       .select('*', { count: 'exact' })
-      .not('video_url', 'is', null) // 只获取有视频的面试
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
     
@@ -330,7 +333,7 @@ export async function getInterviewsBySchoolCode(
       .from('interviews')
       .select('*', { count: 'exact' })
       .eq('school_code', schoolCode)
-      .not('video_url', 'is', null)
+      // 移除 .not('video_url', 'is', null) 条件，以显示所有面试（包括处理中的）
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
     
