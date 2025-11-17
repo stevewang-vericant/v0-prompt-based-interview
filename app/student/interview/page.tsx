@@ -180,10 +180,10 @@ function InterviewPageContent() {
       console.log("[v0] ✓ All", segments.length, "segments uploaded successfully")
       console.log("[v0] Total estimated duration:", totalDuration, "seconds")
       
-      // 触发服务端合并
-      setUploadStatus("Merging videos on server...")
+      // 触发异步服务端合并（不等待完成）
+      setUploadStatus("Starting video processing...")
       setUploadProgress(70)
-      console.log("[v0] Triggering server-side video merge...")
+      console.log("[v0] Triggering async server-side video merge...")
       
       console.log("[v0] Calling merge-videos API...")
       console.log("[v0] Merge request data:", {
@@ -206,18 +206,20 @@ function InterviewPageContent() {
           segments: uploadedSegments.map(seg => ({
             url: seg.videoUrl,
             sequenceNumber: seg.sequenceNumber,
-            duration: seg.duration
+            duration: seg.duration,
+            promptId: seg.promptId,
+            questionText: seg.questionText,
+            category: seg.category
           }))
         })
       })
       
       console.log("[v0] Merge API response status:", mergeResult.status)
-      console.log("[v0] Merge API response headers:", Object.fromEntries(mergeResult.headers.entries()))
       
       if (!mergeResult.ok) {
         const errorText = await mergeResult.text()
         console.error("[v0] Merge API error response:", errorText)
-        throw new Error(`Failed to merge videos: ${mergeResult.status} ${mergeResult.statusText}`)
+        throw new Error(`Failed to start video merge: ${mergeResult.status} ${mergeResult.statusText}`)
       }
       
       const mergeData = await mergeResult.json()
@@ -225,93 +227,42 @@ function InterviewPageContent() {
       
       if (!mergeData.success) {
         console.error("[v0] Merge API returned error:", mergeData.error)
-        throw new Error(`Video merge failed: ${mergeData.error}`)
+        throw new Error(`Failed to start video merge: ${mergeData.error}`)
       }
       
-      console.log("[v0] ✓ Videos merged successfully:", mergeData.mergedVideoUrl)
+      console.log("[v0] ✓ Video merge task created:", mergeData.taskId)
+      console.log("[v0] Video processing will continue in the background")
       
-      // 使用合并后的视频URL
-      const videoUrl = mergeData.mergedVideoUrl
-      
-      // 生成字幕元数据（基于合并后的视频）
-      setUploadStatus("Creating subtitle metadata...")
-      setUploadProgress(80)
-      
-      // 使用服务器返回的实际时长重新计算时间轴
-      const actualTotalDuration = mergeData.totalDuration || totalDuration
-      const serverSegmentDurations = mergeData.segmentDurations || uploadedSegments.map(s => s.duration)
-      
-      // 使用服务器返回的分段时长，按比例缩放到实际总时长
-      const totalEstimatedDuration = serverSegmentDurations.reduce((sum: number, dur: number) => sum + dur, 0)
-      const scaleFactor = actualTotalDuration / totalEstimatedDuration
-      
-      let cumulativeTime = 0
-      const subtitleMetadata = {
-        interviewId,
-        totalDuration: actualTotalDuration,
-        createdAt: new Date().toISOString(),
-        mergedVideoUrl: videoUrl,
-        questions: uploadedSegments.map((seg, index) => {
-          // 使用服务器分段时长按比例缩放
-          const scaledDuration = Math.round(serverSegmentDurations[index] * scaleFactor)
-          const questionData = {
-            id: seg.promptId,
-            questionNumber: seg.sequenceNumber,
-            category: seg.category,
-            text: seg.questionText,
-            startTime: cumulativeTime,
-            endTime: cumulativeTime + scaledDuration,
-            duration: scaledDuration
-          }
-          cumulativeTime += scaledDuration
-          return questionData
-        })
-      }
-      
-      console.log("[v0] Subtitle metadata generated:", subtitleMetadata)
-      console.log("[v0] Time axis details:")
-      subtitleMetadata.questions.forEach((q, index) => {
-        console.log(`[v0] Question ${q.questionNumber}: ${q.startTime}s - ${q.endTime}s (${q.duration}s) - ${q.text.substring(0, 30)}...`)
-      })
-        
-      // 上传字幕元数据
-      setUploadStatus("Uploading subtitle metadata...")
-      setUploadProgress(80)
-      console.log("[v0] Uploading subtitle metadata to B2...")
-      
-      const subtitleResult = await uploadJsonToB2(
-        subtitleMetadata,
-        interviewId,
-        "interview-subtitles"
-      )
-      
-      if (!subtitleResult.success) {
-        throw new Error(`Failed to upload subtitle metadata: ${subtitleResult.error}`)
-      }
-      
-      console.log("[v0] ✓ Subtitle metadata uploaded successfully:", subtitleResult.url)
-      
-      // 保存到数据库（如果提供了学生邮箱）
+      // 保存基本信息到数据库（如果提供了学生邮箱）
+      // 注意：video_url 和 subtitle_url 将在后台处理完成后更新
       if (studentEmail) {
-        setUploadStatus("Saving to database...")
-        setUploadProgress(90)
-        console.log("[v0] Saving interview to database...")
+        setUploadStatus("Saving interview information...")
+        setUploadProgress(80)
+        console.log("[v0] Saving interview to database (video processing in background)...")
         
-            const dbResult = await saveInterview({
-              interview_id: interviewId,
-              student_email: studentEmail,
-              student_name: studentName,
-              video_url: videoUrl,
-              subtitle_url: subtitleResult.url,
-              total_duration: mergeData.totalDuration || totalDuration,
-              school_code: schoolCode || undefined,
-              metadata: {
-                questions: subtitleMetadata.questions,
-                mergedVideoUrl: videoUrl,
-                segmentCount: uploadedSegments.length,
-                completedAt: new Date().toISOString()
-              }
-            })
+        const dbResult = await saveInterview({
+          interview_id: interviewId,
+          student_email: studentEmail,
+          student_name: studentName,
+          video_url: null, // 将在后台处理完成后更新
+          subtitle_url: null, // 将在后台处理完成后更新
+          total_duration: totalDuration, // 估算时长，将在后台处理完成后更新
+          school_code: schoolCode || undefined,
+          metadata: {
+            taskId: mergeData.taskId,
+            status: 'processing',
+            segmentCount: uploadedSegments.length,
+            segments: uploadedSegments.map(seg => ({
+              promptId: seg.promptId,
+              questionText: seg.questionText,
+              category: seg.category,
+              sequenceNumber: seg.sequenceNumber,
+              videoUrl: seg.videoUrl,
+              duration: seg.duration
+            })),
+            submittedAt: new Date().toISOString()
+          }
+        })
         
         if (dbResult.success) {
           console.log("[v0] ✓ Interview saved to database:", dbResult.interview?.id)
@@ -321,21 +272,22 @@ function InterviewPageContent() {
         }
       }
       
-          // 保存视频 URL 和字幕 URL 到 localStorage，供 dashboard 使用
-          const interviewData = {
-            videoUrl: videoUrl,
-            subtitleUrl: subtitleResult.url,
-            interviewId,
-            totalDuration: mergeData.totalDuration || totalDuration,
-            completedAt: new Date().toISOString()
-          }
+      // 保存基本信息到 localStorage
+      const interviewData = {
+        interviewId,
+        taskId: mergeData.taskId,
+        status: 'processing',
+        totalDuration: totalDuration,
+        segmentCount: uploadedSegments.length,
+        completedAt: new Date().toISOString()
+      }
       
       localStorage.setItem('latestInterview', JSON.stringify(interviewData))
       console.log("[v0] Interview data saved to localStorage")
       
       setUploadProgress(100)
-      setUploadStatus("Upload complete!")
-      console.log("[v0] ✓ All operations completed successfully!")
+      setUploadStatus("Upload complete! Video processing will continue in the background.")
+      console.log("[v0] ✓ All segments uploaded successfully! Video merge will complete in the background.")
       return { success: true }
     } catch (error) {
       console.error("[v0] Upload error:", error)
