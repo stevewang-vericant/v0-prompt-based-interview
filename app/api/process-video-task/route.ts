@@ -44,9 +44,27 @@ export async function processVideoMergeTask(taskId: string) {
       return { success: true, task }
     }
     
-    if (task.status === 'processing') {
-      console.log(`[Task ${taskId}] Already processing`)
-      return { success: true, task }
+    // 如果任务状态是 processing 但已经超过 1 小时，可能是卡住了，允许重新处理
+    if (task.status === 'processing' && task.started_at) {
+      const startedAt = new Date(task.started_at)
+      const now = new Date()
+      const hoursElapsed = (now.getTime() - startedAt.getTime()) / (1000 * 60 * 60)
+      
+      if (hoursElapsed < 1) {
+        console.log(`[Task ${taskId}] Already processing (started ${Math.round(hoursElapsed * 60)} minutes ago)`)
+        return { success: true, task }
+      } else {
+        console.log(`[Task ${taskId}] Task stuck in processing for ${Math.round(hoursElapsed * 60)} minutes, resetting to pending`)
+        // 重置状态为 pending，允许重新处理
+        await supabase
+          .from('video_processing_tasks')
+          .update({
+            status: 'pending',
+            started_at: null,
+            error_message: 'Previous processing was interrupted, retrying...'
+          })
+          .eq('id', taskId)
+      }
     }
     
     // 更新任务状态为 processing
