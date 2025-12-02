@@ -392,17 +392,17 @@ export function VideoPlayerWithSubtitles({
             {/* 字幕覆盖层 */}
             {currentSubtitle && (
               <div className="absolute bottom-16 left-0 right-0 px-4 pointer-events-none">
-                <div className="max-w-3xl mx-auto flex flex-col items-center gap-3">
+                <div className="max-w-3xl mx-auto flex flex-col items-center gap-2">
                   {/* Question 标签 */}
-                  <div className="bg-black/80 px-4 py-2 rounded-lg">
-                    <p className="text-white text-xl font-bold">
+                  <div className="bg-black/80 px-3 py-1 rounded">
+                    <p className="text-white text-xs font-semibold">
                       Question {currentSubtitle.questionNumber}
                     </p>
                   </div>
                   
                   {/* 问题文本 */}
-                  <div className="bg-black/80 px-6 py-3 rounded-lg max-w-full">
-                    <p className="text-white text-lg leading-relaxed">
+                  <div className="bg-black/80 px-4 py-2 rounded max-w-full">
+                    <p className="text-white text-sm leading-snug">
                       {currentSubtitle.text}
                     </p>
                   </div>
