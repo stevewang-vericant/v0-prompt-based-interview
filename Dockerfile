@@ -56,12 +56,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# 复制 Prisma 相关文件
+# 复制 Prisma schema 和包
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+# standalone 模式下 node_modules 已经在 .next/standalone 中
 
 # 设置权限
 RUN chown -R nextjs:nodejs /app
