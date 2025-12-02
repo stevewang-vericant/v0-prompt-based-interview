@@ -10,11 +10,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // 确保 Prisma 相关文件被包含在 standalone 输出中
+  outputFileTracingIncludes: {
+    '/*': ['./node_modules/.prisma/**/*', './node_modules/@prisma/**/*'],
+  },
   experimental: {
-    outputFileTracingIncludes: {
-      // 确保 Prisma 相关文件被包含在 standalone 输出中
-      '/*': ['./node_modules/.prisma/**/*', './node_modules/@prisma/**/*'],
-    },
     serverActions: {
       bodySizeLimit: '50mb', // 增加 Server Actions 的 body size 限制，支持视频上传
     },
