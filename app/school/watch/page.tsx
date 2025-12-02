@@ -15,6 +15,10 @@ function SchoolWatchPageContent() {
   const interviewId = searchParams.get('interviewId')
   const studentEmail = searchParams.get('studentEmail')
   const studentName = searchParams.get('studentName')
+  const studentGender = searchParams.get('studentGender')
+  const studentGrade = searchParams.get('studentGrade')
+  const studentCity = searchParams.get('studentCity')
+  const studentFinancialAid = searchParams.get('studentFinancialAid')
   const debugMode = searchParams.get('debug') === 'true'
 
   if (!videoUrl) {
@@ -55,17 +59,47 @@ function SchoolWatchPageContent() {
             </Button>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">Interview Review</h1>
-              <div className="space-y-1">
-                {studentName && (
-                  <p className="text-xs sm:text-sm text-slate-700 truncate">
-                    <span className="font-medium">Student:</span> {studentName}
-                  </p>
+              <div className="space-y-2">
+                {/* Student basic info */}
+                <div className="space-y-1">
+                  {studentName && (
+                    <p className="text-xs sm:text-sm text-slate-700 truncate">
+                      <span className="font-medium">Student:</span> {studentName}
+                    </p>
+                  )}
+                  {studentEmail && (
+                    <p className="text-xs sm:text-sm text-slate-600 truncate">
+                      <span className="font-medium">Email:</span> {studentEmail}
+                    </p>
+                  )}
+                </div>
+                
+                {/* Additional student info */}
+                {(studentGender || studentGrade || studentCity || studentFinancialAid) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {studentGender && (
+                      <span className="px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700">
+                        {studentGender}
+                      </span>
+                    )}
+                    {studentGrade && (
+                      <span className="px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700">
+                        {studentGrade}
+                      </span>
+                    )}
+                    {studentCity && (
+                      <span className="px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700">
+                        📍 {studentCity}
+                      </span>
+                    )}
+                    {studentFinancialAid === 'true' && (
+                      <span className="px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-700">
+                        💰 Financial Aid
+                      </span>
+                    )}
+                  </div>
                 )}
-                {studentEmail && (
-                  <p className="text-xs sm:text-sm text-slate-600 truncate">
-                    <span className="font-medium">Email:</span> {studentEmail}
-                  </p>
-                )}
+                
                 {interviewId && (
                   <p className="text-xs text-slate-500 font-mono truncate">
                     Interview ID: {interviewId}

@@ -285,6 +285,23 @@ function SchoolDashboardContent() {
       params.append('studentName', interview.student_name)
     }
     
+    // 添加额外的学生信息
+    if (interview.student_gender) {
+      params.append('studentGender', interview.student_gender)
+    }
+    
+    if (interview.student_grade) {
+      params.append('studentGrade', interview.student_grade)
+    }
+    
+    if (interview.student_city) {
+      params.append('studentCity', interview.student_city)
+    }
+    
+    if (interview.student_financial_aid !== null) {
+      params.append('studentFinancialAid', interview.student_financial_aid.toString())
+    }
+    
     const watchUrl = `/school/watch?${params.toString()}`
     
     window.location.href = watchUrl
