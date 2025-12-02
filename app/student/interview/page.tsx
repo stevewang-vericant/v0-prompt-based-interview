@@ -36,29 +36,29 @@ const mockPrompts: Prompt[] = [
     id: "1",
     category: "Conversational Fluency",
     text: "Tell me about your favorite hobby and why you enjoy it.",
-    preparationTime: 5, // TODO: 测试完成后改回 15
-    responseTime: 60,
+    preparationTime: 20,
+    responseTime: 90,
   },
   {
     id: "2",
     category: "Critical Thinking",
     text: "Describe a time when you had to solve a complex problem. What approach did you take and what was the outcome?",
-    preparationTime: 5, // TODO: 测试完成后改回 15
-    responseTime: 60,
+    preparationTime: 20,
+    responseTime: 90,
   },
   {
     id: "3",
     category: "General Knowledge",
     text: "What do you think is the most important global challenge facing our generation?",
-    preparationTime: 5, // TODO: 测试完成后改回 15
-    responseTime: 60,
+    preparationTime: 20,
+    responseTime: 90,
   },
   {
     id: "4",
     category: "Critical Thinking",
     text: "Describe a situation where you had to work with someone whose perspective was very different from yours. How did you handle it?",
-    preparationTime: 5, // TODO: 测试完成后改回 15
-    responseTime: 60,
+    preparationTime: 20,
+    responseTime: 90,
   },
 ]
 
@@ -516,13 +516,29 @@ function InterviewPageContent() {
     }
   }
 
-  const handleSubmitInterview = async (studentEmail: string, studentName?: string) => {
+  const handleSubmitInterview = async (
+    studentEmail: string, 
+    studentName?: string, 
+    additionalInfo?: {
+      gender?: string
+      currentGrade?: string
+      residencyCity?: string
+      needFinancialAid?: boolean
+    }
+  ) => {
     console.log("[v0] Submitting interview with", Object.keys(responses).length, "responses")
     console.log("[v0] Student email:", studentEmail)
     console.log("[v0] School code:", schoolCode || "Not specified")
+    console.log("[v0] Additional info:", additionalInfo)
     
     // 上传所有视频分段到 B2，然后在服务端使用 FFmpeg 合并
     const result = await uploadSegmentVideos(responses, studentEmail, studentName, schoolCode)
+    
+    // 如果提供了额外信息，更新学生信息
+    if (additionalInfo && Object.keys(additionalInfo).length > 0) {
+      const { updateStudentInfo } = await import('@/app/actions/update-student-info')
+      await updateStudentInfo(studentEmail, additionalInfo)
+    }
     
     // 根据结果跳转到完成页面
     const params = new URLSearchParams({

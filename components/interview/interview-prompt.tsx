@@ -237,7 +237,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       {/* Main Content */}
       <Card>
         <CardHeader>
-          {stage !== "reading" && <CardTitle className="text-xl sm:text-2xl text-balance">{prompt.text}</CardTitle>}
+          {stage !== "reading" && <CardTitle className="text-sm sm:text-base font-medium text-balance">{prompt.text}</CardTitle>}
           {stage === "reading" && (
             <CardDescription className="text-sm sm:text-base">Read the prompt carefully and click "Start Preparation" when ready</CardDescription>
           )}

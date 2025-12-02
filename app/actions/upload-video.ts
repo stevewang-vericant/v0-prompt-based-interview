@@ -143,8 +143,8 @@ export async function uploadVideoToB2AndSave(
           school_id: interview.school_id,
           prompt_text: promptText, // 使用正确的字段名
           category: promptCategory || 'General',
-          preparation_time: 5,
-          response_time: promptResponseTime || 60,
+          preparation_time: 20,
+          response_time: promptResponseTime || 90,
           is_active: true // 使用正确的字段名
         }
       })

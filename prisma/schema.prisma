@@ -75,6 +75,13 @@ model Student {
   phone                  String?  @db.VarChar(50)
   date_of_birth          DateTime? @db.Date
   nationality            String?  @db.VarChar(100)
+  
+  // Additional student information (consent-based)
+  gender                 String?  @db.VarChar(50)
+  current_grade          String?  @db.VarChar(50)
+  residency_city         String?  @db.VarChar(255)
+  need_financial_aid     Boolean?
+  
   id_verification_status String?  @default("pending") @db.VarChar(50)
   id_document_url        String?  @db.VarChar(500)
   selfie_url             String?  @db.VarChar(500)
@@ -93,8 +100,8 @@ model Prompt {
   id               String   @id @default(uuid()) @db.Uuid
   category         String   @db.VarChar(100)
   prompt_text      String   @db.Text
-  preparation_time Int?     @default(30)
-  response_time    Int?     @default(60)
+  preparation_time Int?     @default(20)
+  response_time    Int?     @default(90)
   difficulty_level String?  @db.VarChar(50)
   is_active        Boolean? @default(true)
   school_id        String?  @db.Uuid

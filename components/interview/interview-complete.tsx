@@ -6,11 +6,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { CheckCircle2, Clock, Mail } from "lucide-react"
+
+interface StudentInfo {
+  email: string
+  name?: string
+  gender?: string
+  currentGrade?: string
+  residencyCity?: string
+  needFinancialAid?: boolean
+}
 
 interface InterviewCompleteProps {
   responsesCount: number
-  onSubmit: (studentEmail: string, studentName?: string) => void
+  onSubmit: (studentEmail: string, studentName?: string, additionalInfo?: Partial<StudentInfo>) => void
   isUploading?: boolean
   uploadProgress?: number
   uploadStatus?: string
@@ -29,6 +40,13 @@ export function InterviewComplete({
   const [studentEmail, setStudentEmail] = useState("")
   const [studentName, setStudentName] = useState("")
   const [emailError, setEmailError] = useState("")
+  
+  // Consent and additional fields
+  const [consentGiven, setConsentGiven] = useState(false)
+  const [gender, setGender] = useState("")
+  const [currentGrade, setCurrentGrade] = useState("")
+  const [residencyCity, setResidencyCity] = useState("")
+  const [needFinancialAid, setNeedFinancialAid] = useState<string>("")
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -48,7 +66,16 @@ export function InterviewComplete({
     
     setEmailError("")
     setIsSubmitting(true)
-    await onSubmit(studentEmail, studentName || undefined)
+    
+    // 准备额外信息（只在 consent 时发送）
+    const additionalInfo: Partial<StudentInfo> = consentGiven ? {
+      gender: gender || undefined,
+      currentGrade: currentGrade || undefined,
+      residencyCity: residencyCity || undefined,
+      needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : undefined
+    } : {}
+    
+    await onSubmit(studentEmail, studentName || undefined, additionalInfo)
   }
 
   return (
@@ -141,6 +168,88 @@ export function InterviewComplete({
               disabled={isUploading || isSubmitting}
             />
           </div>
+
+          {/* Consent Checkbox */}
+          <div className="flex items-start space-x-3 pt-2">
+            <Checkbox 
+              id="consent" 
+              checked={consentGiven}
+              onCheckedChange={(checked) => setConsentGiven(checked as boolean)}
+              disabled={isUploading || isSubmitting}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="consent"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                I consent to share additional information with the school
+              </label>
+              <p className="text-xs text-muted-foreground">
+                By checking this box, you allow the school to access and use your detailed information for admission purposes.
+              </p>
+            </div>
+          </div>
+
+          {/* Additional Fields - Only show when consent is given */}
+          {consentGiven && (
+            <div className="space-y-4 pt-2 border-t">
+              <p className="text-sm font-medium text-muted-foreground">Additional Information</p>
+              
+              <div className="space-y-2">
+                <Label htmlFor="gender">Gender (Optional)</Label>
+                <Input
+                  id="gender"
+                  type="text"
+                  placeholder="e.g., Male, Female, Non-binary, Prefer not to say"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  disabled={isUploading || isSubmitting}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="grade">Current Grade (Optional)</Label>
+                <Input
+                  id="grade"
+                  type="text"
+                  placeholder="e.g., 10th Grade, 11th Grade, 12th Grade"
+                  value={currentGrade}
+                  onChange={(e) => setCurrentGrade(e.target.value)}
+                  disabled={isUploading || isSubmitting}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="city">Residency City (Optional)</Label>
+                <Input
+                  id="city"
+                  type="text"
+                  placeholder="e.g., New York, London, Tokyo"
+                  value={residencyCity}
+                  onChange={(e) => setResidencyCity(e.target.value)}
+                  disabled={isUploading || isSubmitting}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Need Financial Aid? (Optional)</Label>
+                <RadioGroup 
+                  value={needFinancialAid} 
+                  onValueChange={setNeedFinancialAid}
+                  disabled={isUploading || isSubmitting}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="aid-yes" />
+                    <Label htmlFor="aid-yes" className="font-normal cursor-pointer">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="aid-no" />
+                    <Label htmlFor="aid-no" className="font-normal cursor-pointer">No</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            </div>
+          )}
 
           {isUploading && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
