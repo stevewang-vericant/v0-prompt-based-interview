@@ -61,6 +61,15 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 # standalone 模式下 node_modules 已经在 .next/standalone 中
 
+# 修复 pnpm 的 Prisma Client 路径问题
+# 在 standalone 模式下，需要创建符号链接
+RUN if [ -d /app/node_modules/.pnpm ]; then \
+      PRISMA_PATH=$(find /app/node_modules/.pnpm -name ".prisma" -type d 2>/dev/null | head -1); \
+      if [ -n "$PRISMA_PATH" ]; then \
+        ln -sf "$PRISMA_PATH" /app/node_modules/.prisma; \
+      fi; \
+    fi
+
 # 设置权限
 RUN chown -R nextjs:nodejs /app
 
