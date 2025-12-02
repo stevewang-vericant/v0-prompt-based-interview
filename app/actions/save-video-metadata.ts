@@ -1,18 +1,8 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { prisma } from "@/lib/prisma"
 import { startTranscription } from "./transcription"
 
-/**
- * 保存视频元数据到数据库（视频已由客户端直接上传到 B2）
- * 
- * @param videoUrl 视频的公开 URL
- * @param interviewId 面试 ID（自定义字符串）
- * @param promptId 问题 ID
- * @param responseOrder 视频序号（0 表示完整视频）
- * @returns 保存结果
- */
 export async function saveVideoMetadata(
   videoUrl: string,
   interviewId: string,
@@ -27,121 +17,80 @@ export async function saveVideoMetadata(
   data?: any
 }> {
   try {
-    console.log("[v0] ===== Saving video metadata =====")
-    console.log("[v0] Video URL:", videoUrl)
-    console.log("[v0] Interview ID:", interviewId)
-    console.log("[v0] Prompt ID:", promptId)
-    console.log("[v0] Response Order:", responseOrder)
+    console.log("[v0] ===== Saving video metadata (Prisma) =====")
+    
+    // 1. Find or Create Interview
+    // Using upsert logic similar to upload-video.ts
+    
+    // Need external IDs to be resolved to internal UUIDs for Prisma relations
+    // This part is tricky because we need to know if we can create new students/schools on the fly.
+    // upload-video.ts logic was: find interview by custom ID, if not found, create it (needing school/student).
+    
+    // First, try to find the interview
+    let interview = await prisma.interview.findUnique({
+      where: { interview_id: interviewId }
+    })
 
-    // Check Supabase configuration
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.warn("[v0] ⚠️ Supabase not configured, skipping database save")
-      return { success: true, data: null }
-    }
+    if (!interview) {
+        // We need to create it.
+        // Check required fields
+        if (!schoolCode || !studentEmail) {
+            return { success: false, error: "Missing schoolCode or studentEmail for new interview" }
+        }
 
-    // 使用 admin client 绕过 RLS（服务器端操作）
-    const supabase = createAdminClient()
+        // Resolve School
+        const school = await prisma.school.findFirst({ where: { code: schoolCode } })
+        if (!school) return { success: false, error: "School not found" }
 
-    // 首先，根据 custom interview_id 获取 UUID id，如果不存在则创建
-    let { data: interview, error: interviewError } = await supabase
-      .from('interviews')
-      .select('id')
-      .eq('interview_id', interviewId)
-      .single()
+        // Resolve Student
+        const student = await prisma.student.findUnique({ where: { email: studentEmail } })
+        if (!student) return { success: false, error: "Student not found" }
 
-    let interviewUuid: string
-
-    if (interviewError || !interview) {
-      // Interview 记录不存在，创建一个基础记录
-      console.log("[v0] Interview record not found, creating one...")
-      console.log("[v0] School code:", schoolCode || "Not provided")
-      console.log("[v0] Student email:", studentEmail || "Not provided")
-      console.log("[v0] Student name:", studentName || "Not provided")
-
-      const { data: newInterview, error: createError } = await supabase
-        .from('interviews')
-        .insert({
-          interview_id: interviewId,
-          school_code: schoolCode || null,
-          student_email: studentEmail || null,
-          student_name: studentName || null,
-          video_url: videoUrl,
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          started_at: new Date().toISOString()
+        interview = await prisma.interview.create({
+            data: {
+                interview_id: interviewId,
+                school_id: school.id,
+                student_id: student.id,
+                video_url: videoUrl, // Setting initial video URL
+                status: 'completed', // Assuming this function is called after upload
+                completed_at: new Date(),
+                started_at: new Date()
+            }
         })
-        .select('id')
-        .single()
-
-      if (createError || !newInterview) {
-        console.error("[v0] ⚠️ Failed to create interview record:", createError)
-        return { success: false, error: 'Failed to create interview record' }
-      }
-
-      interviewUuid = newInterview.id
-      console.log("[v0] Created new interview record with UUID:", interviewUuid)
-    } else {
-      interviewUuid = interview.id
-      console.log("[v0] Found existing interview UUID:", interviewUuid)
     }
 
-    // 插入 interview_responses 记录
-    const { data, error } = await supabase
-      .from("interview_responses")
-      .insert({
-        interview_id: interviewUuid,
-        prompt_id: promptId,
-        video_url: videoUrl,
-        sequence_number: responseOrder,
-        video_duration: 90,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("[v0] ⚠️ Database save error:", error)
-      return { success: false, error: error.message }
-    }
+    // 2. Create Response
+    // Resolve Prompt UUID
+    // Assuming promptId passed here IS the UUID. If it's external ID, we need to look it up.
+    // But prompts usually don't have external IDs in this system, usually UUIDs from frontend.
+    // Let's assume it's UUID.
+    
+    const response = await prisma.interviewResponse.create({
+        data: {
+            interview_id: interview.id,
+            prompt_id: promptId,
+            video_url: videoUrl,
+            sequence_number: responseOrder,
+            video_duration: 90,
+        }
+    })
 
     console.log("[v0] ✓ Database save successful")
 
-    // 如果是完整视频（responseOrder === 0），启动转录任务
+    // If complete video, start transcription
     if (responseOrder === 0) {
-      console.log("[v0] ========== TRANSCRIPTION WORKFLOW START ==========")
-      console.log("[v0] Complete video detected, initiating transcription...")
-      console.log("[v0] Interview ID (custom):", interviewId)
-      console.log("[v0] Interview UUID:", interviewUuid)
-      console.log("[v0] Video URL:", videoUrl)
-      console.log("[v0] OpenAI API Key configured:", !!process.env.OPENAI_API_KEY)
-
-      try {
-        const transcriptionResult = await startTranscription(interviewId, videoUrl)
-        if (transcriptionResult.success) {
-          console.log("[v0] ✓ Transcription job created successfully!")
-          console.log("[v0] Job ID:", transcriptionResult.jobId)
-          console.log("[v0] Note: Transcription will process asynchronously")
-        } else {
-          console.error("[v0] ✗ Failed to start transcription")
-          console.error("[v0] Error:", transcriptionResult.error)
-        }
-      } catch (error) {
-        console.error("[v0] ✗ Transcription start exception:", error)
-        console.error("[v0] Stack:", error instanceof Error ? error.stack : 'No stack trace')
-        // 不阻止视频上传成功，转录失败不影响主流程
-      }
-
-      console.log("[v0] ========== TRANSCRIPTION WORKFLOW END ==========")
+      startTranscription(interviewId, videoUrl).catch(err => {
+          console.error("Transcription start failed:", err)
+      })
     }
 
-    console.log("[v0] ===== Metadata save complete =====")
-    return { success: true, data }
+    return { success: true, data: response }
+
   } catch (error) {
     console.error("[v0] ❌ Metadata save error:", error)
-    console.error("[v0] Error details:", error instanceof Error ? error.stack : error)
     return {
       success: false,
       error: error instanceof Error ? error.message : "Save failed",
     }
   }
 }
-

@@ -1,35 +1,22 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-    
     // 测试数据库连接
-    const { data, error } = await supabase
-      .from('interviews')
-      .select('count')
-      .limit(1)
-    
-    if (error) {
-      return NextResponse.json({
-        status: 'error',
-        message: error.message,
-        supabaseConfigured: !!process.env.NEXT_PUBLIC_SUPABASE_URL
-      }, { status: 500 })
-    }
+    const count = await prisma.interview.count()
     
     return NextResponse.json({
       status: 'success',
-      message: 'Database connection successful',
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...',
-      keyConfigured: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      message: 'Database connection successful (Prisma)',
+      interviewCount: count,
+      databaseUrlConfigured: !!process.env.DATABASE_URL
     })
   } catch (error) {
     return NextResponse.json({
       status: 'error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
+      databaseUrlConfigured: !!process.env.DATABASE_URL
     }, { status: 500 })
   }
 }
-

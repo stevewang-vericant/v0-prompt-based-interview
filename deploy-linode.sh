@@ -47,37 +47,22 @@ git pull origin main || echo -e "${YELLOW}⚠️  git pull 失败，继续使用
 echo -e "${GREEN}🛑 停止旧容器...${NC}"
 docker compose -f "$COMPOSE_FILE" down || true
 
-# 从 .env.production 提取 NEXT_PUBLIC_* 变量到 .env 文件（docker-compose 会自动读取）
-echo -e "${GREEN}📋 准备构建环境变量...${NC}"
-if [ -f ".env.production" ]; then
-    # 提取 NEXT_PUBLIC_* 变量到 .env 文件（docker-compose 会自动读取）
-    grep -E "^NEXT_PUBLIC_" .env.production > .env.build 2>/dev/null || true
-    echo -e "${GREEN}✅ 构建环境变量文件已创建${NC}"
-    if [ -s ".env.build" ]; then
-        echo -e "${GREEN}    $(wc -l < .env.build) 个 NEXT_PUBLIC_* 变量已提取${NC}"
-    else
-        echo -e "${YELLOW}⚠️  未找到 NEXT_PUBLIC_* 变量${NC}"
-    fi
-else
-    echo -e "${YELLOW}⚠️  .env.production 文件不存在${NC}"
-    exit 1
-fi
-
-# 构建并启动（需要先加载 .env.build 中的变量）
+# 构建并启动容器
 echo -e "${GREEN}🔨 构建并启动容器...${NC}"
-if [ -f ".env.build" ]; then
-    # 加载 .env.build 中的变量到当前 shell，然后运行 docker compose
-    set -a
-    source .env.build
-    set +a
-    docker compose -f "$COMPOSE_FILE" up -d --build
-else
-    echo -e "${RED}❌ .env.build 文件不存在，无法构建${NC}"
-    exit 1
-fi
+docker compose -f "$COMPOSE_FILE" up -d --build
 
-# 等待服务启动
-echo -e "${GREEN}⏳ 等待服务启动（10秒）...${NC}"
+# 等待 PostgreSQL 启动
+echo -e "${GREEN}⏳ 等待 PostgreSQL 启动...${NC}"
+sleep 5
+
+# 运行数据库迁移
+echo -e "${GREEN}🗄️  运行数据库迁移...${NC}"
+docker compose -f "$COMPOSE_FILE" exec -T interview-app sh -c "npx prisma db push --skip-generate" || {
+    echo -e "${YELLOW}⚠️  数据库迁移失败，可能是首次启动，稍后重试${NC}"
+}
+
+# 等待应用启动
+echo -e "${GREEN}⏳ 等待应用启动（10秒）...${NC}"
 sleep 10
 
 # 检查状态

@@ -72,30 +72,35 @@ function InterviewPageContent() {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
   const [responses, setResponses] = useState<Record<string, Blob>>({})
   // 从 localStorage 恢复 interviewId，如果没有则生成新的
-  const [interviewId, setInterviewId] = useState(() => {
-    if (typeof window !== 'undefined') {
-      // 尝试从 localStorage 恢复
-      const saved = localStorage.getItem('currentInterviewId')
-      if (saved) {
-        console.log('[v0] Restored interviewId from localStorage:', saved)
-        return saved
-      }
-    }
-    // 生成新的 interviewId
-    const newId = `interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('currentInterviewId', newId)
-    }
-    return newId
-  })
+  const [interviewId, setInterviewId] = useState<string>('')
   const [isUploading, setIsUploading] = useState(false)
   const [interviewCompleted, setInterviewCompleted] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState("")
   const [hasPending, setHasPending] = useState(false)
 
+  // 初始化 interviewId（仅在客户端）
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !interviewId) {
+      // 尝试从 localStorage 恢复
+      const saved = localStorage.getItem('currentInterviewId')
+      if (saved) {
+        console.log('[v0] Restored interviewId from localStorage:', saved)
+        setInterviewId(saved)
+      } else {
+        // 生成新的 interviewId
+        const newId = `interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        localStorage.setItem('currentInterviewId', newId)
+        console.log('[v0] Generated new interviewId:', newId)
+        setInterviewId(newId)
+      }
+    }
+  }, [])
+
   // 页面加载时检查是否有未完成的上传
   useEffect(() => {
+    if (!interviewId) return // 等待 interviewId 初始化完成
+    
     const checkPendingUploads = async () => {
       try {
         // 首先检查当前 interviewId 是否有未完成的上传
@@ -559,9 +564,11 @@ function InterviewPageContent() {
                     School: <span className="font-medium">{schoolCode}</span>
                   </p>
                 )}
-                <p className="font-mono">
-                  ID: <span className="font-medium">{interviewId}</span>
-                </p>
+                {interviewId && (
+                  <p className="font-mono">
+                    ID: <span className="font-medium">{interviewId}</span>
+                  </p>
+                )}
               </div>
             </div>
             {stage === "setup" && (

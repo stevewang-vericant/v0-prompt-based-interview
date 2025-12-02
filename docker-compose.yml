@@ -9,26 +9,26 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/v0_interview
     restart: unless-stopped
-    # 如果需要数据库，可以添加：
-    # depends_on:
-    #   - postgres
+    depends_on:
+      - postgres
     
-  # 可选：如果需要数据库
-  # postgres:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_USER: your_user
-  #     POSTGRES_PASSWORD: your_password
-  #     POSTGRES_DB: your_database
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #     - ./scripts:/docker-entrypoint-initdb.d
-  #   ports:
-  #     - "5432:5432"
-  #   restart: unless-stopped
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: v0_interview
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # 将 scripts 目录挂载到容器内，方便手动执行或自动初始化
+      # 注意：/docker-entrypoint-initdb.d 中的脚本只会首次启动时运行
+      # 我们手动控制初始化流程可能更稳妥，但为了方便，我们可以让它自动运行
+      # 不过由于我们需要按顺序运行特定的 SQL，最好手动写个脚本控制
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
 
-# volumes:
-#   postgres_data:
-
-
+volumes:
+  postgres_data:

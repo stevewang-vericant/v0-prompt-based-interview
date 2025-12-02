@@ -1,36 +1,26 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { prisma } from "@/lib/prisma"
+import { getCurrentUser } from "./auth"
+import { hashPassword } from "@/lib/auth-utils"
 
 export interface ManagedSchool {
   id: string
   code: string
   name: string
   active: boolean
-  created_at: string | null
-  updated_at: string | null
+  created_at: Date | null
+  updated_at: Date | null
 }
 
 async function ensureSuperAdmin() {
-  const supabase = await createClient()
+  const { user, success } = await getCurrentUser()
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user?.email) {
+  if (!success || !user) {
     throw new Error("Not authenticated")
   }
 
-  const { data: adminRecord, error } = await supabase
-    .from("school_admins")
-    .select("is_super_admin")
-    .eq("email", user.email)
-    .single()
-
-  if (error || !adminRecord?.is_super_admin) {
+  if (!user.school.is_super_admin) {
     throw new Error("Not authorized")
   }
 
@@ -45,20 +35,36 @@ export async function listSchools(): Promise<{
   try {
     await ensureSuperAdmin()
 
-    const adminClient = createAdminClient()
-    const { data, error } = await adminClient
-      .from("schools")
-      .select("id, code, name, active, created_at, updated_at")
-      .neq("code", "_system")
-      .order("created_at", { ascending: true })
+    const schools = await prisma.school.findMany({
+      where: {
+        NOT: {
+          code: "_system"
+        }
+      },
+      orderBy: {
+        created_at: 'asc'
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        active: true,
+        created_at: true,
+        updated_at: true
+      }
+    })
 
-    if (error) {
-      return { success: false, error: error.message }
-    }
+    // 转换类型：Prisma code 是 nullable，但我们这里需要 string
+    const mappedSchools = schools.map(s => ({
+      ...s,
+      code: s.code || '',
+      // created_at 和 updated_at 是 Date，但在 Next.js Server Actions 传输中通常会自动序列化
+      // 这里的接口定义是 Date | null，所以没问题
+    }))
 
     return {
       success: true,
-      schools: data || [],
+      schools: mappedSchools,
     }
   } catch (error) {
     return {
@@ -103,26 +109,50 @@ export async function createSchool({
       return { success: false, error: "Reserved code cannot be used" }
     }
 
-    const adminClient = createAdminClient()
-    const { data, error } = await adminClient
-      .from("schools")
-      .insert({
+    // 检查 code 是否已存在
+    const existing = await prisma.school.findFirst({
+      where: { code: normalizedCode }
+    })
+    
+    if (existing) {
+       return { success: false, error: "School code already exists" }
+    }
+
+    // ⚠️ 自动生成默认密码和邮箱
+    // 由于将 schools 表合并为用户表，我们需要生成唯一邮箱和密码
+    const email = `admin@${normalizedCode}.com` // 假设的邮箱
+    const defaultPassword = normalizedCode // 默认密码为 code
+    const hashedPassword = await hashPassword(defaultPassword)
+
+    const school = await prisma.school.create({
+      data: {
         name: trimmedName,
         code: normalizedCode,
+        email: email,
+        password_hash: hashedPassword,
         active: true,
-      })
-      .select("id, code, name, active, created_at, updated_at")
-      .single()
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        active: true,
+        created_at: true,
+        updated_at: true
+      }
+    })
 
-    if (error) {
-      return { success: false, error: error.message }
-    }
+    console.log(`[Auth] Created school ${normalizedCode} with default password: ${defaultPassword}`)
 
     return {
       success: true,
-      school: data as ManagedSchool,
+      school: {
+        ...school,
+        code: school.code || ''
+      },
     }
   } catch (error) {
+    console.error("Create school error:", error)
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -139,43 +169,34 @@ export async function deleteSchool(
   try {
     await ensureSuperAdmin()
 
-    const adminClient = createAdminClient()
+    const school = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { id: true, code: true }
+    })
 
-    const { data: school, error: fetchError } = await adminClient
-      .from("schools")
-      .select("id, code")
-      .eq("id", schoolId)
-      .single()
-
-    if (fetchError || !school) {
-      return { success: false, error: fetchError?.message || "School not found" }
+    if (!school) {
+      return { success: false, error: "School not found" }
     }
 
     if (school.code === "_system") {
       return { success: false, error: "System school cannot be deleted" }
     }
 
-    const { count: interviewCount, error: interviewCountError } = await adminClient
-      .from("interviews")
-      .select("id", { count: "exact", head: true })
-      .eq("school_code", school.code)
+    // 检查是否有面试记录
+    const interviewCount = await prisma.interview.count({
+      where: { school_id: schoolId }
+    })
 
-    if (interviewCountError) {
-      return { success: false, error: interviewCountError.message }
-    }
-
-    if ((interviewCount || 0) > 0) {
+    if (interviewCount > 0) {
       return {
         success: false,
         error: "Cannot delete school with existing interviews",
       }
     }
 
-    const { error } = await adminClient.from("schools").delete().eq("id", schoolId)
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
+    await prisma.school.delete({
+      where: { id: schoolId }
+    })
 
     return { success: true }
   } catch (error) {
@@ -185,5 +206,3 @@ export async function deleteSchool(
     }
   }
 }
-
-

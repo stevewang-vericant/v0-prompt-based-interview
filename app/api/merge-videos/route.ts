@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { prisma } from '@/lib/prisma'
 import { processVideoMergeTask } from '../process-video-task/route'
 
 export async function POST(request: NextRequest) {
@@ -17,10 +17,8 @@ export async function POST(request: NextRequest) {
     }
     
     // 创建任务记录
-    const supabase = createAdminClient()
-    const { data: task, error: taskError } = await supabase
-      .from('video_processing_tasks')
-      .insert({
+    const task = await prisma.videoProcessingTask.create({
+      data: {
         interview_id: interviewId,
         status: 'pending',
         segments: segments,
@@ -28,22 +26,12 @@ export async function POST(request: NextRequest) {
           createdAt: new Date().toISOString(),
           segmentCount: segments.length
         }
-      })
-      .select()
-      .single()
-    
-    if (taskError || !task) {
-      console.error('[Merge] Failed to create task:', taskError)
-      return NextResponse.json({
-        success: false,
-        error: `Failed to create task: ${taskError?.message || 'Unknown error'}`
-      }, { status: 500 })
-    }
+      }
+    })
     
     console.log('[Merge] Task created:', task.id)
     
     // 异步触发处理（不等待完成）
-    // 使用 setTimeout 确保响应先返回
     setTimeout(async () => {
       try {
         console.log(`[Merge] Starting async processing for task ${task.id}`)
@@ -52,9 +40,8 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error(`[Merge] Async processing failed for task ${task.id}:`, error)
       }
-    }, 100) // 100ms 延迟，确保响应先返回
+    }, 100) 
     
-    // 立即返回任务ID，不等待处理完成
     return NextResponse.json({
       success: true,
       taskId: task.id,

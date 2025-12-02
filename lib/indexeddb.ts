@@ -288,12 +288,14 @@ export async function getInterviewsWithPendingUploads(): Promise<string[]> {
     const db = await openDB()
     const transaction = db.transaction([STORE_NAME], 'readonly')
     const store = transaction.objectStore(STORE_NAME)
-    const index = store.index('uploaded')
 
     return new Promise((resolve, reject) => {
-      const request = index.getAll(false) // false = 未上传的
+      // 获取所有记录，然后在 JavaScript 中过滤
+      const request = store.getAll()
       request.onsuccess = () => {
-        const segments = request.result as VideoSegment[]
+        const allSegments = request.result as VideoSegment[]
+        // 只保留未上传的片段
+        const segments = allSegments.filter(seg => !seg.uploaded)
         
         // 按时间戳分组，获取每个面试的最新时间戳
         const interviewMap = new Map<string, number>()

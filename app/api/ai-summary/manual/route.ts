@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { prisma } from '@/lib/prisma'
 import OpenAI from 'openai'
 
 // 初始化 OpenAI 客户端
@@ -20,17 +20,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Manual AI Summary] Starting manual summary generation for interview: ${interviewId}`)
 
-    const supabase = createAdminClient()
-
     // 获取面试记录
-    const { data: interview, error: interviewError } = await supabase
-      .from('interviews')
-      .select('id, transcription_text, interview_id')
-      .eq('interview_id', interviewId)
-      .single()
+    const interview = await prisma.interview.findUnique({
+      where: { interview_id: interviewId },
+      select: { id: true, transcription_text: true }
+    })
 
-    if (interviewError || !interview) {
-      console.error('[Manual AI Summary] Interview not found:', interviewError)
+    if (!interview) {
       return NextResponse.json({
         success: false,
         error: 'Interview not found'
@@ -49,7 +45,6 @@ export async function POST(request: NextRequest) {
 
     // 检查 OpenAI API Key
     if (!process.env.OPENAI_API_KEY) {
-      console.error('[Manual AI Summary] OPENAI_API_KEY not configured')
       return NextResponse.json({
         success: false,
         error: 'OpenAI API key not configured'
@@ -99,20 +94,10 @@ Format the summary in a way that would be useful for admissions officers or hiri
 
     // 更新面试记录
     console.log('[Manual AI Summary] Updating interview record...')
-    const { error: updateError } = await supabase
-      .from('interviews')
-      .update({
-        ai_summary: summary
-      })
-      .eq('id', interview.id)
-
-    if (updateError) {
-      console.error('[Manual AI Summary] Failed to update interview:', updateError)
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to save summary to database'
-      }, { status: 500 })
-    }
+    await prisma.interview.update({
+      where: { id: interview.id },
+      data: { ai_summary: summary }
+    })
 
     console.log('[Manual AI Summary] ✓ Summary generated and saved successfully')
 

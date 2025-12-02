@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { prisma } from '@/lib/prisma'
 import { transcribeVideo } from '@/app/actions/transcription-simple'
 import { exec } from 'child_process'
 import { promisify } from 'util'
@@ -22,20 +22,15 @@ const s3Client = new S3Client({
 
 /**
  * 处理视频合并任务的核心函数
- * 这个函数可以被 API route 调用，也可以被后台任务调用
  */
 export async function processVideoMergeTask(taskId: string) {
-  const supabase = createAdminClient()
-  
   try {
     // 获取任务信息
-    const { data: task, error: taskError } = await supabase
-      .from('video_processing_tasks')
-      .select('*')
-      .eq('id', taskId)
-      .single()
+    const task = await prisma.videoProcessingTask.findUnique({
+      where: { id: taskId }
+    })
     
-    if (taskError || !task) {
+    if (!task) {
       throw new Error(`Task not found: ${taskId}`)
     }
     
@@ -50,36 +45,34 @@ export async function processVideoMergeTask(taskId: string) {
       const now = new Date()
       const hoursElapsed = (now.getTime() - startedAt.getTime()) / (1000 * 60 * 60)
       
-      // 如果超过 30 分钟，认为可能卡住了，允许重新处理
       if (hoursElapsed < 0.5) {
         console.log(`[Task ${taskId}] Already processing (started ${Math.round(hoursElapsed * 60)} minutes ago)`)
         return { success: true, task }
       } else {
         console.log(`[Task ${taskId}] Task stuck in processing for ${Math.round(hoursElapsed * 60)} minutes, resetting to pending`)
         // 重置状态为 pending，允许重新处理
-        await supabase
-          .from('video_processing_tasks')
-          .update({
+        await prisma.videoProcessingTask.update({
+          where: { id: taskId },
+          data: {
             status: 'pending',
             started_at: null,
             error_message: 'Previous processing was interrupted, retrying...'
-          })
-          .eq('id', taskId)
+          }
+        })
       }
     }
     
     // 更新任务状态为 processing
-    await supabase
-      .from('video_processing_tasks')
-      .update({
+    await prisma.videoProcessingTask.update({
+      where: { id: taskId },
+      data: {
         status: 'processing',
-        started_at: new Date().toISOString()
-      })
-      .eq('id', taskId)
+        started_at: new Date()
+      }
+    })
     
-    // 注意：数据库字段是 interview_id（下划线），不是 interviewId（驼峰）
-    const interviewId = task.interview_id || task.interviewId
-    const segments = task.segments
+    const interviewId = task.interview_id
+    const segments = task.segments as any[]
     console.log(`[Task ${taskId}] Processing video merge for interview: ${interviewId}`)
     
     if (!interviewId) {
@@ -97,7 +90,6 @@ export async function processVideoMergeTask(taskId: string) {
       const segment = segments[i]
       console.log(`[Task ${taskId}] Downloading segment ${i + 1}/${segments.length}:`, segment.url)
       
-      // 从URL中提取B2路径
       const urlParts = segment.url.split('/file/')
       if (urlParts.length !== 2) {
         throw new Error(`Invalid B2 URL format: ${segment.url}`)
@@ -152,7 +144,6 @@ export async function processVideoMergeTask(taskId: string) {
     let totalDuration: number
     
     try {
-      // 将每个分段保存为临时文件
       for (let i = 0; i < videoBuffers.length; i++) {
         const tempFile = join(tempDir, `segment_${i + 1}_${Date.now()}.webm`)
         writeFileSync(tempFile, videoBuffers[i] as any)
@@ -160,19 +151,16 @@ export async function processVideoMergeTask(taskId: string) {
         tempFiles.push(tempFile)
       }
       
-      // 创建FFmpeg输入文件列表
       const concatFile = join(tempDir, `concat_${Date.now()}.txt`)
       const concatContent = inputFiles.map(file => `file '${file}'`).join('\n')
       writeFileSync(concatFile, concatContent)
       tempFiles.push(concatFile)
       
-      // 先合并为临时 webm 文件
       const tempMergedFile = join(tempDir, `temp_merged_${Date.now()}.webm`)
       tempFiles.push(tempMergedFile)
       
       console.log(`[Task ${taskId}] Merging videos (WebM format, no transcoding)...`)
       
-      // 合并视频（使用 copy 模式，快速，保留 WebM 格式）
       const mergeCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c copy "${tempMergedFile}" -y`
       const { stdout: mergeStdout, stderr: mergeStderr } = await execAsync(mergeCommand)
       if (mergeStderr) console.log(`[Task ${taskId}] FFmpeg merge stderr:`, mergeStderr)
@@ -183,44 +171,25 @@ export async function processVideoMergeTask(taskId: string) {
       
       console.log(`[Task ${taskId}] ✓ Video merge completed (WebM format)`)
       
-      // 直接使用合并后的 WebM 文件（跳过转码步骤以加快处理速度）
       mergedBuffer = require('fs').readFileSync(tempMergedFile)
       totalDuration = segmentDurations.reduce((sum, dur) => sum + dur, 0)
       
-      // 清理临时文件
       tempFiles.forEach(file => {
-        try {
-          if (existsSync(file)) {
-            unlinkSync(file)
-          }
-        } catch (e) {
-          console.warn(`[Task ${taskId}] Failed to clean up ${file}:`, e)
-        }
+        try { if (existsSync(file)) unlinkSync(file) } catch (e) {}
       })
       
     } catch (error) {
       console.error(`[Task ${taskId}] FFmpeg merge failed:`, error)
-      
-      // 清理临时文件
       tempFiles.forEach(file => {
-        try {
-          if (existsSync(file)) {
-            unlinkSync(file)
-          }
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+        try { if (existsSync(file)) unlinkSync(file) } catch (e) {}
       })
-      
       throw error
     }
     
-    // 上传合并后的视频（WebM 格式）
+    // 上传合并后的视频
     const timestamp = Date.now()
-    // 确保 interviewId 不为空
-    if (!interviewId) {
-      throw new Error(`Interview ID is missing when uploading merged video for task ${taskId}`)
-    }
+    if (!interviewId) throw new Error(`Interview ID is missing when uploading merged video for task ${taskId}`)
+    
     const mergedKey = `interviews/${interviewId}/merged-interview-${timestamp}.webm`
     
     const putCommand = new PutObjectCommand({
@@ -233,7 +202,6 @@ export async function processVideoMergeTask(taskId: string) {
     await s3Client.send(putCommand)
     
     const mergedVideoUrl = `https://f001.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${mergedKey}`
-    
     console.log(`[Task ${taskId}] ✓ Merged video uploaded:`, mergedVideoUrl)
     
     // 获取合并后视频的实际时长
@@ -241,15 +209,10 @@ export async function processVideoMergeTask(taskId: string) {
     try {
       const tempDurationFile = join(tempDir, `duration_check_${Date.now()}.webm`)
       writeFileSync(tempDurationFile, mergedBuffer as any)
-      
       const durationCommand = `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${tempDurationFile}"`
       const { stdout: durationOutput } = await execAsync(durationCommand)
       const actualDurationSeconds = parseFloat(durationOutput.trim())
-      
-      if (existsSync(tempDurationFile)) {
-        unlinkSync(tempDurationFile)
-      }
-      
+      if (existsSync(tempDurationFile)) unlinkSync(tempDurationFile)
       if (!isNaN(actualDurationSeconds) && actualDurationSeconds > 0) {
         actualDuration = Math.round(actualDurationSeconds)
         console.log(`[Task ${taskId}] ✓ Actual video duration:`, actualDuration, 'seconds')
@@ -262,7 +225,6 @@ export async function processVideoMergeTask(taskId: string) {
     console.log(`[Task ${taskId}] Generating subtitle metadata...`)
     const totalEstimatedDuration = segmentDurations.reduce((sum, dur) => sum + dur, 0)
     const scaleFactor = actualDuration / totalEstimatedDuration
-    
     let cumulativeTime = 0
     const subtitleMetadata = {
       interviewId,
@@ -289,9 +251,8 @@ export async function processVideoMergeTask(taskId: string) {
     console.log(`[Task ${taskId}] Uploading subtitle metadata to B2...`)
     let subtitleUrl: string | null = null
     try {
-      if (!interviewId) {
-        throw new Error(`Interview ID is missing when uploading subtitle metadata for task ${taskId}`)
-      }
+      if (!interviewId) throw new Error(`Interview ID is missing when uploading subtitle metadata for task ${taskId}`)
+      
       const jsonString = JSON.stringify(subtitleMetadata, null, 2)
       const buffer = Buffer.from(jsonString, 'utf-8')
       const timestamp = Date.now()
@@ -313,65 +274,54 @@ export async function processVideoMergeTask(taskId: string) {
     
     // 更新数据库中的视频URL和字幕URL
     console.log(`[Task ${taskId}] Updating database for interview_id: ${interviewId}`)
-    console.log(`[Task ${taskId}] Video URL: ${mergedVideoUrl}`)
-    console.log(`[Task ${taskId}] Subtitle URL: ${subtitleUrl}`)
     
-    const { data: updatedData, error: updateError } = await supabase
-      .from('interviews')
-      .update({
-        video_url: mergedVideoUrl,
-        subtitle_url: subtitleUrl,
-        total_duration: actualDuration,
-        status: 'completed', // 视频处理完成，更新状态为 completed
-        completed_at: new Date().toISOString(), // 设置完成时间
-        metadata: {
-          merged: true,
-          mergedAt: new Date().toISOString(),
-          segmentCount: segments.length,
-          totalDuration: actualDuration,
-          actualDuration: actualDuration,
-          estimatedDuration: totalDuration,
-          subtitleMetadata: subtitleMetadata,
-          status: 'completed' // 在 metadata 中也更新状态
-        }
-      })
-      .eq('interview_id', interviewId)
-      .select()
-    
-    if (updateError) {
-      console.error(`[Task ${taskId}] ⚠️ Failed to update database:`, updateError)
-      console.error(`[Task ${taskId}] Update error details:`, JSON.stringify(updateError, null, 2))
-    } else {
-      if (updatedData && updatedData.length > 0) {
-        console.log(`[Task ${taskId}] ✓ Database updated successfully, affected rows: ${updatedData.length}`)
-        console.log(`[Task ${taskId}] Updated interview ID: ${updatedData[0].interview_id}`)
-      } else {
-        console.warn(`[Task ${taskId}] ⚠️ Update returned no rows - interview_id '${interviewId}' may not exist in database`)
-        // 尝试查找是否存在该记录
-        const { data: existingInterview } = await supabase
-          .from('interviews')
-          .select('interview_id, student_email')
-          .eq('interview_id', interviewId)
-          .single()
-        if (existingInterview) {
-          console.log(`[Task ${taskId}] Found interview record:`, existingInterview)
+    try {
+        // 使用 external ID 查找 Interview
+        const interview = await prisma.interview.findUnique({
+            where: { interview_id: interviewId }
+        })
+        
+        if (interview) {
+            await prisma.interview.update({
+                where: { id: interview.id },
+                data: {
+                    video_url: mergedVideoUrl,
+                    subtitle_url: subtitleUrl,
+                    total_duration: actualDuration,
+                    status: 'completed',
+                    completed_at: new Date(),
+                    metadata: {
+                        ...(interview.metadata as object),
+                        merged: true,
+                        mergedAt: new Date().toISOString(),
+                        segmentCount: segments.length,
+                        totalDuration: actualDuration,
+                        actualDuration: actualDuration,
+                        estimatedDuration: totalDuration,
+                        subtitleMetadata: subtitleMetadata,
+                        status: 'completed'
+                    }
+                }
+            })
+            console.log(`[Task ${taskId}] ✓ Database updated successfully`)
         } else {
-          console.error(`[Task ${taskId}] Interview record not found for interview_id: ${interviewId}`)
+             console.warn(`[Task ${taskId}] ⚠️ Update returned no rows - interview_id '${interviewId}' may not exist in database`)
         }
-      }
+    } catch (updateError) {
+        console.error(`[Task ${taskId}] ⚠️ Failed to update database:`, updateError)
     }
     
     // 更新任务状态为 completed
-    await supabase
-      .from('video_processing_tasks')
-      .update({
+    await prisma.videoProcessingTask.update({
+      where: { id: taskId },
+      data: {
         status: 'completed',
-        completed_at: new Date().toISOString(),
+        completed_at: new Date(),
         merged_video_url: mergedVideoUrl,
         total_duration: actualDuration,
         segment_durations: segmentDurations
-      })
-      .eq('id', taskId)
+      }
+    })
     
     // 触发转录任务
     console.log(`[Task ${taskId}] Starting transcription...`)
@@ -397,14 +347,18 @@ export async function processVideoMergeTask(taskId: string) {
     console.error(`[Task ${taskId}] ❌ Error:`, error)
     
     // 更新任务状态为 failed
-    await supabase
-      .from('video_processing_tasks')
-      .update({
-        status: 'failed',
-        completed_at: new Date().toISOString(),
-        error_message: error instanceof Error ? error.message : 'Unknown error'
-      })
-      .eq('id', taskId)
+    try {
+        await prisma.videoProcessingTask.update({
+            where: { id: taskId },
+            data: {
+                status: 'failed',
+                completed_at: new Date(),
+                error_message: error instanceof Error ? error.message : 'Unknown error'
+            }
+        })
+    } catch (e) {
+        console.error("Failed to update task status to failed:", e)
+    }
     
     throw error
   }
@@ -412,25 +366,18 @@ export async function processVideoMergeTask(taskId: string) {
 
 /**
  * POST /api/process-video-task
- * 处理指定的视频合并任务
  */
 export async function POST(request: NextRequest) {
   try {
     const { taskId } = await request.json()
     
     if (!taskId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Task ID is required'
-      }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Task ID is required' }, { status: 400 })
     }
     
     const result = await processVideoMergeTask(taskId)
     
-    return NextResponse.json({
-      success: true,
-      ...result
-    })
+    return NextResponse.json({ success: true, ...result })
     
   } catch (error) {
     console.error('[Process Task] ❌ Error:', error)
@@ -440,4 +387,3 @@ export async function POST(request: NextRequest) {
     }, { status: 500 })
   }
 }
-

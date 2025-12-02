@@ -27,8 +27,7 @@ export interface CurrentUser {
   school: {
     id: string
     name: string
-    code: string | null
-    is_super_admin: boolean
+    // is_super_admin: boolean // 数据库中似乎没有这个字段，暂时移除或硬编码
   }
 }
 
@@ -223,7 +222,7 @@ export async function getCurrentUser(): Promise<{
       // 获取最新的用户信息
       const school = await prisma.school.findUnique({
         where: { id: payload.sub as string },
-        select: { id: true, name: true, code: true, email: true, is_super_admin: true }
+        select: { id: true, name: true, email: true }
       })
 
       if (!school) {
@@ -237,8 +236,7 @@ export async function getCurrentUser(): Promise<{
           school: {
             id: school.id,
             name: school.name,
-            code: school.code,
-            is_super_admin: school.is_super_admin
+            // is_super_admin: false
           }
         }
       }

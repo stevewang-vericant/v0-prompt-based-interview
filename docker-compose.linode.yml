@@ -7,21 +7,20 @@ services:
       dockerfile: Dockerfile
       args:
         # Next.js 的 NEXT_PUBLIC_* 变量需要在构建时可用
-        # 这些变量从 .env.build 文件读取（由 deploy-linode.sh 创建）
-        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}
-        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
         - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-}
     container_name: v0-interview-app
     ports:
       - "3001:3000"  # 使用 3001 端口，避免与现有应用冲突
     env_file:
-      - .env.build  # 构建时使用的环境变量（NEXT_PUBLIC_*）
-      - .env.production  # 运行时使用的所有环境变量
+      - .env.production  # 所有环境变量
     environment:
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - app-network
     healthcheck:
@@ -30,6 +29,29 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: v0-interview-postgres
+    env_file:
+      - .env.production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./prisma:/docker-prisma  # 挂载 Prisma 文件以便初始化
+    ports:
+      - "5433:5432"  # 映射到 5433 避免与主机 PostgreSQL 冲突
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
 
 networks:
   app-network:

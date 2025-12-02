@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/app/actions/auth'
 
 export async function POST(request: NextRequest) {
@@ -44,76 +43,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
-    const adminSupabase = createAdminClient()
-    
     // Get interview details before deletion for logging
-    const { data: interviewsToDelete, error: fetchError } = await supabase
-      .from('interviews')
-      .select('id, interview_id, student_email, student_name, video_url')
-      .in('id', interviewIds)
-    
-    if (fetchError) {
-      console.error('[Bulk Delete] Error fetching interviews:', fetchError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch interview details' },
-        { status: 500 }
-      )
-    }
+    const interviewsToDelete = await prisma.interview.findMany({
+      where: { id: { in: interviewIds } },
+      select: { id: true, interview_id: true, student: { select: { email: true, name: true } }, video_url: true }
+    })
 
-    // Delete the interviews using admin client (bypasses RLS)
+    // Delete the interviews
     console.log('[Bulk Delete] Attempting to delete interviews with IDs:', interviewIds)
     
-    const { data: deleteData, error: deleteError } = await adminSupabase
-      .from('interviews')
-      .delete()
-      .in('id', interviewIds)
-      .select('id, interview_id, student_email')
+    const deleteResult = await prisma.interview.deleteMany({
+      where: { id: { in: interviewIds } }
+    })
     
-    if (deleteError) {
-      console.error('[Bulk Delete] Error deleting interviews:', deleteError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to delete interviews' },
-        { status: 500 }
-      )
-    }
-    
-    console.log('[Bulk Delete] Successfully deleted interviews:', deleteData)
+    console.log('[Bulk Delete] Successfully deleted interviews count:', deleteResult.count)
 
-    // Verify deletion by checking if interviews still exist
-    const { data: verifyData, error: verifyError } = await adminSupabase
-      .from('interviews')
-      .select('id')
-      .in('id', interviewIds)
-    
-    if (verifyError) {
-      console.error('[Bulk Delete] Error verifying deletion:', verifyError)
-    } else {
-      console.log('[Bulk Delete] Verification - remaining interviews with deleted IDs:', verifyData)
-      if (verifyData && verifyData.length > 0) {
-        console.warn('[Bulk Delete] WARNING: Some interviews were not deleted!', verifyData)
-      }
-    }
-
-    // Log the deletion for audit purposes
-    console.log(`[Bulk Delete] Super admin ${userResult.user.email} deleted ${interviewIds.length} interviews:`, {
-      deletedInterviews: interviewsToDelete?.map(i => ({
+    // Log the deletion
+    console.log(`[Bulk Delete] Super admin ${userResult.user.email} deleted ${deleteResult.count} interviews:`, {
+      deletedInterviews: interviewsToDelete.map(i => ({
         id: i.id,
         interview_id: i.interview_id,
-        student_email: i.student_email,
-        student_name: i.student_name
+        student_email: i.student?.email,
+        student_name: i.student?.name
       })),
       timestamp: new Date().toISOString()
     })
 
     return NextResponse.json({
       success: true,
-      message: `Successfully deleted ${interviewIds.length} interview(s)`,
-      deletedCount: interviewIds.length,
-      deletedInterviews: interviewsToDelete?.map(i => ({
+      message: `Successfully deleted ${deleteResult.count} interview(s)`,
+      deletedCount: deleteResult.count,
+      deletedInterviews: interviewsToDelete.map(i => ({
         id: i.id,
-        student_email: i.student_email,
-        student_name: i.student_name
+        student_email: i.student?.email,
+        student_name: i.student?.name
       }))
     })
 
