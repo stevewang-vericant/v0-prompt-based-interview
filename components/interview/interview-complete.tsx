@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CheckCircle2, Clock, Mail } from "lucide-react"
 
 interface StudentInfo {
@@ -197,26 +198,36 @@ export function InterviewComplete({
               
               <div className="space-y-2">
                 <Label htmlFor="gender">Gender (Optional)</Label>
-                <Input
-                  id="gender"
-                  type="text"
-                  placeholder="e.g., Male, Female, Non-binary, Prefer not to say"
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  disabled={isUploading || isSubmitting}
-                />
+                <Select value={gender} onValueChange={setGender} disabled={isUploading || isSubmitting}>
+                  <SelectTrigger id="gender">
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Non-binary">Non-binary</SelectItem>
+                    <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="grade">Current Grade (Optional)</Label>
-                <Input
-                  id="grade"
-                  type="text"
-                  placeholder="e.g., 10th Grade, 11th Grade, 12th Grade"
-                  value={currentGrade}
-                  onChange={(e) => setCurrentGrade(e.target.value)}
-                  disabled={isUploading || isSubmitting}
-                />
+                <Select value={currentGrade} onValueChange={setCurrentGrade} disabled={isUploading || isSubmitting}>
+                  <SelectTrigger id="grade">
+                    <SelectValue placeholder="Select grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="9th Grade">9th Grade</SelectItem>
+                    <SelectItem value="10th Grade">10th Grade</SelectItem>
+                    <SelectItem value="11th Grade">11th Grade</SelectItem>
+                    <SelectItem value="12th Grade">12th Grade</SelectItem>
+                    <SelectItem value="Undergraduate">Undergraduate</SelectItem>
+                    <SelectItem value="Graduate">Graduate</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

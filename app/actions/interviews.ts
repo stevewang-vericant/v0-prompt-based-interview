@@ -31,6 +31,11 @@ export interface InterviewRecord {
   school_code: string | null
   student_email: string | null
   student_name: string | null
+  // 新增学生额外信息字段
+  student_gender: string | null
+  student_grade: string | null
+  student_city: string | null
+  student_financial_aid: boolean | null
   video_url: string | null
   subtitle_url: string | null
   total_duration: number | null
@@ -59,6 +64,10 @@ function mapInterviewToRecord(interview: any): InterviewRecord {
     submitted_at: interview.submitted_at?.toISOString() || null,
     student_email: interview.student?.email || null,
     student_name: interview.student?.name || null,
+    student_gender: interview.student?.gender || null,
+    student_grade: interview.student?.current_grade || null,
+    student_city: interview.student?.residency_city || null,
+    student_financial_aid: interview.student?.need_financial_aid || null,
     school_code: interview.school?.code || null,
     metadata: interview.metadata as Record<string, any> || {},
     total_score: interview.total_score ? Number(interview.total_score) : null,

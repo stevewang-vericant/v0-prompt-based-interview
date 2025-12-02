@@ -353,12 +353,20 @@ function SchoolDashboardContent() {
     
     const query = searchQuery.toLowerCase()
     const email = (interview.student_email || '').toLowerCase()
+    const name = (interview.student_name || '').toLowerCase()
     const interviewId = (interview.interview_id || '').toLowerCase()
     const schoolCode = (interview.school_code || '').toLowerCase()
+    const gender = (interview.student_gender || '').toLowerCase()
+    const grade = (interview.student_grade || '').toLowerCase()
+    const city = (interview.student_city || '').toLowerCase()
     
     return email.includes(query) || 
+           name.includes(query) ||
            interviewId.includes(query) || 
-           schoolCode.includes(query)
+           schoolCode.includes(query) ||
+           gender.includes(query) ||
+           grade.includes(query) ||
+           city.includes(query)
   })
 
   // 如果认证失败，显示错误
@@ -813,6 +821,31 @@ function SchoolDashboardContent() {
                           ID: {interview.interview_id}
                         </div>
                       </div>
+                      {/* Third row: Additional student info (if available) */}
+                      {(interview.student_gender || interview.student_grade || interview.student_city || interview.student_financial_aid !== null) && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                          {interview.student_gender && (
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                              {interview.student_gender}
+                            </span>
+                          )}
+                          {interview.student_grade && (
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                              {interview.student_grade}
+                            </span>
+                          )}
+                          {interview.student_city && (
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                              📍 {interview.student_city}
+                            </span>
+                          )}
+                          {interview.student_financial_aid !== null && (
+                            <span className={`px-2 py-0.5 rounded ${interview.student_financial_aid ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}`}>
+                              {interview.student_financial_aid ? '💰 Financial Aid' : 'No Financial Aid'}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto shrink-0">
                       {!interview.video_url && (
