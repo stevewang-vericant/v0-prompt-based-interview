@@ -58,7 +58,7 @@ async function importData(filename) {
 
       // 为没有 email 和 password 的学校生成默认值
       const email = school.email || `admin@${school.code}.edu`
-      const defaultPassword = await bcrypt.hash('changeme123', 10)
+      const defaultPassword = await bcrypt.hash('asdf123!', 10)
       const passwordHash = school.password_hash || defaultPassword
 
       await prisma.school.create({

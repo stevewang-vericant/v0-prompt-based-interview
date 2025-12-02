@@ -46,7 +46,7 @@
 
 **注意**: 旧 Supabase 数据中学校没有 `email` 和 `password_hash` 字段，迁移时自动生成：
 - **Email**: `admin@{school-code}.edu`
-- **默认密码**: `changeme123`
+- **默认密码**: `asdf123!`
 
 ### 2. 面试数据 (Interviews)
 - ✅ 10 个已完成的面试记录
@@ -149,16 +149,16 @@ SELECT
 ## 迁移后操作
 
 ### 学校管理员需知
-所有从 Supabase 迁移的学校账号默认密码为 `changeme123`，建议：
+所有从 Supabase 迁移的学校账号默认密码为 `asdf123!`，建议：
 
 1. 首次登录后立即修改密码
 2. 使用 email: `admin@{school-code}.edu`
 
 ### 示例登录
 ```
-Harvard:    admin@harvard.edu / changeme123
-MIT:        admin@mit.edu / changeme123
-Vericant:   admin@vericant.edu / changeme123
+Harvard:    admin@harvard.edu / asdf123!
+MIT:        admin@mit.edu / asdf123!
+Vericant:   admin@vericant.edu / asdf123!
 ```
 
 ## 故障排除
