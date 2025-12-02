@@ -30,6 +30,9 @@ ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 
+# 生成 Prisma Client（必须在构建之前）
+RUN npx prisma generate
+
 # 构建应用
 RUN pnpm build
 
