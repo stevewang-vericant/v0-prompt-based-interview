@@ -189,6 +189,71 @@ export async function createPrompt(data: {
 }
 
 /**
+ * 删除自定义题目（只能删除学校自己的题目）
+ */
+export async function deletePrompt(promptId: string): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    const userResult = await getCurrentUser()
+    if (!userResult.success || !userResult.user) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    // 检查题目是否存在且属于当前学校
+    const prompt = await prisma.prompt.findUnique({
+      where: { id: promptId }
+    })
+
+    if (!prompt) {
+      return { success: false, error: 'Prompt not found' }
+    }
+
+    // 不能删除系统默认题目（school_id 为 null）
+    if (!prompt.school_id) {
+      return { success: false, error: 'Cannot delete system default prompts' }
+    }
+
+    // 只能删除自己学校的题目
+    if (prompt.school_id !== userResult.user.school.id && !userResult.user.school.is_super_admin) {
+      return { success: false, error: 'Not authorized to delete this prompt' }
+    }
+
+    // 检查该题目是否被学校选中，如果选中则先从选中列表中移除
+    const school = await prisma.school.findUnique({
+      where: { id: userResult.user.school.id },
+      select: { selected_prompt_ids: true }
+    })
+
+    if (school?.selected_prompt_ids?.includes(promptId)) {
+      // 从选中列表中移除该题目
+      const updatedPromptIds = school.selected_prompt_ids.filter((id: string) => id !== promptId)
+      
+      // 如果移除后少于4个，需要更新数据库
+      // 注意：这里允许少于4个，因为用户可能正在删除题目后重新选择
+      await prisma.school.update({
+        where: { id: userResult.user.school.id },
+        data: { selected_prompt_ids: updatedPromptIds }
+      })
+    }
+
+    // 删除题目
+    await prisma.prompt.delete({
+      where: { id: promptId }
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('[Prompts] Error deleting prompt:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
  * 根据学校代码获取选中的题目（用于学生面试页面）
  */
 export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
@@ -223,7 +288,7 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
 
     return {
       success: true,
-      prompts: prompts.map(p => ({
+      prompts: prompts.map((p: { id: string; category: string; prompt_text: string; preparation_time: number | null; response_time: number | null }) => ({
         id: p.id,
         category: p.category,
         text: p.prompt_text,

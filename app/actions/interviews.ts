@@ -2,7 +2,6 @@
 
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "./auth"
-import { Prisma } from "@prisma/client"
 
 /**
  * 面试数据类型定义

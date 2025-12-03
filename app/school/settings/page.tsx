@@ -13,9 +13,10 @@ import {
   getSelectedPromptIds, 
   updateSelectedPrompts, 
   createPrompt,
+  deletePrompt,
   type PromptRecord 
 } from "@/app/actions/prompts"
-import { Plus, Save, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Plus, Save, AlertCircle, CheckCircle2, Trash2 } from "lucide-react"
 
 export default function SettingsPage() {
   const [prompts, setPrompts] = useState<PromptRecord[]>([])
@@ -35,6 +36,7 @@ export default function SettingsPage() {
     difficulty_level: "medium"
   })
   const [creating, setCreating] = useState(false)
+  const [deletingPromptId, setDeletingPromptId] = useState<string | null>(null)
 
   useEffect(() => {
     loadPrompts()
@@ -133,7 +135,13 @@ export default function SettingsPage() {
       setCreating(true)
       setError(null)
 
-      const result = await createPrompt(newPrompt)
+      // Only pass necessary fields, use defaults for prep/response time
+      const result = await createPrompt({
+        category: newPrompt.category,
+        prompt_text: newPrompt.prompt_text,
+        difficulty_level: newPrompt.difficulty_level || 'medium'
+        // preparation_time and response_time will use defaults (20s, 90s)
+      })
       
       if (!result.success) {
         setError(result.error || "Failed to create prompt")
@@ -157,6 +165,39 @@ export default function SettingsPage() {
       setError(err instanceof Error ? err.message : "Unknown error")
     } finally {
       setCreating(false)
+    }
+  }
+
+  const handleDeletePrompt = async (promptId: string) => {
+    if (!confirm('Are you sure you want to delete this custom prompt? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      setDeletingPromptId(promptId)
+      setError(null)
+
+      const result = await deletePrompt(promptId)
+      
+      if (!result.success) {
+        setError(result.error || "Failed to delete prompt")
+        return
+      }
+
+      // Reload prompts
+      await loadPrompts()
+      
+      // Remove from selected if it was selected
+      setSelectedIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(promptId)
+        return newSet
+      })
+    } catch (err) {
+      console.error("[Settings] Error deleting prompt:", err)
+      setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setDeletingPromptId(null)
     }
   }
 
@@ -337,26 +378,6 @@ export default function SettingsPage() {
                   rows={4}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="prep_time">Preparation Time (seconds)</Label>
-                  <Input
-                    id="prep_time"
-                    type="number"
-                    value={newPrompt.preparation_time}
-                    onChange={(e) => setNewPrompt({ ...newPrompt, preparation_time: parseInt(e.target.value) || 20 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="response_time">Response Time (seconds)</Label>
-                  <Input
-                    id="response_time"
-                    type="number"
-                    value={newPrompt.response_time}
-                    onChange={(e) => setNewPrompt({ ...newPrompt, response_time: parseInt(e.target.value) || 90 })}
-                  />
-                </div>
-              </div>
               <div className="flex gap-2">
                 <Button
                   onClick={handleCreatePrompt}
@@ -419,6 +440,20 @@ export default function SettingsPage() {
                       Prep: {prompt.preparation_time}s | Response: {prompt.response_time}s
                     </p>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeletePrompt(prompt.id)}
+                    disabled={deletingPromptId === prompt.id || selectedIds.has(prompt.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    title={selectedIds.has(prompt.id) ? "Cannot delete selected prompt. Deselect it first." : "Delete this custom prompt"}
+                  >
+                    {deletingPromptId === prompt.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
               ))
             )}

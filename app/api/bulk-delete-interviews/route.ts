@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Log the deletion
     console.log(`[Bulk Delete] Super admin ${userResult.user.email} deleted ${deleteResult.count} interviews:`, {
-      deletedInterviews: interviewsToDelete.map(i => ({
+      deletedInterviews: interviewsToDelete.map((i: { id: string; interview_id: string | null; student: { email: string; name: string } | null }) => ({
         id: i.id,
         interview_id: i.interview_id,
         student_email: i.student?.email,
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: `Successfully deleted ${deleteResult.count} interview(s)`,
       deletedCount: deleteResult.count,
-      deletedInterviews: interviewsToDelete.map(i => ({
+      deletedInterviews: interviewsToDelete.map((i: { id: string; interview_id: string | null; student: { email: string; name: string } | null }) => ({
         id: i.id,
         student_email: i.student?.email,
         student_name: i.student?.name

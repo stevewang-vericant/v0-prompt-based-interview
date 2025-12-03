@@ -52,8 +52,21 @@ function SchoolDashboardContent() {
       if (result.success && result.user) {
         console.log("[School] User loaded:", result.user.email)
         setCurrentUser({ email: result.user.email })
-        setSchoolInfo(result.user.school)
-        return result.user.school
+        if (result.user.school.code) {
+          setSchoolInfo({
+            code: result.user.school.code,
+            name: result.user.school.name,
+            is_super_admin: result.user.school.is_super_admin
+          })
+          return {
+            code: result.user.school.code,
+            name: result.user.school.name,
+            is_super_admin: result.user.school.is_super_admin
+          }
+        } else {
+          setAuthError("School code is missing")
+          return null
+        }
       } else {
         console.error("[School] Failed to load user:", result.error)
         setAuthError(result.error || "Not authenticated")
@@ -263,7 +276,7 @@ function SchoolDashboardContent() {
     
     const params = new URLSearchParams({
       videoUrl: proxyVideoUrl,
-      interviewId: interview.interview_id
+      interviewId: interview.interview_id || ''
     })
     
     if (proxySubtitleUrl) {
@@ -851,7 +864,6 @@ function SchoolDashboardContent() {
             )}
           </CardContent>
         </Card>
-      </main>
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (

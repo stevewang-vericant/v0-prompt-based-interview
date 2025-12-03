@@ -3,10 +3,10 @@
 import { prisma } from '@/lib/prisma'
 
 interface AdditionalStudentInfo {
-  gender?: string
-  currentGrade?: string
-  residencyCity?: string
-  needFinancialAid?: boolean
+  gender?: string | null
+  currentGrade?: string | null
+  residencyCity?: string | null
+  needFinancialAid?: boolean | null
 }
 
 export async function updateStudentInfo(
@@ -27,13 +27,14 @@ export async function updateStudentInfo(
     }
 
     // Update student with additional information
+    // Explicitly set fields to null if they are null/undefined to clear old data
     await prisma.student.update({
       where: { email: studentEmail },
       data: {
-        gender: additionalInfo.gender,
-        current_grade: additionalInfo.currentGrade,
-        residency_city: additionalInfo.residencyCity,
-        need_financial_aid: additionalInfo.needFinancialAid
+        gender: additionalInfo.gender === undefined ? undefined : (additionalInfo.gender || null),
+        current_grade: additionalInfo.currentGrade === undefined ? undefined : (additionalInfo.currentGrade || null),
+        residency_city: additionalInfo.residencyCity === undefined ? undefined : (additionalInfo.residencyCity || null),
+        need_financial_aid: additionalInfo.needFinancialAid === undefined ? undefined : (additionalInfo.needFinancialAid === null ? null : additionalInfo.needFinancialAid)
       }
     })
 

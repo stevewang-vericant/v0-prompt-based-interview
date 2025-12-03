@@ -534,10 +534,10 @@ function InterviewPageContent() {
     studentEmail: string, 
     studentName?: string, 
     additionalInfo?: {
-      gender?: string
-      currentGrade?: string
-      residencyCity?: string
-      needFinancialAid?: boolean
+      gender?: string | null
+      currentGrade?: string | null
+      residencyCity?: string | null
+      needFinancialAid?: boolean | null
     }
   ) => {
     console.log("[v0] Submitting interview with", Object.keys(responses).length, "responses")
@@ -548,8 +548,8 @@ function InterviewPageContent() {
     // 上传所有视频分段到 B2，然后在服务端使用 FFmpeg 合并
     const result = await uploadSegmentVideos(responses, studentEmail, studentName, schoolCode)
     
-    // 如果提供了额外信息，更新学生信息
-    if (additionalInfo && Object.keys(additionalInfo).length > 0) {
+    // 更新学生信息（总是调用，即使没有提供额外信息，也会清除旧数据）
+    if (additionalInfo) {
       const { updateStudentInfo } = await import('@/app/actions/update-student-info')
       await updateStudentInfo(studentEmail, additionalInfo)
     }

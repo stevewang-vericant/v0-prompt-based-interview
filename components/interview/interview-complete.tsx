@@ -14,15 +14,20 @@ import { CheckCircle2, Clock, Mail } from "lucide-react"
 interface StudentInfo {
   email: string
   name?: string
-  gender?: string
-  currentGrade?: string
-  residencyCity?: string
-  needFinancialAid?: boolean
+  gender?: string | null
+  currentGrade?: string | null
+  residencyCity?: string | null
+  needFinancialAid?: boolean | null
 }
 
 interface InterviewCompleteProps {
   responsesCount: number
-  onSubmit: (studentEmail: string, studentName?: string, additionalInfo?: Partial<StudentInfo>) => void
+  onSubmit: (studentEmail: string, studentName?: string, additionalInfo?: {
+    gender?: string | null
+    currentGrade?: string | null
+    residencyCity?: string | null
+    needFinancialAid?: boolean | null
+  }) => void
   isUploading?: boolean
   uploadProgress?: number
   uploadStatus?: string
@@ -68,13 +73,25 @@ export function InterviewComplete({
     setEmailError("")
     setIsSubmitting(true)
     
-    // 准备额外信息（只在 consent 时发送）
-    const additionalInfo: Partial<StudentInfo> = consentGiven ? {
-      gender: gender || undefined,
-      currentGrade: currentGrade || undefined,
-      residencyCity: residencyCity || undefined,
-      needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : undefined
-    } : {}
+    // 准备额外信息
+    // 如果 consent 未给出，明确传递 null 来清除旧数据
+    // 如果 consent 给出但字段为空，也传递 null 来清除旧数据
+    const additionalInfo: {
+      gender?: string | null
+      currentGrade?: string | null
+      residencyCity?: string | null
+      needFinancialAid?: boolean | null
+    } = consentGiven ? {
+      gender: gender || null,
+      currentGrade: currentGrade || null,
+      residencyCity: residencyCity || null,
+      needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : null
+    } : {
+      gender: null,
+      currentGrade: null,
+      residencyCity: null,
+      needFinancialAid: null
+    }
     
     await onSubmit(studentEmail, studentName || undefined, additionalInfo)
   }
