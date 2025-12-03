@@ -31,37 +31,6 @@ interface Prompt {
   responseTime: number
 }
 
-const mockPrompts: Prompt[] = [
-  {
-    id: "1",
-    category: "Conversational Fluency",
-    text: "Tell me about your favorite hobby and why you enjoy it.",
-    preparationTime: 20,
-    responseTime: 90,
-  },
-  {
-    id: "2",
-    category: "Critical Thinking",
-    text: "Describe a time when you had to solve a complex problem. What approach did you take and what was the outcome?",
-    preparationTime: 20,
-    responseTime: 90,
-  },
-  {
-    id: "3",
-    category: "General Knowledge",
-    text: "What do you think is the most important global challenge facing our generation?",
-    preparationTime: 20,
-    responseTime: 90,
-  },
-  {
-    id: "4",
-    category: "Critical Thinking",
-    text: "Describe a situation where you had to work with someone whose perspective was very different from yours. How did you handle it?",
-    preparationTime: 20,
-    responseTime: 90,
-  },
-]
-
 type InterviewStage = "setup" | "interview" | "complete"
 
 function InterviewPageContent() {
@@ -70,6 +39,9 @@ function InterviewPageContent() {
   
   const [stage, setStage] = useState<InterviewStage>("setup")
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
+  const [prompts, setPrompts] = useState<Prompt[]>([])
+  const [promptsLoading, setPromptsLoading] = useState(true)
+  const [promptsError, setPromptsError] = useState<string | null>(null)
   const [responses, setResponses] = useState<Record<string, Blob>>({})
   // 从 localStorage 恢复 interviewId，如果没有则生成新的
   const [interviewId, setInterviewId] = useState<string>('')
@@ -78,6 +50,48 @@ function InterviewPageContent() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState("")
   const [hasPending, setHasPending] = useState(false)
+
+  // 加载 prompts
+  useEffect(() => {
+    const loadPrompts = async () => {
+      if (!schoolCode) {
+        setPromptsError("School code is required")
+        setPromptsLoading(false)
+        return
+      }
+
+      try {
+        setPromptsLoading(true)
+        setPromptsError(null)
+        
+        const { getPromptsBySchoolCode } = await import('@/app/actions/prompts')
+        const result = await getPromptsBySchoolCode(schoolCode)
+        
+        if (!result.success || !result.prompts) {
+          setPromptsError(result.error || "Failed to load prompts")
+          return
+        }
+
+        // 转换为 Prompt 格式
+        const formattedPrompts: Prompt[] = result.prompts.map((p, index) => ({
+          id: p.id,
+          category: p.category,
+          text: p.text,
+          preparationTime: p.preparationTime,
+          responseTime: p.responseTime
+        }))
+
+        setPrompts(formattedPrompts)
+      } catch (err) {
+        console.error('[Interview] Error loading prompts:', err)
+        setPromptsError(err instanceof Error ? err.message : "Unknown error")
+      } finally {
+        setPromptsLoading(false)
+      }
+    }
+
+    loadPrompts()
+  }, [schoolCode])
 
   // 初始化 interviewId（仅在客户端）
   useEffect(() => {
@@ -111,7 +125,7 @@ function InterviewPageContent() {
           console.log(`[v0] Found ${pendingSegments.length} pending segments for ${interviewId}`)
           
           // 检查是否所有问题都已录制完成
-          const totalPrompts = mockPrompts.length
+          const totalPrompts = prompts.length
           const recordedPrompts = pendingSegments.length
           
           if (recordedPrompts < totalPrompts) {
@@ -170,7 +184,7 @@ function InterviewPageContent() {
               localStorage.setItem('currentInterviewId', resumeInterviewId)
               
               const pendingSegments = await getPendingSegments(resumeInterviewId)
-              const totalPrompts = mockPrompts.length
+              const totalPrompts = prompts.length
               const recordedPrompts = pendingSegments.length
               
               if (recordedPrompts < totalPrompts) {
@@ -223,7 +237,7 @@ function InterviewPageContent() {
     
     // 立即保存到 IndexedDB（持久化存储）
     try {
-      const prompt = mockPrompts.find(p => p.id === promptId)
+      const prompt = prompts.find(p => p.id === promptId)
       if (prompt) {
         await saveVideoSegment(
           interviewId,
@@ -244,9 +258,9 @@ function InterviewPageContent() {
     setResponses((prev) => ({ ...prev, [promptId]: videoBlob }))
 
     // 检查是否所有问题都已完成
-    const allPromptsRecorded = Object.keys({ ...responses, [promptId]: videoBlob }).length >= mockPrompts.length
+    const allPromptsRecorded = Object.keys({ ...responses, [promptId]: videoBlob }).length >= prompts.length
     
-    if (currentPromptIndex < mockPrompts.length - 1) {
+    if (currentPromptIndex < prompts.length - 1) {
       // 还有更多问题，继续下一题
       setCurrentPromptIndex((prev) => prev + 1)
     } else {
@@ -279,7 +293,7 @@ function InterviewPageContent() {
         segments = storedSegments
           .sort((a, b) => a.sequenceNumber - b.sequenceNumber)
           .map(seg => {
-            const prompt = mockPrompts.find(p => p.id === seg.promptId)
+            const prompt = prompts.find(p => p.id === seg.promptId)
             if (!prompt) {
               throw new Error(`Prompt not found: ${seg.promptId}`)
             }
@@ -292,7 +306,7 @@ function InterviewPageContent() {
       } else {
         // 使用内存中的数据
         console.log("[v0] No stored segments found, using in-memory data")
-        segments = mockPrompts
+        segments = prompts
           .map((prompt, index) => ({
             prompt,
             blob: allResponses[prompt.id],
@@ -571,7 +585,7 @@ function InterviewPageContent() {
               <h1 className="text-2xl font-bold text-slate-900">Video Interview Assessment</h1>
               <p className="text-sm text-slate-600">
                 {stage === "setup" && "System check and preparation"}
-                {stage === "interview" && `Question ${currentPromptIndex + 1} of ${mockPrompts.length}`}
+                {stage === "interview" && prompts.length > 0 && `Question ${currentPromptIndex + 1} of ${prompts.length}`}
                 {stage === "complete" && "Interview completed"}
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
@@ -612,15 +626,46 @@ function InterviewPageContent() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {stage === "setup" && <InterviewSetup onComplete={handleSetupComplete} />}
+        {promptsLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
+              <p className="mt-2 text-sm text-slate-600">Loading interview questions...</p>
+            </div>
+          </div>
+        )}
 
-        {stage === "interview" && (
-          <InterviewPrompt
-            prompt={mockPrompts[currentPromptIndex]}
-            promptNumber={currentPromptIndex + 1}
-            totalPrompts={mockPrompts.length}
-            onComplete={handlePromptComplete}
-          />
+        {promptsError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error Loading Questions</AlertTitle>
+            <AlertDescription>{promptsError}</AlertDescription>
+          </Alert>
+        )}
+
+        {!promptsLoading && !promptsError && prompts.length === 0 && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>No Questions Available</AlertTitle>
+            <AlertDescription>
+              This school has not configured interview questions yet. Please contact the school administrator.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!promptsLoading && !promptsError && prompts.length > 0 && (
+          <>
+            {stage === "setup" && <InterviewSetup onComplete={handleSetupComplete} />}
+
+            {stage === "interview" && (
+              <InterviewPrompt
+                prompt={prompts[currentPromptIndex]}
+                promptNumber={currentPromptIndex + 1}
+                totalPrompts={prompts.length}
+                onComplete={handlePromptComplete}
+              />
+            )}
+          </>
         )}
 
         {stage === "complete" && (

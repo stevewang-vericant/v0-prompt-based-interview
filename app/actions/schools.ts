@@ -124,6 +124,20 @@ export async function createSchool({
     const defaultPassword = normalizedCode // 默认密码为 code
     const hashedPassword = await hashPassword(defaultPassword)
 
+    // 获取默认的4个题目（school_id 为 null 的系统题目）
+    const defaultPrompts = await prisma.prompt.findMany({
+      where: { school_id: null },
+      orderBy: { created_at: 'asc' },
+      take: 4,
+      select: { id: true }
+    })
+
+    if (defaultPrompts.length < 4) {
+      console.warn(`[Schools] Only found ${defaultPrompts.length} default prompts, need 4`)
+    }
+
+    const defaultPromptIds = defaultPrompts.map(p => p.id)
+
     const school = await prisma.school.create({
       data: {
         name: trimmedName,
@@ -131,6 +145,7 @@ export async function createSchool({
         email: email,
         password_hash: hashedPassword,
         active: true,
+        selected_prompt_ids: defaultPromptIds.length === 4 ? defaultPromptIds : [], // 只有正好4个才设置
       },
       select: {
         id: true,

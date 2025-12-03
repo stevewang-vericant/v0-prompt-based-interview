@@ -10,7 +10,7 @@ import {
   getInterviewsBySchoolCode,
   InterviewRecord 
 } from "@/app/actions/interviews"
-import { getCurrentUser, signOut } from "@/app/actions/auth"
+import { getCurrentUser } from "@/app/actions/auth"
 import { listSchools, createSchool, deleteSchool, type ManagedSchool } from "@/app/actions/schools"
 import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut, Trash2, X, PlusCircle, Upload } from "lucide-react"
 import { format } from "date-fns"
@@ -31,7 +31,6 @@ function SchoolDashboardContent() {
   const [authError, setAuthError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [linkCopied, setLinkCopied] = useState(false)
-  const [loggingOut, setLoggingOut] = useState(false)
   
   // Bulk selection state
   const [selectedInterviews, setSelectedInterviews] = useState<Set<string>>(new Set())
@@ -122,12 +121,6 @@ function SchoolDashboardContent() {
   const handleRefresh = () => {
     setIsRefreshing(true)
     loadInterviews()
-  }
-
-  const handleLogout = async () => {
-    if (loggingOut) return
-    setLoggingOut(true)
-    await signOut()
   }
 
   const fetchManagedSchools = useCallback(async () => {
@@ -421,63 +414,21 @@ function SchoolDashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                <h1 className="text-xl sm:text-3xl font-bold text-slate-900">School Dashboard</h1>
-                {schoolInfo?.is_super_admin && (
-                  <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full whitespace-nowrap">
-                    <Shield className="h-3 w-3" />
-                    Super Admin
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-2 text-xs sm:text-sm text-slate-600">
-                {schoolInfo && (
-                  <div className="flex items-center gap-1 truncate">
-                    <Building2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span className="truncate">{schoolInfo.name}</span>
-                  </div>
-                )}
-                {currentUser && (
-                  <div className="flex items-center gap-1 truncate">
-                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span className="truncate">{currentUser.email}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button
-                onClick={handleLogout}
-                disabled={loggingOut}
-                variant="outline"
-                size="sm"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                {loggingOut ? "Logging out..." : "Logout"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="space-y-6">
+      {/* Refresh button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          variant="outline"
+          size="sm"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Info Banner */}
+      {/* Info Banner */}
         {schoolInfo?.is_super_admin ? (
           <Alert className="mb-6 bg-purple-50 border-purple-200">
             <Shield className="h-4 w-4 text-purple-600" />
