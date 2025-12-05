@@ -81,7 +81,28 @@ export async function getSelectedPromptIds(): Promise<{
       return { success: false, error: 'School not found' }
     }
 
-    return { success: true, promptIds: school.selected_prompt_ids || [] }
+    let selectedIds = school.selected_prompt_ids || []
+
+    // 如果没有选中任何题目，自动选择默认的 4 个
+    if (selectedIds.length === 0) {
+      const defaultPrompts = await prisma.prompt.findMany({
+        where: { school_id: null, is_active: true },
+        take: 4,
+        select: { id: true },
+        orderBy: { created_at: 'asc' }
+      })
+      
+      if (defaultPrompts.length > 0) {
+        selectedIds = defaultPrompts.map(p => p.id)
+        // 自动保存到数据库
+        await prisma.school.update({
+          where: { id: userResult.user.school.id },
+          data: { selected_prompt_ids: selectedIds }
+        })
+      }
+    }
+
+    return { success: true, promptIds: selectedIds }
   } catch (error) {
     console.error('[Prompts] Error fetching selected prompts:', error)
     return {
@@ -273,16 +294,34 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
       select: { selected_prompt_ids: true }
     })
 
-    if (!school || !school.selected_prompt_ids || school.selected_prompt_ids.length === 0) {
+    if (!school) {
+      return { success: false, error: 'School not found' }
+    }
+
+    let promptIds = school.selected_prompt_ids || []
+    
+    // 如果没有选中的题目，尝试使用默认题目
+    if (promptIds.length === 0) {
+       const defaultPrompts = await prisma.prompt.findMany({
+        where: { school_id: null, is_active: true },
+        take: 4,
+        select: { id: true },
+        orderBy: { created_at: 'asc' }
+      })
+      promptIds = defaultPrompts.map(p => p.id)
+    }
+
+    if (promptIds.length === 0) {
       return { success: false, error: 'No prompts configured for this school' }
     }
 
     const prompts = await prisma.prompt.findMany({
-      where: { id: { in: school.selected_prompt_ids } },
+      where: { id: { in: promptIds } },
       orderBy: { created_at: 'asc' }
     })
 
-    if (prompts.length !== 4) {
+    // 如果数量不足4个，返回错误（除非是默认题目就只有这么多）
+    if (prompts.length !== 4 && promptIds.length === 4) {
       return { success: false, error: 'School must have exactly 4 prompts configured' }
     }
 
