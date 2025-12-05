@@ -57,7 +57,7 @@ sleep 5
 
 # 运行数据库迁移
 echo -e "${GREEN}🗄️  运行数据库迁移...${NC}"
-docker compose -f "$COMPOSE_FILE" exec -T interview-app sh -c "npx prisma db push --skip-generate" || {
+docker compose -f "$COMPOSE_FILE" exec -T interview-app sh -c "npx prisma db push" || {
     echo -e "${YELLOW}⚠️  数据库迁移失败，可能是首次启动，稍后重试${NC}"
 }
 
