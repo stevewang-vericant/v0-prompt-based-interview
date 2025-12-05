@@ -128,11 +128,11 @@ export async function saveInterview(data: InterviewData): Promise<{
              const updated = await prisma.interview.update({
                  where: { interview_id: data.interview_id },
                  data: {
-                    video_url: data.video_url,
-                    subtitle_url: data.subtitle_url,
-                    total_duration: data.total_duration,
-                    metadata: data.metadata || {},
-                    status: interviewStatus,
+      video_url: data.video_url,
+      subtitle_url: data.subtitle_url,
+      total_duration: data.total_duration,
+      metadata: data.metadata || {},
+      status: interviewStatus,
                     completed_at: completedAt,
                     submitted_at: submittedAt
                  },
@@ -360,8 +360,8 @@ export async function getInterviewsBySchoolCode(
         where: {
           school: {
             code: schoolCode
-          }
-        }
+      }
+    }
       })
     ])
     

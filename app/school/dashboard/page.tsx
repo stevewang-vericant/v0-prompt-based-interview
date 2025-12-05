@@ -430,18 +430,18 @@ function SchoolDashboardContent() {
     <div className="space-y-6">
       {/* Refresh button */}
       <div className="flex justify-end">
-        <Button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          variant="outline"
-          size="sm"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
 
-      {/* Info Banner */}
+        {/* Info Banner */}
         {schoolInfo?.is_super_admin ? (
           <Alert className="mb-6 bg-purple-50 border-purple-200">
             <Shield className="h-4 w-4 text-purple-600" />

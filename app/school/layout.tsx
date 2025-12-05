@@ -11,7 +11,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [schoolInfo, setSchoolInfo] = useState<{
-    code: string
+    code: string | null
     name: string
     is_super_admin: boolean
   } | null>(null)
@@ -21,7 +21,15 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
 
+  // 如果是登录或注册页面，不需要检查认证
+  const isAuthPage = pathname === "/school/login" || pathname === "/school/register"
+
   useEffect(() => {
+    // 如果是登录或注册页面，直接返回，不检查认证
+    if (isAuthPage) {
+      return
+    }
+
     const loadUser = async () => {
       const result = await getCurrentUser()
       if (result.success && result.user) {
@@ -32,7 +40,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
       }
     }
     loadUser()
-  }, [router])
+  }, [router, isAuthPage])
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -53,6 +61,12 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
     },
   ]
 
+  // 如果是登录或注册页面，直接渲染 children，不需要 sidebar
+  if (isAuthPage) {
+    return <>{children}</>
+  }
+
+  // 如果还没有加载用户信息，显示加载状态
   if (!schoolInfo) {
     return (
       <div className="flex items-center justify-center min-h-screen">

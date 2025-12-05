@@ -377,7 +377,7 @@ export async function POST(request: NextRequest) {
     
     const result = await processVideoMergeTask(taskId)
     
-    return NextResponse.json({ success: true, ...result })
+    return NextResponse.json(result)
     
   } catch (error) {
     console.error('[Process Task] ❌ Error:', error)

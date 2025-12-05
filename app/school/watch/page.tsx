@@ -61,17 +61,17 @@ function SchoolWatchPageContent() {
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">Interview Review</h1>
               <div className="space-y-2">
                 {/* Student basic info */}
-                <div className="space-y-1">
-                  {studentName && (
-                    <p className="text-xs sm:text-sm text-slate-700 truncate">
-                      <span className="font-medium">Student:</span> {studentName}
-                    </p>
-                  )}
-                  {studentEmail && (
-                    <p className="text-xs sm:text-sm text-slate-600 truncate">
-                      <span className="font-medium">Email:</span> {studentEmail}
-                    </p>
-                  )}
+              <div className="space-y-1">
+                {studentName && (
+                  <p className="text-xs sm:text-sm text-slate-700 truncate">
+                    <span className="font-medium">Student:</span> {studentName}
+                  </p>
+                )}
+                {studentEmail && (
+                  <p className="text-xs sm:text-sm text-slate-600 truncate">
+                    <span className="font-medium">Email:</span> {studentEmail}
+                  </p>
+                )}
                 </div>
                 
                 {/* Additional student info */}

@@ -595,9 +595,9 @@ function InterviewPageContent() {
                   </p>
                 )}
                 {interviewId && (
-                  <p className="font-mono">
-                    ID: <span className="font-medium">{interviewId}</span>
-                  </p>
+                <p className="font-mono">
+                  ID: <span className="font-medium">{interviewId}</span>
+                </p>
                 )}
               </div>
             </div>
@@ -655,15 +655,15 @@ function InterviewPageContent() {
 
         {!promptsLoading && !promptsError && prompts.length > 0 && (
           <>
-            {stage === "setup" && <InterviewSetup onComplete={handleSetupComplete} />}
+        {stage === "setup" && <InterviewSetup onComplete={handleSetupComplete} />}
 
-            {stage === "interview" && (
-              <InterviewPrompt
+        {stage === "interview" && (
+          <InterviewPrompt
                 prompt={prompts[currentPromptIndex]}
-                promptNumber={currentPromptIndex + 1}
+            promptNumber={currentPromptIndex + 1}
                 totalPrompts={prompts.length}
-                onComplete={handlePromptComplete}
-              />
+            onComplete={handlePromptComplete}
+          />
             )}
           </>
         )}
