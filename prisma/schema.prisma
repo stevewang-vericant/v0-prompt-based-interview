@@ -8,25 +8,23 @@ datasource db {
 }
 
 model School {
-  id              String   @id @default(uuid()) @db.Uuid
-  code            String?  @unique @db.VarChar(50) // Added for compatibility
-  name            String   @db.VarChar(255)
-  email           String   @unique @db.VarChar(255)
-  password_hash   String   @db.VarChar(255)
-  contact_person  String?  @db.VarChar(255)
-  phone           String?  @db.VarChar(50)
-  active          Boolean  @default(true)
-  is_super_admin  Boolean  @default(false)
-  credits_balance Int      @default(0)
-  selected_prompt_ids String[] // Stores the IDs of the prompts selected by the school
-  created_at      DateTime @default(now()) @db.Timestamptz
-  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz
-
-  // Relations
+  id                  String              @id @default(uuid()) @db.Uuid
+  code                String?             @unique @db.VarChar(50)
+  name                String              @db.VarChar(255)
+  email               String              @unique @db.VarChar(255)
+  password_hash       String              @db.VarChar(255)
+  contact_person      String?             @db.VarChar(255)
+  phone               String?             @db.VarChar(50)
+  active              Boolean             @default(true)
+  is_super_admin      Boolean             @default(false)
+  credits_balance     Int                 @default(0)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+  selected_prompt_ids String[]
   credit_transactions CreditTransaction[]
+  interviews          Interview[]
   invitations         Invitation[]
   prompts             Prompt[]
-  interviews          Interview[]
 
   @@map("schools")
 }
@@ -35,13 +33,12 @@ model CreditTransaction {
   id               String   @id @default(uuid()) @db.Uuid
   school_id        String   @db.Uuid
   amount           Int
-  transaction_type String   @db.VarChar(50) // 'purchase' or 'usage'
+  transaction_type String   @db.VarChar(50)
   price_paid       Decimal? @db.Decimal(10, 2)
   payment_method   String?  @db.VarChar(50)
   payment_status   String?  @default("pending") @db.VarChar(50)
-  created_at       DateTime @default(now()) @db.Timestamptz
-
-  school School @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 
   @@index([school_id])
   @@map("credit_transactions")
@@ -53,13 +50,12 @@ model Invitation {
   student_email    String    @db.VarChar(255)
   student_name     String?   @db.VarChar(255)
   invitation_token String    @unique @db.VarChar(255)
-  status           String?   @default("pending") @db.VarChar(50) // 'pending', 'registered', 'completed', 'expired'
-  expires_at       DateTime? @db.Timestamptz
-  sent_at          DateTime? @default(now()) @db.Timestamptz
-  created_at       DateTime  @default(now()) @db.Timestamptz
-
-  school   School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  students Student[]
+  status           String?   @default("pending") @db.VarChar(50)
+  expires_at       DateTime? @db.Timestamptz(6)
+  sent_at          DateTime? @default(now()) @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  school           School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  students         Student[]
 
   @@index([school_id])
   @@index([invitation_token])
@@ -68,29 +64,25 @@ model Invitation {
 }
 
 model Student {
-  id                     String   @id @default(uuid()) @db.Uuid
-  invitation_id          String?  @db.Uuid // Made optional
-  email                  String   @unique @db.VarChar(255)
-  name                   String   @db.VarChar(255)
-  password_hash          String   @db.VarChar(255)
-  phone                  String?  @db.VarChar(50)
-  date_of_birth          DateTime? @db.Date
-  nationality            String?  @db.VarChar(100)
-  
-  // Additional student information (consent-based)
-  gender                 String?  @db.VarChar(50)
-  current_grade          String?  @db.VarChar(50)
-  residency_city         String?  @db.VarChar(255)
+  id                     String      @id @default(uuid()) @db.Uuid
+  invitation_id          String?     @db.Uuid
+  email                  String      @unique @db.VarChar(255)
+  name                   String      @db.VarChar(255)
+  password_hash          String      @db.VarChar(255)
+  phone                  String?     @db.VarChar(50)
+  date_of_birth          DateTime?   @db.Date
+  nationality            String?     @db.VarChar(100)
+  id_verification_status String?     @default("pending") @db.VarChar(50)
+  id_document_url        String?     @db.VarChar(500)
+  selfie_url             String?     @db.VarChar(500)
+  created_at             DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime    @default(now()) @updatedAt @db.Timestamptz(6)
+  current_grade          String?     @db.VarChar(50)
+  gender                 String?     @db.VarChar(50)
   need_financial_aid     Boolean?
-  
-  id_verification_status String?  @default("pending") @db.VarChar(50)
-  id_document_url        String?  @db.VarChar(500)
-  selfie_url             String?  @db.VarChar(500)
-  created_at             DateTime @default(now()) @db.Timestamptz
-  updated_at             DateTime @default(now()) @updatedAt @db.Timestamptz
-
-  invitation Invitation? @relation(fields: [invitation_id], references: [id], onDelete: Cascade)
-  interviews Interview[]
+  residency_city         String?     @db.VarChar(255)
+  interviews             Interview[]
+  invitation             Invitation? @relation(fields: [invitation_id], references: [id], onDelete: Cascade)
 
   @@index([invitation_id])
   @@index([email])
@@ -98,63 +90,53 @@ model Student {
 }
 
 model Prompt {
-  id               String   @id @default(uuid()) @db.Uuid
-  category         String   @db.VarChar(100)
-  prompt_text      String   @db.Text
-  preparation_time Int?     @default(20)
-  response_time    Int?     @default(90)
-  difficulty_level String?  @db.VarChar(50)
-  is_active        Boolean? @default(true)
-  school_id        String?  @db.Uuid
-  created_at       DateTime @default(now()) @db.Timestamptz
-
-  school    School?             @relation(fields: [school_id], references: [id])
-  responses InterviewResponse[]
+  id               String              @id @default(uuid()) @db.Uuid
+  category         String              @db.VarChar(100)
+  prompt_text      String
+  preparation_time Int?                @default(20)
+  response_time    Int?                @default(90)
+  difficulty_level String?             @db.VarChar(50)
+  is_active        Boolean?            @default(true)
+  school_id        String?             @db.Uuid
+  created_at       DateTime            @default(now()) @db.Timestamptz(6)
+  responses        InterviewResponse[]
+  school           School?             @relation(fields: [school_id], references: [id])
 
   @@map("prompts")
 }
 
 model Interview {
-  id                  String    @id @default(uuid()) @db.Uuid
-  interview_id        String?   @unique @db.VarChar(255) // Added for external ID compatibility
-  student_id          String    @db.Uuid
-  school_id           String    @db.Uuid
-  school_code         String?   @db.VarChar(50) // For easier querying
-  status              String?   @default("not_started") @db.VarChar(50)
-  
-  // Video fields
-  video_url           String?   @db.VarChar(500)
-  subtitle_url        String?   @db.VarChar(500)
-  total_duration      Int?
-  metadata            Json?
-  
-  started_at          DateTime? @db.Timestamptz
-  completed_at        DateTime? @db.Timestamptz
-  submitted_at        DateTime? @db.Timestamptz
-  
-  // Transcription fields
-  transcription_status   String?   @default("pending") @db.VarChar(50)
-  transcription_text     String?   @db.Text
+  id                     String              @id @default(uuid()) @db.Uuid
+  interview_id           String?             @unique @db.VarChar(255)
+  student_id             String              @db.Uuid
+  school_id              String              @db.Uuid
+  status                 String?             @default("not_started") @db.VarChar(50)
+  video_url              String?             @db.VarChar(500)
+  subtitle_url           String?             @db.VarChar(500)
+  total_duration         Int?
+  metadata               Json?
+  started_at             DateTime?           @db.Timestamptz(6)
+  completed_at           DateTime?           @db.Timestamptz(6)
+  submitted_at           DateTime?           @db.Timestamptz(6)
+  transcription_status   String?             @default("pending") @db.VarChar(50)
+  transcription_text     String?
   transcription_metadata Json?
-  transcription_job_id   String?   @db.VarChar(255)
-  ai_summary             String?   @db.Text
-
-  // Scoring
-  total_score         Decimal?  @db.Decimal(5, 2)
-  fluency_score       Decimal?  @db.Decimal(5, 2)
-  coherence_score     Decimal?  @db.Decimal(5, 2)
-  vocabulary_score    Decimal?  @db.Decimal(5, 2)
-  grammar_score       Decimal?  @db.Decimal(5, 2)
-  pronunciation_score Decimal?  @db.Decimal(5, 2)
-  verification_status String?   @default("pending") @db.VarChar(50)
-  
-  created_at          DateTime  @default(now()) @db.Timestamptz
-  updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz
-
-  student   Student             @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  school    School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  responses InterviewResponse[]
-  transcription_jobs TranscriptionJob[]
+  transcription_job_id   String?             @db.VarChar(255)
+  ai_summary             String?
+  total_score            Decimal?            @db.Decimal(5, 2)
+  fluency_score          Decimal?            @db.Decimal(5, 2)
+  coherence_score        Decimal?            @db.Decimal(5, 2)
+  vocabulary_score       Decimal?            @db.Decimal(5, 2)
+  grammar_score          Decimal?            @db.Decimal(5, 2)
+  pronunciation_score    Decimal?            @db.Decimal(5, 2)
+  verification_status    String?             @default("pending") @db.VarChar(50)
+  created_at             DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+  school_code            String?             @db.VarChar(50)
+  responses              InterviewResponse[]
+  school                 School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student                Student             @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  transcription_jobs     TranscriptionJob[]
 
   @@index([student_id])
   @@index([school_id])
@@ -170,32 +152,30 @@ model InterviewResponse {
   sequence_number Int
   video_url       String?   @db.VarChar(500)
   video_duration  Int?
-  transcript      String?   @db.Text
+  transcript      String?
   response_score  Decimal?  @db.Decimal(5, 2)
-  recorded_at     DateTime? @db.Timestamptz
-  created_at      DateTime  @default(now()) @db.Timestamptz
-
-  interview Interview @relation(fields: [interview_id], references: [id], onDelete: Cascade)
-  prompt    Prompt    @relation(fields: [prompt_id], references: [id], onDelete: Cascade)
+  recorded_at     DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  interview       Interview @relation(fields: [interview_id], references: [id], onDelete: Cascade)
+  prompt          Prompt    @relation(fields: [prompt_id], references: [id], onDelete: Cascade)
 
   @@index([interview_id])
   @@map("interview_responses")
 }
 
 model TranscriptionJob {
-  id           String   @id @default(uuid()) @db.Uuid
-  job_id       String   @unique @db.VarChar(255)
-  interview_id String   @db.Uuid
-  status       String   @default("pending") @db.VarChar(50)
-  video_url    String   @db.VarChar(500)
-  error_message String? @db.Text
-  started_at   DateTime? @db.Timestamptz
-  completed_at DateTime? @db.Timestamptz
-  metadata     Json?
-  created_at   DateTime @default(now()) @db.Timestamptz
-  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz
-
-  interview    Interview @relation(fields: [interview_id], references: [id], onDelete: Cascade)
+  id            String    @id @default(uuid()) @db.Uuid
+  job_id        String    @unique @db.VarChar(255)
+  interview_id  String    @db.Uuid
+  status        String    @default("pending") @db.VarChar(50)
+  video_url     String    @db.VarChar(500)
+  error_message String?
+  started_at    DateTime? @db.Timestamptz(6)
+  completed_at  DateTime? @db.Timestamptz(6)
+  metadata      Json?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  interview     Interview @relation(fields: [interview_id], references: [id], onDelete: Cascade)
 
   @@index([interview_id])
   @@index([job_id])
@@ -204,18 +184,18 @@ model TranscriptionJob {
 
 model VideoProcessingTask {
   id                String    @id @default(uuid()) @db.Uuid
-  interview_id      String    @db.VarChar(255) // External ID
+  interview_id      String    @db.VarChar(255)
   status            String    @default("pending") @db.VarChar(50)
   segments          Json
   metadata          Json?
-  started_at        DateTime? @db.Timestamptz
-  completed_at      DateTime? @db.Timestamptz
-  error_message     String?   @db.Text
+  started_at        DateTime? @db.Timestamptz(6)
+  completed_at      DateTime? @db.Timestamptz(6)
+  error_message     String?
   merged_video_url  String?   @db.VarChar(500)
   total_duration    Int?
   segment_durations Json?
-  created_at        DateTime  @default(now()) @db.Timestamptz
-  updated_at        DateTime  @default(now()) @updatedAt @db.Timestamptz
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@map("video_processing_tasks")
 }
