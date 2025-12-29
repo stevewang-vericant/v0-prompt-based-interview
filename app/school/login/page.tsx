@@ -36,7 +36,7 @@ export default function SchoolLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4">
+        <CardHeader className="space-y-4 text-center">
           {/* Logo */}
           <div className="flex justify-center">
             <Image
