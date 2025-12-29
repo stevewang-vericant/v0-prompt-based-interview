@@ -8,10 +8,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
       {/* Hero Section */}
-      <header className="container mx-auto px-4 py-16 sm:py-24">
+      <header className="container mx-auto px-4 pt-8 sm:pt-12 pb-16 sm:pb-24">
         <div className="text-center space-y-6 max-w-3xl mx-auto">
           {/* Logo */}
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-10">
             <Image
               src="/RGB Logo Verified Video Interviews.png"
               alt="Vericant Logo"
@@ -21,7 +21,7 @@ export default function HomePage() {
               priority
             />
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 text-balance">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 text-balance">
             Vericant's Prompt-Based Interview Platform
           </h1>
           <p className="text-lg sm:text-xl text-slate-600 text-pretty">
