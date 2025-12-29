@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,7 +36,18 @@ export default function SchoolLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
+        <CardHeader className="space-y-4">
+          {/* Logo */}
+          <div className="flex justify-center">
+            <Image
+              src="/RGB Logo Verified Video Interviews.png"
+              alt="Vericant Logo"
+              width={315}
+              height={60}
+              className="h-auto max-w-full"
+              priority
+            />
+          </div>
           <CardTitle className="text-2xl">School Portal</CardTitle>
           <CardDescription>
             Sign in to manage your interview credits and invitations

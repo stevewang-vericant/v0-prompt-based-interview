@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import Image from "next/image"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Building2, Video, Settings, LogOut, Menu, X } from "lucide-react"
@@ -83,8 +84,15 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Mobile menu button */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-slate-600" />
-          <span className="font-semibold text-slate-900">{schoolInfo.name}</span>
+          <Image
+            src="/RGB Logo Verified Video Interviews.png"
+            alt="Vericant Logo"
+            width={105}
+            height={20}
+            className="h-5 w-auto"
+            priority
+          />
+          <span className="font-semibold text-slate-900 ml-2">{schoolInfo.name}</span>
         </div>
         <Button
           variant="ghost"
@@ -107,11 +115,23 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col h-full">
           {/* Logo/School Name */}
           <div className="px-6 py-4 border-b border-slate-200">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-6 w-6 text-slate-600" />
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 truncate">{schoolInfo.name}</p>
-                <p className="text-xs text-slate-500 truncate">{currentUser?.email}</p>
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-center">
+                <Image
+                  src="/RGB Logo Verified Video Interviews.png"
+                  alt="Vericant Logo"
+                  width={210}
+                  height={40}
+                  className="h-auto max-w-full"
+                  priority
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-slate-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-900 truncate text-sm">{schoolInfo.name}</p>
+                  <p className="text-xs text-slate-500 truncate">{currentUser?.email}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -170,7 +190,17 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
         <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
           <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex items-center gap-4">
+                <div className="hidden lg:block">
+                  <Image
+                    src="/RGB Logo Verified Video Interviews.png"
+                    alt="Vericant Logo"
+                    width={157}
+                    height={30}
+                    className="h-8 w-auto"
+                    priority
+                  />
+                </div>
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
                   {pathname === "/school/dashboard" ? "Interviews" : "Settings"}
                 </h1>

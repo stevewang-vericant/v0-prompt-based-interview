@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Video, Users, Award, Clock } from "lucide-react"
@@ -9,8 +10,19 @@ export default function HomePage() {
       {/* Hero Section */}
       <header className="container mx-auto px-4 py-16 sm:py-24">
         <div className="text-center space-y-6 max-w-3xl mx-auto">
+          {/* Logo */}
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/RGB Logo Verified Video Interviews.png"
+              alt="Vericant Logo"
+              width={420}
+              height={80}
+              className="h-auto max-w-full"
+              priority
+            />
+          </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 text-balance">
-            Vericant’s Prompt-Based Interview Platform
+            Vericant's Prompt-Based Interview Platform
           </h1>
           <p className="text-lg sm:text-xl text-slate-600 text-pretty">
             School customized video interviews plus AI summaries. Trusted by top universities and K-12 programs.
