@@ -34,9 +34,9 @@ export default function SchoolLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 p-4">
+    <div className="flex justify-center p-4 py-16 min-h-full">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4 text-center">
+        <CardHeader className="text-center pb-4">
           {/* Logo */}
           <div className="flex justify-center">
             <Image
@@ -48,10 +48,6 @@ export default function SchoolLoginPage() {
               priority
             />
           </div>
-          <CardTitle className="text-2xl">School Portal</CardTitle>
-          <CardDescription>
-            Sign in to manage your interview credits and invitations
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -62,7 +58,7 @@ export default function SchoolLoginPage() {
               </Alert>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-2" suppressHydrationWarning>
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"

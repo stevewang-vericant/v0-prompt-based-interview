@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -81,7 +82,7 @@ export default function SchoolRegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 p-4">
+      <div className="flex justify-center p-4 py-16 min-h-full">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
@@ -100,13 +101,26 @@ export default function SchoolRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 p-4">
+    <div className="flex justify-center p-4 py-16 min-h-full">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Register School Account</CardTitle>
-          <CardDescription>
-            Create an account to manage your school's interview system
-          </CardDescription>
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/RGB Logo Verified Video Interviews.png"
+              alt="Vericant Logo"
+              width={315}
+              height={60}
+              className="h-auto max-w-full"
+              priority
+            />
+          </div>
+          <div className="space-y-1">
+            <CardTitle className="text-2xl">Register School Account</CardTitle>
+            <CardDescription>
+              Create an account to manage your school's interview system
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

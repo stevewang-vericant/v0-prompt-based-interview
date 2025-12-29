@@ -80,7 +80,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
       {/* Mobile menu button */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -186,31 +186,27 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="lg:pl-64">
-        {/* Top bar */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="hidden lg:block">
-                  <Image
-                    src="/RGB Logo Verified Video Interviews.png"
-                    alt="Vericant Logo"
-                    width={157}
-                    height={30}
-                    className="h-8 w-auto"
-                    priority
-                  />
+        {/* Top bar - hidden on watch page since it has its own header */}
+        {pathname !== "/school/watch" && (
+          <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+            <div className="px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                    {pathname === "/school/dashboard"
+                      ? "Vericant Prompt Interviews"
+                      : pathname === "/school/settings"
+                        ? "Settings"
+                        : ""}
+                  </h1>
                 </div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  {pathname === "/school/dashboard" ? "Interviews" : "Settings"}
-                </h1>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
+        )}
 
         {/* Page content */}
-        <main className="px-4 sm:px-6 lg:px-8 py-8">{children}</main>
+        <main className={pathname === "/school/watch" ? "" : "px-4 sm:px-6 lg:px-8 py-8"}>{children}</main>
       </div>
     </div>
   )
