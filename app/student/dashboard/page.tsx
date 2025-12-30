@@ -29,6 +29,8 @@ export default function StudentDashboardPage() {
   const [student, setStudent] = useState<Student | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [latestInterview, setLatestInterview] = useState<LatestInterview | null>(null)
+  const [preparationTime, setPreparationTime] = useState(20)
+  const [responseTime, setResponseTime] = useState(90)
 
   useEffect(() => {
     const storedStudent = localStorage.getItem("currentStudent")
@@ -45,6 +47,21 @@ export default function StudentDashboardPage() {
       setLatestInterview(JSON.parse(storedInterview))
     }
     
+    // 加载全局时间设置
+    const loadTimingSettings = async () => {
+      try {
+        const { getGlobalTimingSettings } = await import('@/app/actions/system-settings')
+        const result = await getGlobalTimingSettings()
+        if (result.success) {
+          setPreparationTime(result.preparationTime || 20)
+          setResponseTime(result.responseTime || 90)
+        }
+      } catch (err) {
+        console.error('[Dashboard] Error loading timing settings:', err)
+      }
+    }
+    
+    loadTimingSettings()
     setIsLoading(false)
   }, [])
 
@@ -258,7 +275,7 @@ export default function StudentDashboardPage() {
               <div className="space-y-2">
                 <h3 className="font-semibold text-sm">Format</h3>
                 <p className="text-sm text-muted-foreground">
-                  You'll respond to 3-5 prompts via video. Each prompt has 15 seconds preparation time and 60 seconds
+                  You'll respond to 3-5 prompts via video. Each prompt has {preparationTime} seconds preparation time and {responseTime} seconds
                   recording time.
                 </p>
               </div>

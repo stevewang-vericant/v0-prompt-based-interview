@@ -49,18 +49,30 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
     router.push("/school/login")
   }
 
-  const navigation = [
-    {
-      name: "Interviews",
-      href: "/school/dashboard",
-      icon: Video,
-    },
-    {
-      name: "Settings",
-      href: "/school/settings",
-      icon: Settings,
-    },
-  ]
+  // Build navigation dynamically based on user role
+  const navigation = schoolInfo
+    ? [
+        {
+          name: "Interviews",
+          href: "/school/dashboard",
+          icon: Video,
+        },
+        ...(schoolInfo.is_super_admin
+          ? [
+              {
+                name: "Schools",
+                href: "/school/schools",
+                icon: Building2,
+              },
+            ]
+          : []),
+        {
+          name: "Settings",
+          href: "/school/settings",
+          icon: Settings,
+        },
+      ]
+    : []
 
   // 如果是登录或注册页面，直接渲染 children，不需要 sidebar
   if (isAuthPage) {

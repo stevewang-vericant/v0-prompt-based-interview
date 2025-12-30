@@ -276,6 +276,7 @@ export async function deletePrompt(promptId: string): Promise<{
 
 /**
  * 根据学校代码获取选中的题目（用于学生面试页面）
+ * 使用全局时间设置覆盖 prompt 的默认时间
  */
 export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
   success: boolean
@@ -289,6 +290,19 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
   error?: string
 }> {
   try {
+    // 先获取全局时间设置
+    const globalTimingSettings = await (prisma as any).systemSettings.findMany({
+      where: {
+        key: { in: ['global_preparation_time', 'global_response_time'] }
+      }
+    })
+
+    const globalPrepTime = globalTimingSettings.find((s: { key: string; value: string }) => s.key === 'global_preparation_time')
+    const globalResponseTime = globalTimingSettings.find((s: { key: string; value: string }) => s.key === 'global_response_time')
+    
+    const defaultPrepTime = globalPrepTime ? parseInt(globalPrepTime.value, 10) : 20
+    const defaultResponseTime = globalResponseTime ? parseInt(globalResponseTime.value, 10) : 90
+
     const school = await prisma.school.findUnique({
       where: { code: schoolCode },
       select: { selected_prompt_ids: true }
@@ -331,8 +345,9 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
         id: p.id,
         category: p.category,
         text: p.prompt_text,
-        preparationTime: p.preparation_time || 20,
-        responseTime: p.response_time || 90
+        // 使用全局设置覆盖 prompt 的默认时间
+        preparationTime: defaultPrepTime,
+        responseTime: defaultResponseTime
       }))
     }
   } catch (error) {

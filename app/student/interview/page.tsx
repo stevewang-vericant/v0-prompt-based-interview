@@ -655,7 +655,13 @@ function InterviewPageContent() {
 
         {!promptsLoading && !promptsError && prompts.length > 0 && (
           <>
-        {stage === "setup" && <InterviewSetup onComplete={handleSetupComplete} />}
+        {stage === "setup" && (
+          <InterviewSetup 
+            onComplete={handleSetupComplete}
+            preparationTime={prompts[0]?.preparationTime}
+            responseTime={prompts[0]?.responseTime}
+          />
+        )}
 
         {stage === "interview" && (
           <InterviewPrompt

@@ -8,9 +8,11 @@ import { CheckCircle2, XCircle, Video, Mic, AlertCircle } from "lucide-react"
 
 interface InterviewSetupProps {
   onComplete: () => void
+  preparationTime?: number
+  responseTime?: number
 }
 
-export function InterviewSetup({ onComplete }: InterviewSetupProps) {
+export function InterviewSetup({ onComplete, preparationTime = 20, responseTime = 90 }: InterviewSetupProps) {
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null)
   const [micPermission, setMicPermission] = useState<boolean | null>(null)
   const [isTestingCamera, setIsTestingCamera] = useState(false)
@@ -271,7 +273,7 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
             <div>
               <p className="font-medium">Read the prompt carefully</p>
               <p className="text-sm text-muted-foreground">
-                You'll have 15 seconds to prepare your response after reading each prompt
+                You'll have <strong>{preparationTime} seconds</strong> to prepare your response after reading each prompt
               </p>
             </div>
           </div>
@@ -282,7 +284,7 @@ export function InterviewSetup({ onComplete }: InterviewSetupProps) {
             <div>
               <p className="font-medium">Record your response</p>
               <p className="text-sm text-muted-foreground">
-                You'll have 60 seconds to record your video response to each prompt
+                You'll have <strong>{responseTime} seconds</strong> to record your video response to each prompt
               </p>
             </div>
           </div>
