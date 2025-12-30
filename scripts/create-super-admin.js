@@ -14,21 +14,52 @@ async function main() {
     
     if (existing) {
       console.log(`⚠️  User ${email} already exists!`);
-      console.log('Updating to super admin...');
       
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      // 检查密码是否正确
+      const passwordValid = await bcrypt.compare(password, existing.password_hash);
       
-      await prisma.school.update({
-        where: { email },
-        data: {
-          password_hash: hashedPassword,
-          is_super_admin: true,
-          active: true
+      if (passwordValid) {
+        console.log('✅ Password is correct, only updating admin status...');
+        // 只更新管理员状态，不修改密码
+        await prisma.school.update({
+          where: { email },
+          data: {
+            is_super_admin: true,
+            active: true
+          }
+        });
+        console.log(`✅ Updated ${email} to super admin (password unchanged)`);
+      } else {
+        console.log('⚠️  Password mismatch. Use --force flag to reset password.');
+        console.log('   To reset password, run: node scripts/create-super-admin.js --force');
+        // 默认不重置密码，除非明确指定
+        if (process.argv.includes('--force')) {
+          console.log('🔄 Force flag detected, resetting password...');
+          const saltRounds = 10;
+          const hashedPassword = await bcrypt.hash(password, saltRounds);
+          
+          await prisma.school.update({
+            where: { email },
+            data: {
+              password_hash: hashedPassword,
+              is_super_admin: true,
+              active: true
+            }
+          });
+          
+          console.log(`✅ Updated ${email} to super admin with new password`);
+        } else {
+          // 只更新管理员状态
+          await prisma.school.update({
+            where: { email },
+            data: {
+              is_super_admin: true,
+              active: true
+            }
+          });
+          console.log(`✅ Updated ${email} to super admin (password unchanged)`);
         }
-      });
-      
-      console.log(`✅ Updated ${email} to super admin with new password`);
+      }
     } else {
       console.log(`Creating new super admin: ${email}`);
       

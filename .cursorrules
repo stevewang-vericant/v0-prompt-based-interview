@@ -45,3 +45,92 @@
 - **Never commit directly to `main`** for changes that require testing
 - **Deployment**: Always deploy from `main` branch after merge
 
+## Database Scripts
+
+### SQL File Naming Convention
+When creating SQL files for database modifications, follow this naming convention:
+
+**Format**: `YYMMDD_operation_description[_version].sql`
+
+**Components**:
+- **Prefix**: `YYMMDD_` - Date prefix in YYMMDD format (e.g., `241229_` for December 29, 2024)
+- **Operation Description**: Descriptive name indicating what the script does
+  - Use lowercase with underscores
+  - Be specific about the operation (e.g., `add_student_gender_field`, `update_school_default_prompts`)
+  - Include affected table/model name when relevant
+- **Version Suffix** (optional): `_1`, `_2`, etc. - For script revisions/improvements
+
+**Examples**:
+- ✅ `241229_add_student_gender_field.sql` - Adds gender field to student table
+- ✅ `241229_update_school_default_prompts.sql` - Updates default prompts for schools
+- ✅ `241229_fix_school_code_nullable_1.sql` - First version of fixing nullable school codes
+- ✅ `241229_fix_school_code_nullable_2.sql` - Improved version of the same fix
+- ❌ `add_field.sql` - Missing date prefix and too vague
+- ❌ `fix.sql` - Missing date prefix and not descriptive
+
+**Additional Best Practices**:
+1. **File Header Comment**: Always include a comment block at the top of the SQL file explaining:
+   - What the script does
+   - Why it's needed (context/bug fix/feature)
+   - Which tables/models are affected
+   - Any dependencies (e.g., "Run after migration X")
+   - Author and date (if not obvious from filename)
+
+2. **Script Location**: Place SQL files in the `scripts/` directory unless they are Prisma migrations (which go in `prisma/migrations/`)
+
+3. **Reversible Scripts**: When possible, include rollback instructions in comments for destructive operations
+
+**Example SQL File Structure**:
+```sql
+-- File: 241229_add_student_gender_field.sql
+-- Purpose: Add gender field to Student model to support optional student demographics
+-- Affected Tables: students
+-- Dependencies: None
+-- Date: 2024-12-29
+--
+-- This script adds a nullable gender field to the students table.
+-- The field is optional and can be NULL for existing records.
+
+ALTER TABLE students ADD COLUMN gender VARCHAR(50) NULL;
+```
+
+### Password Protection Rules
+**CRITICAL**: SQL scripts must protect user passwords from accidental overwrites.
+
+**Rules**:
+1. **Never update `password_hash` in `ON CONFLICT` clauses** unless explicitly resetting passwords
+   - ✅ Correct: `ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email;`
+   - ❌ Incorrect: `ON CONFLICT (code) DO UPDATE SET password_hash = EXCLUDED.password_hash;`
+
+2. **Skip existing records** when importing data, rather than updating them
+   - Use `ON CONFLICT DO NOTHING` or check existence before inserting
+   - Only update `password_hash` when the user explicitly requests a password reset
+
+3. **Scripts that modify user/school data** must preserve existing passwords:
+   - When updating school information, exclude `password_hash` from UPDATE statements
+   - When importing data, skip records that already exist (by email or code)
+   - Only reset passwords when explicitly requested by the user
+
+4. **Password reset scripts** must:
+   - Be clearly named (e.g., `reset-passwords.sql`, `change-password.sql`)
+   - Include clear warnings in comments
+   - Require explicit confirmation or flags (e.g., `--force`)
+
+**Examples**:
+```sql
+-- ✅ Good: Adding schools without touching passwords
+INSERT INTO schools (code, name, email, password_hash, ...)
+VALUES (...)
+ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  updated_at = CURRENT_TIMESTAMP;
+  -- Note: password_hash is NOT updated to preserve existing passwords
+
+-- ❌ Bad: Accidentally overwriting passwords
+INSERT INTO schools (code, name, email, password_hash, ...)
+VALUES (...)
+ON CONFLICT (code) DO UPDATE SET
+  password_hash = EXCLUDED.password_hash;  -- This will overwrite existing passwords!
+```
+

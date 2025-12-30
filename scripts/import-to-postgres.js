@@ -58,6 +58,8 @@ async function importData(filename) {
 
       // 为没有 email 和 password 的学校生成默认值
       const email = school.email || `admin@${school.code}.edu`
+      // ⚠️ 注意：如果学校已存在，代码会在上面跳过，不会执行到这里
+      // 所以这里只处理新学校的情况
       const defaultPassword = await bcrypt.hash('asdf123!', 10)
       const passwordHash = school.password_hash || defaultPassword
 
