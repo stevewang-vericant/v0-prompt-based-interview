@@ -103,7 +103,7 @@ export default function SchoolsPage() {
     const confirmed =
       typeof window !== "undefined"
         ? window.confirm(
-            `Delete "${schoolName}"?\nThis action requires removing all associated interviews first and cannot be undone.`
+            `Delete "${schoolName}"?\n\n⚠️ WARNING: This will permanently delete:\n- The school account\n- All associated interviews and responses\n- All custom prompts\n\nThis action cannot be undone.`
           )
         : false
 
@@ -112,15 +112,21 @@ export default function SchoolsPage() {
     setDeletingSchoolId(schoolId)
     setSchoolActionError(null)
 
-    const result = await deleteSchool(schoolId)
+    try {
+      const result = await deleteSchool(schoolId)
 
-    if (result.success) {
-      setManagedSchools((prev) => prev.filter((school) => school.id !== schoolId))
-    } else {
-      setSchoolActionError(result.error || "Failed to delete school")
+      if (result.success) {
+        // 重新获取列表以确保数据同步
+        await fetchManagedSchools()
+      } else {
+        setSchoolActionError(result.error || "Failed to delete school")
+      }
+    } catch (error) {
+      console.error("[Schools] Error deleting school:", error)
+      setSchoolActionError(error instanceof Error ? error.message : "Failed to delete school")
+    } finally {
+      setDeletingSchoolId(null)
     }
-
-    setDeletingSchoolId(null)
   }
 
   if (loading) {

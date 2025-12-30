@@ -197,17 +197,11 @@ export async function deleteSchool(
       return { success: false, error: "System school cannot be deleted" }
     }
 
-    // 检查是否有面试记录
-    const interviewCount = await prisma.interview.count({
+    // 删除该学校的所有自定义 prompts（school_id 不为 null）
+    // 注意：interviews 会通过数据库级联删除自动删除（onDelete: Cascade）
+    await prisma.prompt.deleteMany({
       where: { school_id: schoolId }
     })
-
-    if (interviewCount > 0) {
-      return {
-        success: false,
-        error: "Cannot delete school with existing interviews",
-      }
-    }
 
     await prisma.school.delete({
       where: { id: schoolId }
