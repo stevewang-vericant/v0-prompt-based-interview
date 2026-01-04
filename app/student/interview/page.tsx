@@ -2,6 +2,7 @@
 
 import { useState, Suspense, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { InterviewSetup } from "@/components/interview/interview-setup"
 import { InterviewPrompt } from "@/components/interview/interview-prompt"
@@ -581,7 +582,7 @@ function InterviewPageContent() {
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold text-slate-900">Video Interview Assessment</h1>
               <p className="text-sm text-slate-600">
                 {stage === "setup" && "System check and preparation"}
@@ -601,11 +602,23 @@ function InterviewPageContent() {
                 )}
               </div>
             </div>
-            {stage === "setup" && (
-              <Button variant="outline" onClick={() => (window.location.href = "/")}>
-                Exit
-              </Button>
-            )}
+            <div className="flex items-center gap-4">
+              {stage === "setup" && (
+                <Image
+                  src="/RGB Logo Verified Video Interviews.png"
+                  alt="Vericant Logo"
+                  width={210}
+                  height={40}
+                  className="h-10 w-auto"
+                  priority
+                />
+              )}
+              {stage === "setup" && (
+                <Button variant="outline" onClick={() => (window.location.href = "/")}>
+                  Exit
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>

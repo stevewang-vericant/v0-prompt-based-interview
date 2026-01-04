@@ -294,7 +294,18 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
             </div>
             <div>
               <p className="font-medium">Complete all prompts</p>
-              <p className="text-sm text-muted-foreground">Answer 3-5 prompts covering different topics and skills</p>
+              <p className="text-sm text-muted-foreground">Answer 4 prompts covering different topics and skills</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold">
+              4
+            </div>
+            <div>
+              <p className="font-medium">Free Speech</p>
+              <p className="text-sm text-muted-foreground">
+                You'll have <strong>{preparationTime} seconds</strong> to prepare and <strong>{responseTime} seconds</strong> to record. You can say anything you want during this time.
+              </p>
             </div>
           </div>
         </CardContent>

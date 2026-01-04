@@ -49,6 +49,11 @@ export default function SettingsPage() {
     preparationTime: 20,
     responseTime: 90
   })
+  // Store raw input values to allow empty state
+  const [timingInputs, setTimingInputs] = useState({
+    preparationTime: "20",
+    responseTime: "90"
+  })
   const [savingTiming, setSavingTiming] = useState(false)
   const [timingSuccess, setTimingSuccess] = useState(false)
   const [timingLoading, setTimingLoading] = useState(true)
@@ -101,9 +106,15 @@ export default function SettingsPage() {
       setTimingLoading(true)
       const result = await getGlobalTimingSettings()
       if (result.success) {
+        const prepTime = result.preparationTime || 20
+        const respTime = result.responseTime || 90
         setGlobalTimingSettings({
-          preparationTime: result.preparationTime || 20,
-          responseTime: result.responseTime || 90
+          preparationTime: prepTime,
+          responseTime: respTime
+        })
+        setTimingInputs({
+          preparationTime: prepTime.toString(),
+          responseTime: respTime.toString()
         })
       }
     } catch (err) {
@@ -119,15 +130,40 @@ export default function SettingsPage() {
       setError(null)
       setTimingSuccess(false)
 
-      const result = await updateGlobalTimingSettings(
-        globalTimingSettings.preparationTime,
-        globalTimingSettings.responseTime
-      )
+      // Parse input values, use current values if empty
+      const prepTime = timingInputs.preparationTime.trim() 
+        ? parseInt(timingInputs.preparationTime, 10) 
+        : globalTimingSettings.preparationTime
+      const respTime = timingInputs.responseTime.trim()
+        ? parseInt(timingInputs.responseTime, 10)
+        : globalTimingSettings.responseTime
+
+      // Validate ranges
+      if (isNaN(prepTime) || prepTime < 1 || prepTime > 300) {
+        setError("Preparation time must be between 1 and 300 seconds")
+        return
+      }
+      if (isNaN(respTime) || respTime < 1 || respTime > 600) {
+        setError("Response time must be between 1 and 600 seconds")
+        return
+      }
+
+      const result = await updateGlobalTimingSettings(prepTime, respTime)
       
       if (!result.success) {
         setError(result.error || "Failed to save timing settings")
         return
       }
+
+      // Update both state values
+      setGlobalTimingSettings({
+        preparationTime: prepTime,
+        responseTime: respTime
+      })
+      setTimingInputs({
+        preparationTime: prepTime.toString(),
+        responseTime: respTime.toString()
+      })
 
       setTimingSuccess(true)
       setTimeout(() => setTimingSuccess(false), 3000)
@@ -317,14 +353,37 @@ export default function SettingsPage() {
                         <Label htmlFor="preparation-time">Preparation Time (seconds)</Label>
                         <Input
                           id="preparation-time"
-                          type="number"
-                          min="1"
-                          max="300"
-                          value={globalTimingSettings.preparationTime}
-                          onChange={(e) => setGlobalTimingSettings({
-                            ...globalTimingSettings,
-                            preparationTime: parseInt(e.target.value, 10) || 20
-                          })}
+                          type="text"
+                          inputMode="numeric"
+                          value={timingInputs.preparationTime}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            // Allow empty string or numeric input only
+                            if (value === "" || /^\d+$/.test(value)) {
+                              setTimingInputs({
+                                ...timingInputs,
+                                preparationTime: value
+                              })
+                              // Update numeric value if valid
+                              const numValue = parseInt(value, 10)
+                              if (!isNaN(numValue) && numValue >= 1 && numValue <= 300) {
+                                setGlobalTimingSettings({
+                                  ...globalTimingSettings,
+                                  preparationTime: numValue
+                                })
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // On blur, ensure we have a valid value
+                            const value = e.target.value.trim()
+                            if (value === "" || isNaN(parseInt(value, 10))) {
+                              setTimingInputs({
+                                ...timingInputs,
+                                preparationTime: globalTimingSettings.preparationTime.toString()
+                              })
+                            }
+                          }}
                         />
                         <p className="text-xs text-slate-500">
                           Time students have to prepare before recording (1-300 seconds)
@@ -334,14 +393,37 @@ export default function SettingsPage() {
                         <Label htmlFor="response-time">Response Time (seconds)</Label>
                         <Input
                           id="response-time"
-                          type="number"
-                          min="1"
-                          max="600"
-                          value={globalTimingSettings.responseTime}
-                          onChange={(e) => setGlobalTimingSettings({
-                            ...globalTimingSettings,
-                            responseTime: parseInt(e.target.value, 10) || 90
-                          })}
+                          type="text"
+                          inputMode="numeric"
+                          value={timingInputs.responseTime}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            // Allow empty string or numeric input only
+                            if (value === "" || /^\d+$/.test(value)) {
+                              setTimingInputs({
+                                ...timingInputs,
+                                responseTime: value
+                              })
+                              // Update numeric value if valid
+                              const numValue = parseInt(value, 10)
+                              if (!isNaN(numValue) && numValue >= 1 && numValue <= 600) {
+                                setGlobalTimingSettings({
+                                  ...globalTimingSettings,
+                                  responseTime: numValue
+                                })
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // On blur, ensure we have a valid value
+                            const value = e.target.value.trim()
+                            if (value === "" || isNaN(parseInt(value, 10))) {
+                              setTimingInputs({
+                                ...timingInputs,
+                                responseTime: globalTimingSettings.responseTime.toString()
+                              })
+                            }
+                          }}
                         />
                         <p className="text-xs text-slate-500">
                           Time students have to record their response (1-600 seconds)

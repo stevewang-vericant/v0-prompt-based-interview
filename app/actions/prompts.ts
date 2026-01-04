@@ -339,16 +339,27 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
       return { success: false, error: 'School must have exactly 4 prompts configured' }
     }
 
+    const formattedPrompts = prompts.map((p: { id: string; category: string; prompt_text: string; preparation_time: number | null; response_time: number | null }) => ({
+      id: p.id,
+      category: p.category,
+      text: p.prompt_text,
+      // 使用全局设置覆盖 prompt 的默认时间
+      preparationTime: defaultPrepTime,
+      responseTime: defaultResponseTime
+    }))
+
+    // 添加 Free Speech 环节作为第5个问题
+    formattedPrompts.push({
+      id: 'free-speech',
+      category: 'Free Speech',
+      text: 'This is your free speech time. You can say anything you want.',
+      preparationTime: defaultPrepTime,
+      responseTime: defaultResponseTime
+    })
+
     return {
       success: true,
-      prompts: prompts.map((p: { id: string; category: string; prompt_text: string; preparation_time: number | null; response_time: number | null }) => ({
-        id: p.id,
-        category: p.category,
-        text: p.prompt_text,
-        // 使用全局设置覆盖 prompt 的默认时间
-        preparationTime: defaultPrepTime,
-        responseTime: defaultResponseTime
-      }))
+      prompts: formattedPrompts
     }
   } catch (error) {
     console.error('[Prompts] Error fetching prompts by school code:', error)
