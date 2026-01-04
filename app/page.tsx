@@ -8,10 +8,10 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
       {/* Hero Section */}
-      <header className="container mx-auto px-4 pt-8 sm:pt-12 pb-16 sm:pb-24">
-        <div className="text-center space-y-6 max-w-3xl mx-auto">
+      <header className="container mx-auto px-4 pt-8 sm:pt-12 pb-8 sm:pb-12">
+        <div className="text-center space-y-4 max-w-3xl mx-auto">
           {/* Logo */}
-          <div className="flex justify-center mb-10">
+          <div className="flex justify-center mb-6">
             <Image
               src="/RGB Logo Verified Video Interviews.png"
               alt="Vericant Logo"
@@ -27,19 +27,19 @@ export default function HomePage() {
           <p className="text-lg sm:text-xl text-slate-600 text-pretty">
             School customized video interviews plus AI summaries. Trusted by top universities and K-12 programs.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
             <Button asChild size="lg" className="text-lg">
               <Link href="/school/login">School Portal</Link>
             </Button>
           </div>
-          <p className="text-sm text-slate-500 mt-4">
+          <p className="text-sm text-slate-500 mt-2">
             Students: Access your interview through the link provided by your school
           </p>
         </div>
       </header>
 
       {/* Features Section */}
-      <section className="container mx-auto px-4 py-16">
+      <section className="container mx-auto px-4 py-8">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader>
@@ -90,7 +90,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="container mx-auto px-4 py-16">
+      <section className="container mx-auto px-4 py-8">
         <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0">
           <CardHeader className="text-center space-y-2">
             <CardTitle className="text-3xl">Ready to Get Started?</CardTitle>
