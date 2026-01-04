@@ -92,7 +92,7 @@ export default function SchoolRegisterPage() {
               Registration Successful!
             </CardTitle>
             <CardDescription className="text-center">
-              Your account has been created. Redirecting to login page...
+              Your account has been created and is pending approval. You will be able to log in once your account is activated by an administrator. Redirecting to login page...
             </CardDescription>
           </CardHeader>
         </Card>

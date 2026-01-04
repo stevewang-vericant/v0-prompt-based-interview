@@ -117,7 +117,9 @@ export async function registerSchoolAdmin(
           password_hash: hashedPassword,
           // name: name // name 可能是管理员名字，但 School 表只有 school name。
           // 暂时忽略 name 字段，或者存到 contact_person
-          contact_person: name
+          contact_person: name,
+          // 新注册的学校默认未激活，需要超级管理员审批
+          active: false
         }
       })
     } else {
@@ -156,7 +158,12 @@ export async function signIn(
       return { success: false, error: "Invalid email or password" }
     }
 
-    // 2. 验证密码
+    // 2. 检查账户是否激活
+    if (!school.active) {
+      return { success: false, error: "Your account is pending approval. Please wait for administrator activation." }
+    }
+
+    // 3. 验证密码
     const isValid = await verifyPassword(password, school.password_hash)
 
     if (!isValid) {

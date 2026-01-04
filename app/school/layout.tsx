@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
-import { Building2, Video, Settings, LogOut, Menu, X } from "lucide-react"
+import { Building2, Video, Settings, LogOut, Menu, X, Users } from "lucide-react"
 import Link from "next/link"
 
 function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
@@ -63,6 +63,11 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                 name: "Schools",
                 href: "/school/schools",
                 icon: Building2,
+              },
+              {
+                name: "Users",
+                href: "/school/users",
+                icon: Users,
               },
             ]
           : []),
@@ -209,7 +214,11 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                       ? "Vericant Prompt Interviews"
                       : pathname === "/school/settings"
                         ? "Settings"
-                        : ""}
+                        : pathname === "/school/users"
+                          ? "Users"
+                          : pathname === "/school/schools"
+                            ? "Schools"
+                            : ""}
                   </h1>
                 </div>
               </div>
