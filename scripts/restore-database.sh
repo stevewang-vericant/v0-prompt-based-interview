@@ -14,12 +14,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # 自动检测 Docker Compose 文件
+# 注意：docker compose ps 使用服务名称，docker compose exec 可以使用服务名称或容器名称
 if [ -f "${PROJECT_DIR}/docker-compose.linode.yml" ]; then
     COMPOSE_FILE="docker-compose.linode.yml"
-    CONTAINER_NAME="v0-interview-postgres"
+    SERVICE_NAME="postgres"  # docker-compose 服务名称
 elif [ -f "${PROJECT_DIR}/docker-compose.yml" ]; then
     COMPOSE_FILE="docker-compose.yml"
-    CONTAINER_NAME="postgres"
+    SERVICE_NAME="postgres"  # docker-compose 服务名称
 else
     echo -e "${RED}❌ 错误: 未找到 Docker Compose 文件${NC}"
     exit 1
@@ -79,9 +80,9 @@ fi
 
 cd "$PROJECT_DIR"
 
-# 检查 PostgreSQL 容器是否运行
-if ! docker compose -f "$COMPOSE_FILE" ps "$CONTAINER_NAME" 2>/dev/null | grep -q "Up"; then
-    echo -e "${RED}❌ 错误: PostgreSQL 容器未运行 (${CONTAINER_NAME})${NC}"
+# 检查 PostgreSQL 容器是否运行（使用服务名称）
+if ! docker compose -f "$COMPOSE_FILE" ps "$SERVICE_NAME" 2>/dev/null | grep -q "Up"; then
+    echo -e "${RED}❌ 错误: PostgreSQL 容器未运行 (服务: ${SERVICE_NAME})${NC}"
     exit 1
 fi
 
@@ -99,10 +100,10 @@ fi
 # 执行恢复
 echo -e "${GREEN}🔄 开始恢复数据库...${NC}"
 echo -e "${GREEN}   使用 Compose 文件: ${COMPOSE_FILE}${NC}"
-echo -e "${GREEN}   容器名称: ${CONTAINER_NAME}${NC}"
+echo -e "${GREEN}   服务名称: ${SERVICE_NAME}${NC}"
 echo -e "${YELLOW}这可能需要几分钟时间，请耐心等待...${NC}"
 
-if docker compose -f "$COMPOSE_FILE" exec -T "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" < "$RESTORE_FILE"; then
+if docker compose -f "$COMPOSE_FILE" exec -T "$SERVICE_NAME" psql -U "$DB_USER" -d "$DB_NAME" < "$RESTORE_FILE"; then
     echo -e "${GREEN}✅ 数据库恢复成功！${NC}"
 else
     echo -e "${RED}❌ 错误: 数据库恢复失败${NC}"

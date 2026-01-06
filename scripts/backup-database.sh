@@ -14,12 +14,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # 自动检测 Docker Compose 文件
+# 注意：docker compose ps 使用服务名称，docker compose exec 可以使用服务名称或容器名称
 if [ -f "${PROJECT_DIR}/docker-compose.linode.yml" ]; then
     COMPOSE_FILE="docker-compose.linode.yml"
-    CONTAINER_NAME="v0-interview-postgres"
+    SERVICE_NAME="postgres"  # docker-compose 服务名称
 elif [ -f "${PROJECT_DIR}/docker-compose.yml" ]; then
     COMPOSE_FILE="docker-compose.yml"
-    CONTAINER_NAME="postgres"
+    SERVICE_NAME="postgres"  # docker-compose 服务名称
 else
     echo -e "${RED}❌ 错误: 未找到 Docker Compose 文件${NC}"
     exit 1
@@ -55,9 +56,9 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     exit 1
 fi
 
-# 检查 PostgreSQL 容器是否运行
-if ! docker compose -f "$COMPOSE_FILE" ps "$CONTAINER_NAME" 2>/dev/null | grep -q "Up"; then
-    echo -e "${RED}❌ 错误: PostgreSQL 容器未运行 (${CONTAINER_NAME})${NC}"
+# 检查 PostgreSQL 容器是否运行（使用服务名称）
+if ! docker compose -f "$COMPOSE_FILE" ps "$SERVICE_NAME" 2>/dev/null | grep -q "Up"; then
+    echo -e "${RED}❌ 错误: PostgreSQL 容器未运行 (服务: ${SERVICE_NAME})${NC}"
     echo -e "${YELLOW}提示: 请先启动 Docker 容器${NC}"
     echo -e "${YELLOW}      docker compose -f $COMPOSE_FILE up -d${NC}"
     exit 1
@@ -66,8 +67,8 @@ fi
 # 执行备份
 echo -e "${GREEN}📦 开始备份数据库...${NC}"
 echo -e "${GREEN}   使用 Compose 文件: ${COMPOSE_FILE}${NC}"
-echo -e "${GREEN}   容器名称: ${CONTAINER_NAME}${NC}"
-if docker compose -f "$COMPOSE_FILE" exec -T "$CONTAINER_NAME" pg_dump -U "$DB_USER" "$DB_NAME" > "$BACKUP_FILE"; then
+echo -e "${GREEN}   服务名称: ${SERVICE_NAME}${NC}"
+if docker compose -f "$COMPOSE_FILE" exec -T "$SERVICE_NAME" pg_dump -U "$DB_USER" "$DB_NAME" > "$BACKUP_FILE"; then
     echo -e "${GREEN}✅ 备份文件已创建: ${BACKUP_FILE}${NC}"
     
     # 获取备份文件大小
