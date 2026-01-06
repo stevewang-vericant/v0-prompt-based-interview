@@ -74,23 +74,17 @@ export function InterviewComplete({
     setIsSubmitting(true)
     
     // 准备额外信息
-    // 如果 consent 未给出，明确传递 null 来清除旧数据
-    // 如果 consent 给出但字段为空，也传递 null 来清除旧数据
+    // 字段为空时传递 null
     const additionalInfo: {
       gender?: string | null
       currentGrade?: string | null
       residencyCity?: string | null
       needFinancialAid?: boolean | null
-    } = consentGiven ? {
+    } = {
       gender: gender || null,
       currentGrade: currentGrade || null,
       residencyCity: residencyCity || null,
       needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : null
-    } : {
-      gender: null,
-      currentGrade: null,
-      residencyCity: null,
-      needFinancialAid: null
     }
     
     await onSubmit(studentEmail, studentName || undefined, additionalInfo)
@@ -186,6 +180,70 @@ export function InterviewComplete({
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="gender">Gender (Optional)</Label>
+            <Select value={gender} onValueChange={setGender} disabled={isUploading || isSubmitting}>
+              <SelectTrigger id="gender">
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Non-binary">Non-binary</SelectItem>
+                <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="grade">Current Grade (Optional)</Label>
+            <Select value={currentGrade} onValueChange={setCurrentGrade} disabled={isUploading || isSubmitting}>
+              <SelectTrigger id="grade">
+                <SelectValue placeholder="Select grade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="9th Grade">9th Grade</SelectItem>
+                <SelectItem value="10th Grade">10th Grade</SelectItem>
+                <SelectItem value="11th Grade">11th Grade</SelectItem>
+                <SelectItem value="12th Grade">12th Grade</SelectItem>
+                <SelectItem value="Undergraduate">Undergraduate</SelectItem>
+                <SelectItem value="Graduate">Graduate</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="city">Residency City (Optional)</Label>
+            <Input
+              id="city"
+              type="text"
+              placeholder="e.g., New York, London, Tokyo"
+              value={residencyCity}
+              onChange={(e) => setResidencyCity(e.target.value)}
+              disabled={isUploading || isSubmitting}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Need Financial Aid? (Optional)</Label>
+            <RadioGroup 
+              value={needFinancialAid} 
+              onValueChange={setNeedFinancialAid}
+              disabled={isUploading || isSubmitting}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="yes" id="aid-yes" />
+                <Label htmlFor="aid-yes" className="font-normal cursor-pointer">Yes</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="no" id="aid-no" />
+                <Label htmlFor="aid-no" className="font-normal cursor-pointer">No</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           {/* Consent Checkbox - Hidden for now (set to false to hide) */}
           {false && (
             <>
@@ -208,77 +266,6 @@ export function InterviewComplete({
                   </p>
                 </div>
               </div>
-
-              {/* Additional Fields - Only show when consent is given */}
-              {consentGiven && (
-                <div className="space-y-4 pt-2 border-t">
-                  <p className="text-sm font-medium text-muted-foreground">Additional Information</p>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="gender">Gender (Optional)</Label>
-                    <Select value={gender} onValueChange={setGender} disabled={isUploading || isSubmitting}>
-                      <SelectTrigger id="gender">
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Male">Male</SelectItem>
-                        <SelectItem value="Female">Female</SelectItem>
-                        <SelectItem value="Non-binary">Non-binary</SelectItem>
-                        <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="grade">Current Grade (Optional)</Label>
-                    <Select value={currentGrade} onValueChange={setCurrentGrade} disabled={isUploading || isSubmitting}>
-                      <SelectTrigger id="grade">
-                        <SelectValue placeholder="Select grade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="9th Grade">9th Grade</SelectItem>
-                        <SelectItem value="10th Grade">10th Grade</SelectItem>
-                        <SelectItem value="11th Grade">11th Grade</SelectItem>
-                        <SelectItem value="12th Grade">12th Grade</SelectItem>
-                        <SelectItem value="Undergraduate">Undergraduate</SelectItem>
-                        <SelectItem value="Graduate">Graduate</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="city">Residency City (Optional)</Label>
-                    <Input
-                      id="city"
-                      type="text"
-                      placeholder="e.g., New York, London, Tokyo"
-                      value={residencyCity}
-                      onChange={(e) => setResidencyCity(e.target.value)}
-                      disabled={isUploading || isSubmitting}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Need Financial Aid? (Optional)</Label>
-                    <RadioGroup 
-                      value={needFinancialAid} 
-                      onValueChange={setNeedFinancialAid}
-                      disabled={isUploading || isSubmitting}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="yes" id="aid-yes" />
-                        <Label htmlFor="aid-yes" className="font-normal cursor-pointer">Yes</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="no" id="aid-no" />
-                        <Label htmlFor="aid-no" className="font-normal cursor-pointer">No</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-                </div>
-              )}
             </>
           )}
 
