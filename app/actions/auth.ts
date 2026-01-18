@@ -107,7 +107,9 @@ export async function registerSchoolAdmin(
     // 4. 创建新的管理员账号
     const hashedPassword = await hashPassword(password)
 
-    await prisma.schoolAdmin.create({
+    console.log("[Auth] Attempting to create SchoolAdmin:", { email, schoolId, schoolName: school.name })
+    
+    const newAdmin = await prisma.schoolAdmin.create({
       data: {
         school_id: schoolId,
         email,
@@ -118,10 +120,15 @@ export async function registerSchoolAdmin(
       }
     })
     
-    console.log("[Auth] School admin registered successfully:", email, "for school:", school.name)
+    console.log("[Auth] School admin registered successfully:", { email, adminId: newAdmin.id, school: school.name })
     return { success: true }
   } catch (error) {
-    console.error("[Auth] Unexpected error:", error)
+    console.error("[Auth] Unexpected error during registration:", error)
+    console.error("[Auth] Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      code: (error as any)?.code,
+      meta: (error as any)?.meta
+    })
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
