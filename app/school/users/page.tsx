@@ -88,13 +88,13 @@ export default function UsersPage() {
     loadUserAndUsers()
   }, [])
 
-  const handleActivate = async (userId: string) => {
+  const handleActivate = async (userId: string, userType?: 'school_admin' | 'school') => {
     setActionLoading(userId)
     setError(null)
     setSuccess(null)
     
     try {
-      const result = await activateUser(userId)
+      const result = await activateUser(userId, userType)
       if (result.success) {
         setSuccess("User activated successfully")
         await fetchUsers()
@@ -109,13 +109,13 @@ export default function UsersPage() {
     }
   }
 
-  const handleDeactivate = async (userId: string) => {
+  const handleDeactivate = async (userId: string, userType?: 'school_admin' | 'school') => {
     setActionLoading(userId)
     setError(null)
     setSuccess(null)
     
     try {
-      const result = await deactivateUser(userId)
+      const result = await deactivateUser(userId, userType)
       if (result.success) {
         setSuccess("User deactivated successfully")
         await fetchUsers()
@@ -181,7 +181,7 @@ export default function UsersPage() {
     setError(null)
     
     try {
-      const result = await resetUserPassword(selectedUser.id, newPassword)
+      const result = await resetUserPassword(selectedUser.id, newPassword, selectedUser.type)
       if (result.success) {
         setSuccess("Password reset successfully")
         setResetPasswordDialogOpen(false)
@@ -298,7 +298,7 @@ export default function UsersPage() {
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => handleActivate(user.id)}
+                      onClick={() => handleActivate(user.id, user.type)}
                       disabled={actionLoading === user.id}
                     >
                       {actionLoading === user.id ? (
@@ -371,7 +371,7 @@ export default function UsersPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeactivate(user.id)}
+                            onClick={() => handleDeactivate(user.id, user.type)}
                             disabled={actionLoading === user.id}
                           >
                             {actionLoading === user.id ? (
@@ -385,7 +385,7 @@ export default function UsersPage() {
                           <Button
                             variant="default"
                             size="sm"
-                            onClick={() => handleActivate(user.id)}
+                            onClick={() => handleActivate(user.id, user.type)}
                             disabled={actionLoading === user.id}
                           >
                             {actionLoading === user.id ? (

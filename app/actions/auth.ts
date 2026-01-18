@@ -64,70 +64,61 @@ export async function getSchools(): Promise<{
 
 /**
  * 注册新的学校管理员
- * 注意：根据 schema，school 表本身就包含了 email/password，看起来每个学校只有一个管理员账号？
- * 或者 invitations/students 是给学生的。
- * 原有的逻辑是 registerSchoolAdmin 往 school_admins 表插数据，但新 schema 只有 schools 表。
- * 假设：schools 表的 email/password 就是管理员账号。
+ * 支持每个学校多个管理员账号
  */
 export async function registerSchoolAdmin(
   email: string,
   password: string,
   name: string,
-  schoolId: string // 在新 schema 中，可能不再需要 schoolId，如果是创建新学校的话。
-                   // 但如果是一个学校有多个管理员，我们需要一个 school_admins 表，但 schema 里没有。
-                   // 暂时假设：如果是注册学校管理员，其实是创建或更新 School 记录？
-                   // 或者现有的逻辑是：Admin 属于某个 School。
+  schoolId: string
 ): Promise<{
   success: boolean
   error?: string
 }> {
-  // ⚠️ 重要：Schema 不匹配
-  // 原有代码依赖 `school_admins` 表，但 SQL schema 中没有这张表。
-  // SQL schema 中只有 `schools` 表有 email/password。
-  // 这意味着每个学校只有一个登录账号（即学校本身）。
-  
-  // 如果我们想保持原有逻辑（多管理员），我们需要修改 Schema。
-  // 但为了快速迁移，我们假设现在是“更新学校的登录信息”或者“创建新学校”。
-  
-  // 既然是 migrate，我们先按照 Schema 来：
-  // 假设注册就是创建一个新的 School 记录，或者更新已存在的 School。
-  
-  // 让我们暂时实现为：创建一个新的 School (如果这符合业务逻辑)
-  // 或者，如果 schoolId 已经存在，我们更新它的 email/password。
-  
   try {
-    // 检查 email 是否已存在
-    const existingSchool = await prisma.school.findUnique({
+    // 1. 检查学校是否存在
+    const school = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { id: true, name: true }
+    })
+
+    if (!school) {
+      return { success: false, error: "School not found" }
+    }
+
+    // 2. 检查 email 是否已被注册（在 SchoolAdmin 表中）
+    const existingAdmin = await prisma.schoolAdmin.findUnique({
       where: { email }
     })
 
-    if (existingSchool) {
+    if (existingAdmin) {
       return { success: false, error: "Email already registered" }
     }
 
+    // 3. 检查是否在 School 表中也有这个 email（向后兼容检查）
+    const existingSchoolWithEmail = await prisma.school.findUnique({
+      where: { email }
+    })
+
+    if (existingSchoolWithEmail) {
+      return { success: false, error: "Email already registered" }
+    }
+
+    // 4. 创建新的管理员账号
     const hashedPassword = await hashPassword(password)
 
-    // 这里有一个逻辑断层：原有的 registerSchoolAdmin 接收 schoolId，意味着学校已存在。
-    // 我们更新这个学校的管理员信息？
-    if (schoolId) {
-      await prisma.school.update({
-        where: { id: schoolId },
-        data: {
-          email,
-          password_hash: hashedPassword,
-          // name: name // name 可能是管理员名字，但 School 表只有 school name。
-          // 暂时忽略 name 字段，或者存到 contact_person
-          contact_person: name,
-          // 新注册的学校默认未激活，需要超级管理员审批
-          active: false
-        }
-      })
-    } else {
-       // Create new school logic if needed
-       return { success: false, error: "School ID is required" }
-    }
+    await prisma.schoolAdmin.create({
+      data: {
+        school_id: schoolId,
+        email,
+        password_hash: hashedPassword,
+        name: name || null,
+        active: false, // 新注册的账号默认未激活，需要超级管理员审批
+        is_super_admin: false
+      }
+    })
     
-    console.log("[Auth] School admin registered successfully:", email)
+    console.log("[Auth] School admin registered successfully:", email, "for school:", school.name)
     return { success: true }
   } catch (error) {
     console.error("[Auth] Unexpected error:", error)
@@ -140,6 +131,7 @@ export async function registerSchoolAdmin(
 
 /**
  * 登录
+ * 支持双重查找：先查找 SchoolAdmin（新账号），再查找 School（旧账号，向后兼容）
  */
 export async function signIn(
   email: string,
@@ -149,47 +141,86 @@ export async function signIn(
   error?: string
 }> {
   try {
-    // 1. 查找用户 (School)
+    // 1. 首先查找 SchoolAdmin（新账号）
+    const admin = await prisma.schoolAdmin.findUnique({
+      where: { email },
+      include: { school: true }
+    })
+
+    if (admin) {
+      // 新账号认证流程
+      if (!admin.active) {
+        return { success: false, error: "Your account is pending approval. Please wait for administrator activation." }
+      }
+
+      const isValid = await verifyPassword(password, admin.password_hash)
+      if (!isValid) {
+        return { success: false, error: "Invalid email or password" }
+      }
+
+      // 创建 Session（包含 admin_id，表示新账号）
+      const token = await new SignJWT({ 
+        sub: admin.school_id, 
+        admin_id: admin.id,
+        email: admin.email,
+        role: 'school_admin'
+      })
+        .setProtectedHeader({ alg: ALG })
+        .setExpirationTime('24h')
+        .sign(SECRET_KEY)
+
+      const cookieStore = await cookies()
+      cookieStore.set('session', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24, // 24 hours
+        path: '/'
+      })
+      
+      console.log("[Auth] Sign in successful (SchoolAdmin):", email)
+      return { success: true }
+    }
+
+    // 2. 查找 School（旧账号，向后兼容）
     const school = await prisma.school.findUnique({
       where: { email }
     })
 
-    if (!school) {
-      return { success: false, error: "Invalid email or password" }
+    if (school && school.email && school.password_hash) {
+      // 旧账号认证流程（完全保持原有逻辑）
+      if (!school.active) {
+        return { success: false, error: "Your account is pending approval. Please wait for administrator activation." }
+      }
+
+      const isValid = await verifyPassword(password, school.password_hash)
+      if (!isValid) {
+        return { success: false, error: "Invalid email or password" }
+      }
+
+      // 创建 Session（不包含 admin_id，表示旧账号）
+      const token = await new SignJWT({ 
+        sub: school.id, 
+        email: school.email,
+        role: 'school_admin'
+      })
+        .setProtectedHeader({ alg: ALG })
+        .setExpirationTime('24h')
+        .sign(SECRET_KEY)
+
+      const cookieStore = await cookies()
+      cookieStore.set('session', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24, // 24 hours
+        path: '/'
+      })
+      
+      console.log("[Auth] Sign in successful (School):", email)
+      return { success: true }
     }
 
-    // 2. 检查账户是否激活
-    if (!school.active) {
-      return { success: false, error: "Your account is pending approval. Please wait for administrator activation." }
-    }
-
-    // 3. 验证密码
-    const isValid = await verifyPassword(password, school.password_hash)
-
-    if (!isValid) {
-      return { success: false, error: "Invalid email or password" }
-    }
-
-    // 3. 创建 Session (JWT Cookie)
-    const token = await new SignJWT({ 
-      sub: school.id, 
-      email: school.email,
-      role: 'school_admin'
-    })
-      .setProtectedHeader({ alg: ALG })
-      .setExpirationTime('24h')
-      .sign(SECRET_KEY)
-
-    const cookieStore = await cookies()
-    cookieStore.set('session', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24, // 24 hours
-      path: '/'
-    })
-    
-    console.log("[Auth] Sign in successful:", email)
-    return { success: true }
+    // 3. 都没找到
+    return { success: false, error: "Invalid email or password" }
   } catch (error) {
     console.error("[Auth] Unexpected error:", error)
     return { 
@@ -210,6 +241,7 @@ export async function signOut() {
 
 /**
  * 获取当前登录用户信息
+ * 支持两种账号类型：SchoolAdmin（新账号）和 School（旧账号，向后兼容）
  */
 export async function getCurrentUser(): Promise<{
   success: boolean
@@ -226,14 +258,41 @@ export async function getCurrentUser(): Promise<{
 
     try {
       const { payload } = await jwtVerify(token, SECRET_KEY)
+      const schoolId = payload.sub as string
+      const adminId = (payload as any).admin_id as string | undefined
       
-      // 获取最新的用户信息
+      // 如果有 admin_id，说明是新账号（SchoolAdmin）
+      if (adminId) {
+        const admin = await prisma.schoolAdmin.findUnique({
+          where: { id: adminId },
+          include: { school: true }
+        })
+
+        if (!admin || !admin.school) {
+          return { success: false, error: 'User not found' }
+        }
+
+        return {
+          success: true,
+          user: {
+            email: admin.email,
+            school: {
+              id: admin.school.id,
+              name: admin.school.name,
+              code: admin.school.code,
+              is_super_admin: admin.is_super_admin
+            }
+          }
+        }
+      }
+
+      // 如果没有 admin_id，说明是旧账号（School，向后兼容）
       const school = await prisma.school.findUnique({
-        where: { id: payload.sub as string },
+        where: { id: schoolId },
         select: { id: true, name: true, code: true, email: true, is_super_admin: true }
       })
 
-      if (!school) {
+      if (!school || !school.email) {
         return { success: false, error: 'User not found' }
       }
 
@@ -263,6 +322,7 @@ export async function getCurrentUser(): Promise<{
 
 /**
  * 修改密码
+ * 支持两种账号类型：SchoolAdmin（新账号）和 School（旧账号，向后兼容）
  */
 export async function changePassword(
   newPassword: string
@@ -271,18 +331,39 @@ export async function changePassword(
   error?: string
 }> {
   try {
-    const { user } = await getCurrentUser()
-    if (!user) return { success: false, error: "Not authenticated" }
+    const cookieStore = await cookies()
+    const token = cookieStore.get('session')?.value
 
-    const hashedPassword = await hashPassword(newPassword)
+    if (!token) {
+      return { success: false, error: "Not authenticated" }
+    }
 
-    await prisma.school.update({
-      where: { email: user.email },
-      data: { password_hash: hashedPassword }
-    })
-    
-    console.log("[Auth] Password changed successfully")
-    return { success: true }
+    try {
+      const { payload } = await jwtVerify(token, SECRET_KEY)
+      const adminId = (payload as any).admin_id as string | undefined
+      const email = payload.email as string
+
+      const hashedPassword = await hashPassword(newPassword)
+
+      // 如果有 admin_id，说明是新账号（SchoolAdmin）
+      if (adminId) {
+        await prisma.schoolAdmin.update({
+          where: { id: adminId },
+          data: { password_hash: hashedPassword }
+        })
+      } else {
+        // 如果没有 admin_id，说明是旧账号（School，向后兼容）
+        await prisma.school.update({
+          where: { email },
+          data: { password_hash: hashedPassword }
+        })
+      }
+      
+      console.log("[Auth] Password changed successfully")
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: 'Invalid token' }
+    }
   } catch (error) {
     console.error("[Auth] Unexpected error:", error)
     return { 
