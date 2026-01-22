@@ -102,6 +102,7 @@ model Student {
   gender                 String?     @db.VarChar(50)
   need_financial_aid     Boolean?
   residency_city         String?     @db.VarChar(255)
+  residence_country      String?     @db.VarChar(255)
   interviews             Interview[]
   invitation             Invitation? @relation(fields: [invitation_id], references: [id], onDelete: Cascade)
 
