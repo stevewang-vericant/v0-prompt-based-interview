@@ -3,13 +3,8 @@
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { Checkbox } from "@/components/ui/checkbox"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CheckCircle2, Clock, Mail } from "lucide-react"
+import { CheckCircle2, Clock } from "lucide-react"
 
 interface StudentInfo {
   email: string
@@ -22,12 +17,7 @@ interface StudentInfo {
 
 interface InterviewCompleteProps {
   responsesCount: number
-  onSubmit: (studentEmail: string, studentName?: string, additionalInfo?: {
-    gender?: string | null
-    currentGrade?: string | null
-    residencyCity?: string | null
-    needFinancialAid?: boolean | null
-  }) => void
+  onSubmit: () => void
   isUploading?: boolean
   uploadProgress?: number
   uploadStatus?: string
@@ -43,51 +33,10 @@ export function InterviewComplete({
   interviewId
 }: InterviewCompleteProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [studentEmail, setStudentEmail] = useState("")
-  const [studentName, setStudentName] = useState("")
-  const [emailError, setEmailError] = useState("")
-  
-  // Consent and additional fields
-  const [consentGiven, setConsentGiven] = useState(false)
-  const [gender, setGender] = useState("")
-  const [currentGrade, setCurrentGrade] = useState("")
-  const [residencyCity, setResidencyCity] = useState("")
-  const [needFinancialAid, setNeedFinancialAid] = useState<string>("")
-
-  const validateEmail = (email: string) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return re.test(email)
-  }
 
   const handleSubmit = async () => {
-    // 验证邮箱
-    if (!studentEmail.trim()) {
-      setEmailError("Please enter your email address")
-      return
-    }
-    if (!validateEmail(studentEmail)) {
-      setEmailError("Please enter a valid email address")
-      return
-    }
-    
-    setEmailError("")
     setIsSubmitting(true)
-    
-    // 准备额外信息
-    // 字段为空时传递 null
-    const additionalInfo: {
-      gender?: string | null
-      currentGrade?: string | null
-      residencyCity?: string | null
-      needFinancialAid?: boolean | null
-    } = {
-      gender: gender || null,
-      currentGrade: currentGrade || null,
-      residencyCity: residencyCity || null,
-      needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : null
-    }
-    
-    await onSubmit(studentEmail, studentName || undefined, additionalInfo)
+    await onSubmit()
   }
 
   return (
@@ -140,135 +89,12 @@ export function InterviewComplete({
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Student Information
-          </CardTitle>
+          <CardTitle>Submit Interview</CardTitle>
           <CardDescription>
-            Please provide your contact information to submit the interview
+            Click the button below to submit your interview video
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address *</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="your.email@example.com"
-              value={studentEmail}
-              onChange={(e) => {
-                setStudentEmail(e.target.value)
-                setEmailError("")
-              }}
-              disabled={isUploading || isSubmitting}
-              className={emailError ? "border-red-500" : ""}
-            />
-            {emailError && (
-              <p className="text-sm text-red-600">{emailError}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name (Optional)</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="Your full name"
-              value={studentName}
-              onChange={(e) => setStudentName(e.target.value)}
-              disabled={isUploading || isSubmitting}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="gender">Gender (Optional)</Label>
-            <Select value={gender} onValueChange={setGender} disabled={isUploading || isSubmitting}>
-              <SelectTrigger id="gender">
-                <SelectValue placeholder="Select gender" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Male">Male</SelectItem>
-                <SelectItem value="Female">Female</SelectItem>
-                <SelectItem value="Non-binary">Non-binary</SelectItem>
-                <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="grade">Current Grade (Optional)</Label>
-            <Select value={currentGrade} onValueChange={setCurrentGrade} disabled={isUploading || isSubmitting}>
-              <SelectTrigger id="grade">
-                <SelectValue placeholder="Select grade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="9th Grade">9th Grade</SelectItem>
-                <SelectItem value="10th Grade">10th Grade</SelectItem>
-                <SelectItem value="11th Grade">11th Grade</SelectItem>
-                <SelectItem value="12th Grade">12th Grade</SelectItem>
-                <SelectItem value="Undergraduate">Undergraduate</SelectItem>
-                <SelectItem value="Graduate">Graduate</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="city">Residency City (Optional)</Label>
-            <Input
-              id="city"
-              type="text"
-              placeholder="e.g., New York, London, Tokyo"
-              value={residencyCity}
-              onChange={(e) => setResidencyCity(e.target.value)}
-              disabled={isUploading || isSubmitting}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Need Financial Aid? (Optional)</Label>
-            <RadioGroup 
-              value={needFinancialAid} 
-              onValueChange={setNeedFinancialAid}
-              disabled={isUploading || isSubmitting}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="yes" id="aid-yes" />
-                <Label htmlFor="aid-yes" className="font-normal cursor-pointer">Yes</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="no" id="aid-no" />
-                <Label htmlFor="aid-no" className="font-normal cursor-pointer">No</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {/* Consent Checkbox - Hidden for now (set to false to hide) */}
-          {false && (
-            <>
-              <div className="flex items-start space-x-3 pt-2">
-                <Checkbox 
-                  id="consent" 
-                  checked={consentGiven}
-                  onCheckedChange={(checked) => setConsentGiven(checked as boolean)}
-                  disabled={isUploading || isSubmitting}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor="consent"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    I consent to share additional information with the school
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    By checking this box, you allow the school to access and use your detailed information for admission purposes.
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-
           {isUploading && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
               <div className="flex items-center gap-3">
@@ -296,7 +122,7 @@ export function InterviewComplete({
 
           <Button 
             onClick={handleSubmit} 
-            disabled={isSubmitting || isUploading || !studentEmail.trim()} 
+            disabled={isSubmitting || isUploading} 
             className="w-full" 
             size="lg"
           >

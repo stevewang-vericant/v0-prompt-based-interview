@@ -6,6 +6,7 @@ interface AdditionalStudentInfo {
   gender?: string | null
   currentGrade?: string | null
   residencyCity?: string | null
+  residenceCountry?: string | null
   needFinancialAid?: boolean | null
 }
 
@@ -34,6 +35,7 @@ export async function updateStudentInfo(
         gender: additionalInfo.gender === undefined ? undefined : (additionalInfo.gender || null),
         current_grade: additionalInfo.currentGrade === undefined ? undefined : (additionalInfo.currentGrade || null),
         residency_city: additionalInfo.residencyCity === undefined ? undefined : (additionalInfo.residencyCity || null),
+        residence_country: additionalInfo.residenceCountry === undefined ? undefined : (additionalInfo.residenceCountry || null),
         need_financial_aid: additionalInfo.needFinancialAid === undefined ? undefined : (additionalInfo.needFinancialAid === null ? null : additionalInfo.needFinancialAid)
       }
     })

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { InterviewSetup } from "@/components/interview/interview-setup"
+import { InterviewStudentInfo } from "@/components/interview/interview-student-info"
 import { InterviewPrompt } from "@/components/interview/interview-prompt"
 import { InterviewComplete } from "@/components/interview/interview-complete"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
@@ -32,13 +33,13 @@ interface Prompt {
   responseTime: number
 }
 
-type InterviewStage = "setup" | "interview" | "complete"
+type InterviewStage = "setup" | "student-info" | "interview" | "complete"
 
 function InterviewPageContent() {
   const searchParams = useSearchParams()
   const schoolCode = searchParams.get("school")
   
-  const [stage, setStage] = useState<InterviewStage>("setup")
+  const [stage, setStage] = useState<InterviewStage>("student-info")
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [promptsLoading, setPromptsLoading] = useState(true)
@@ -51,6 +52,16 @@ function InterviewPageContent() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState("")
   const [hasPending, setHasPending] = useState(false)
+  // Student info collected before interview
+  const [studentInfo, setStudentInfo] = useState<{
+    email: string
+    name: string
+    gender?: string | null
+    currentGrade?: string | null
+    residencyCity?: string | null
+    residenceCountry: string
+    needFinancialAid?: boolean | null
+  } | null>(null)
 
   // 加载 prompts
   useEffect(() => {
@@ -218,12 +229,26 @@ function InterviewPageContent() {
     checkPendingUploads()
   }, [interviewId])
 
-  const handleSetupComplete = () => {
+  const handleStudentInfoComplete = (info: {
+    email: string
+    name: string
+    gender?: string | null
+    currentGrade?: string | null
+    residencyCity?: string | null
+    residenceCountry: string
+    needFinancialAid?: boolean | null
+  }) => {
+    console.log('[v0] Student info collected:', info)
+    setStudentInfo(info)
     // 确保 interviewId 已保存到 localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('currentInterviewId', interviewId)
       console.log('[v0] Saved interviewId to localStorage:', interviewId)
     }
+    setStage("setup")
+  }
+
+  const handleSetupComplete = () => {
     setStage("interview")
   }
 
@@ -531,34 +556,34 @@ function InterviewPageContent() {
     }
   }
 
-  const handleSubmitInterview = async (
-    studentEmail: string, 
-    studentName?: string, 
-    additionalInfo?: {
-      gender?: string | null
-      currentGrade?: string | null
-      residencyCity?: string | null
-      needFinancialAid?: boolean | null
+  const handleSubmitInterview = async () => {
+    if (!studentInfo) {
+      console.error("[v0] Student info not available")
+      return
     }
-  ) => {
+
     console.log("[v0] Submitting interview with", Object.keys(responses).length, "responses")
-    console.log("[v0] Student email:", studentEmail)
+    console.log("[v0] Student email:", studentInfo.email)
     console.log("[v0] School code:", schoolCode || "Not specified")
-    console.log("[v0] Additional info:", additionalInfo)
+    console.log("[v0] Student info:", studentInfo)
     
     // 上传所有视频分段到 B2，然后在服务端使用 FFmpeg 合并
-    const result = await uploadSegmentVideos(responses, studentEmail, studentName, schoolCode)
+    const result = await uploadSegmentVideos(responses, studentInfo.email, studentInfo.name, schoolCode)
     
-    // 更新学生信息（总是调用，即使没有提供额外信息，也会清除旧数据）
-    if (additionalInfo) {
-      const { updateStudentInfo } = await import('@/app/actions/update-student-info')
-      await updateStudentInfo(studentEmail, additionalInfo)
-    }
+    // 更新学生信息
+    const { updateStudentInfo } = await import('@/app/actions/update-student-info')
+    await updateStudentInfo(studentInfo.email, {
+      gender: studentInfo.gender,
+      currentGrade: studentInfo.currentGrade,
+      residencyCity: studentInfo.residencyCity,
+      residenceCountry: studentInfo.residenceCountry,
+      needFinancialAid: studentInfo.needFinancialAid
+    })
     
     // 根据结果跳转到完成页面
     const params = new URLSearchParams({
       status: result.success ? 'success' : 'error',
-      email: studentEmail,
+      email: studentInfo.email,
       interviewId: interviewId,
     })
     
@@ -585,6 +610,7 @@ function InterviewPageContent() {
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-slate-900">Video Interview Assessment</h1>
               <p className="text-sm text-slate-600">
+                {stage === "student-info" && "Student information"}
                 {stage === "setup" && "System check and preparation"}
                 {stage === "interview" && prompts.length > 0 && `Question ${currentPromptIndex + 1} of ${prompts.length}`}
                 {stage === "complete" && "Interview completed"}
@@ -603,7 +629,7 @@ function InterviewPageContent() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {stage === "setup" && (
+              {(stage === "student-info" || stage === "setup") && (
                 <Image
                   src="/RGB Logo Verified Video Interviews.png"
                   alt="Vericant Logo"
@@ -613,7 +639,7 @@ function InterviewPageContent() {
                   priority
                 />
               )}
-              {stage === "setup" && (
+              {(stage === "student-info" || stage === "setup") && (
                 <Button variant="outline" onClick={() => (window.location.href = "/")}>
                   Exit
                 </Button>
@@ -624,7 +650,7 @@ function InterviewPageContent() {
       </header>
 
       {/* Warning if no school code */}
-      {!schoolCode && stage === "setup" && (
+      {!schoolCode && (stage === "student-info" || stage === "setup") && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -668,6 +694,12 @@ function InterviewPageContent() {
 
         {!promptsLoading && !promptsError && prompts.length > 0 && (
           <>
+        {stage === "student-info" && (
+          <InterviewStudentInfo 
+            onSubmit={handleStudentInfoComplete}
+          />
+        )}
+
         {stage === "setup" && (
           <InterviewSetup 
             onComplete={handleSetupComplete}
