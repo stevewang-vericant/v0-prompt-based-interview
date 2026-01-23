@@ -268,6 +268,8 @@ export async function POST(request: NextRequest) {
       mergedVideoUrl: mergedVideoUrl,
       questions: interview.responses.map((response, index) => {
         const scaledDuration = Math.round(segmentDurations[index] * scaleFactor * 10) / 10
+        // Debug: Check if prompt is loaded
+        console.log(`[Reprocess]   Response ${response.sequence_number}: prompt_id=${response.prompt_id}, prompt loaded=${!!response.prompt}, prompt_text=${response.prompt?.prompt_text?.substring(0, 50) || 'N/A'}`)
         const promptText = response.prompt?.prompt_text || `Question ${response.sequence_number}`
         const promptCategory = response.prompt?.category || 'General'
         const questionData = {
@@ -279,7 +281,7 @@ export async function POST(request: NextRequest) {
           endTime: Math.round((cumulativeTime + scaledDuration) * 10) / 10,
           duration: scaledDuration
         }
-        console.log(`[Reprocess]   Question ${response.sequence_number}: ${questionData.startTime}s - ${questionData.endTime}s (${scaledDuration}s) - "${promptText.substring(0, 50)}${promptText.length > 50 ? '...' : ''}"`)
+        console.log(`[Reprocess]   Question ${response.sequence_number}: ${questionData.startTime}s - ${questionData.endTime}s (${scaledDuration}s) - text="${promptText.substring(0, 50)}${promptText.length > 50 ? '...' : ''}"`)
         cumulativeTime += scaledDuration
         return questionData
       })
