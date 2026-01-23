@@ -81,12 +81,19 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Reprocess] Found ${interview.responses.length} video segments`)
+    
+    // Log segment details
+    console.log('[Reprocess] Segment details:')
+    interview.responses.forEach((response, idx) => {
+      console.log(`  [${idx + 1}] Sequence: ${response.sequence_number}, URL: ${response.video_url}, Duration (DB): ${response.video_duration || 'N/A'}s`)
+    })
 
     // 2. Download all segments
     console.log('[Reprocess] Downloading video segments...')
     const tempDir = tmpdir()
     const tempFiles: string[] = []
     const inputFiles: string[] = []
+    const segmentDurations: number[] = []
 
     for (let i = 0; i < interview.responses.length; i++) {
       const response = interview.responses[i]
@@ -94,14 +101,33 @@ export async function POST(request: NextRequest) {
         throw new Error(`Segment ${response.sequence_number} has no video URL`)
       }
 
-      console.log(`[Reprocess] Downloading segment ${i + 1}/${interview.responses.length}...`)
+      console.log(`[Reprocess] Downloading segment ${i + 1}/${interview.responses.length} (sequence ${response.sequence_number})...`)
       const videoBuffer = await downloadFile(response.video_url)
       const tempFile = join(tempDir, `segment_${response.sequence_number}_${Date.now()}.webm`)
       writeFileSync(tempFile, videoBuffer)
       tempFiles.push(tempFile)
       inputFiles.push(tempFile)
       console.log(`[Reprocess] ✓ Segment ${i + 1} downloaded (${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
+
+      // Get actual duration of each segment
+      try {
+        const durationCommand = `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${tempFile}"`
+        const { stdout: durationOutput } = await execAsync(durationCommand)
+        const durationSeconds = parseFloat(durationOutput.trim())
+        if (!isNaN(durationSeconds) && durationSeconds > 0) {
+          segmentDurations.push(Math.round(durationSeconds * 10) / 10) // Round to 1 decimal
+          console.log(`[Reprocess]   → Actual duration: ${segmentDurations[i]} seconds`)
+        } else {
+          segmentDurations.push(response.video_duration || 90)
+          console.log(`[Reprocess]   → Using DB duration: ${segmentDurations[i]} seconds`)
+        }
+      } catch (error) {
+        console.warn(`[Reprocess]   ⚠️  Failed to get duration for segment ${i + 1}:`, error)
+        segmentDurations.push(response.video_duration || 90)
+      }
     }
+
+    console.log(`[Reprocess] Total expected duration: ${segmentDurations.reduce((sum, d) => sum + d, 0).toFixed(1)} seconds`)
 
     // 3. Create concat file for FFmpeg
     console.log('[Reprocess] Creating concat file...')
@@ -109,6 +135,12 @@ export async function POST(request: NextRequest) {
     const concatContent = inputFiles.map(file => `file '${file}'`).join('\n')
     writeFileSync(concatFile, concatContent)
     tempFiles.push(concatFile)
+    
+    // Log concat file content
+    console.log('[Reprocess] Concat file content:')
+    console.log('---')
+    console.log(concatContent)
+    console.log('---')
 
     // 4. Merge and convert to MP4 using FFmpeg
     console.log('[Reprocess] Merging videos and converting to MP4...')
@@ -118,9 +150,17 @@ export async function POST(request: NextRequest) {
     const mergeCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c:v libx264 -preset medium -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -c:a aac -b:a 128k -movflags +faststart "${tempMergedFile}" -y`
     
     console.log('[Reprocess] Running FFmpeg command...')
+    console.log(`[Reprocess] Command: ${mergeCommand}`)
     const { stdout, stderr } = await execAsync(mergeCommand)
+    
+    // Log full FFmpeg output
+    console.log('[Reprocess] FFmpeg stdout:')
+    console.log(stdout || '(empty)')
+    console.log('[Reprocess] FFmpeg stderr:')
+    console.log(stderr || '(empty)')
+    
     if (stderr && !stderr.includes('frame=')) {
-      console.warn('[Reprocess] FFmpeg warnings:', stderr)
+      console.warn('[Reprocess] FFmpeg warnings detected in stderr')
     }
 
     if (!existsSync(tempMergedFile)) {
@@ -130,20 +170,33 @@ export async function POST(request: NextRequest) {
     const mergedBuffer = readFileSync(tempMergedFile)
     console.log(`[Reprocess] ✓ Video merged successfully (${(mergedBuffer.length / 1024 / 1024).toFixed(2)} MB)`)
 
-    // 5. Get actual duration
-    console.log('[Reprocess] Getting video duration...')
+    // 5. Get actual duration and verify segments
+    console.log('[Reprocess] Getting video duration and verifying merge...')
     let actualDuration = interview.total_duration || 0
     try {
       const durationCommand = `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${tempMergedFile}"`
       const { stdout: durationOutput } = await execAsync(durationCommand)
       const durationSeconds = parseFloat(durationOutput.trim())
       if (!isNaN(durationSeconds) && durationSeconds > 0) {
-        actualDuration = Math.round(durationSeconds)
-        console.log(`[Reprocess] ✓ Duration: ${actualDuration} seconds`)
+        actualDuration = Math.round(durationSeconds * 10) / 10 // Round to 1 decimal
+        console.log(`[Reprocess] ✓ Merged video duration: ${actualDuration} seconds`)
+        
+        const expectedDuration = segmentDurations.reduce((sum, d) => sum + d, 0)
+        const durationDiff = Math.abs(actualDuration - expectedDuration)
+        console.log(`[Reprocess] Expected duration: ${expectedDuration.toFixed(1)} seconds`)
+        console.log(`[Reprocess] Duration difference: ${durationDiff.toFixed(1)} seconds`)
+        
+        if (durationDiff > 5) {
+          console.warn(`[Reprocess] ⚠️  WARNING: Duration difference is large (${durationDiff.toFixed(1)}s). Some segments may be missing!`)
+        }
       }
     } catch (error) {
       console.warn('[Reprocess] ⚠️  Failed to get duration:', error)
     }
+    
+    // Verify file exists and has reasonable size
+    const fileStats = require('fs').statSync(tempMergedFile)
+    console.log(`[Reprocess] Merged file size: ${(fileStats.size / 1024 / 1024).toFixed(2)} MB`)
 
     // 6. Upload merged MP4 to B2
     console.log('[Reprocess] Uploading merged video to B2...')
@@ -163,9 +216,10 @@ export async function POST(request: NextRequest) {
 
     // 7. Generate subtitle metadata
     console.log('[Reprocess] Generating subtitle metadata...')
-    const segmentDurations = interview.responses.map(r => r.video_duration || 90)
+    console.log(`[Reprocess] Using actual segment durations: ${segmentDurations.join(', ')}`)
     const totalEstimatedDuration = segmentDurations.reduce((sum, dur) => sum + dur, 0)
     const scaleFactor = actualDuration / totalEstimatedDuration
+    console.log(`[Reprocess] Scale factor: ${scaleFactor.toFixed(4)}`)
     let cumulativeTime = 0
 
     const subtitleMetadata = {
@@ -174,16 +228,17 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
       mergedVideoUrl: mergedVideoUrl,
       questions: interview.responses.map((response, index) => {
-        const scaledDuration = Math.round(segmentDurations[index] * scaleFactor)
+        const scaledDuration = Math.round(segmentDurations[index] * scaleFactor * 10) / 10
         const questionData = {
           id: response.prompt_id || `question-${index + 1}`,
           questionNumber: response.sequence_number,
           category: 'General',
           text: `Question ${response.sequence_number}`,
-          startTime: cumulativeTime,
-          endTime: cumulativeTime + scaledDuration,
+          startTime: Math.round(cumulativeTime * 10) / 10,
+          endTime: Math.round((cumulativeTime + scaledDuration) * 10) / 10,
           duration: scaledDuration
         }
+        console.log(`[Reprocess]   Question ${response.sequence_number}: ${questionData.startTime}s - ${questionData.endTime}s (${scaledDuration}s)`)
         cumulativeTime += scaledDuration
         return questionData
       })
