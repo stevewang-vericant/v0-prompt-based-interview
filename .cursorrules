@@ -45,6 +45,30 @@
 - **Never commit directly to `main`** for changes that require testing
 - **Deployment**: Always deploy from `main` branch after merge
 
+## Development Environment
+
+### Local Development Setup
+**Platform**: macOS (no Docker)
+**Development Server**: Next.js dev server (`npm run dev`)
+**Port**: 3000 (default)
+
+**Local Development Workflow**:
+1. **Always test locally first**: After implementing a feature, run `npm run dev` to start the local development server
+2. **Verify functionality**: Test the feature thoroughly in the local environment before deploying to production
+3. **Only deploy after local verification**: Never deploy to production without first testing locally
+
+**Starting Local Server**:
+```bash
+npm run dev
+# Server will be available at http://localhost:3000
+```
+
+**Important Notes**:
+- Local development uses the same codebase as production
+- No Docker is used for local development
+- Always verify features work correctly in local environment before deployment
+- If local server fails to start, check for port conflicts or permission issues
+
 ## Production Deployment
 
 ### Linode-Athena Server Deployment
@@ -58,8 +82,13 @@
 - Docker Compose File: `docker-compose.linode.yml`
 
 **Deployment Workflow**:
-1. **Code is merged to `main` branch** (already done via Git workflow)
-2. **SSH to server and deploy**:
+1. **Local Development & Testing**:
+   - Implement feature on a feature branch
+   - Run `npm run dev` locally to test
+   - Verify functionality works correctly
+   - Only proceed to deployment after local verification passes
+2. **Code is merged to `main` branch** (after local testing passes)
+3. **SSH to server and deploy**:
    ```bash
    # SSH to Linode-Athena server
    ssh linode-Athena

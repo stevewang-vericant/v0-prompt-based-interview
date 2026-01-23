@@ -77,7 +77,7 @@ function InterviewCompleteContent() {
                   <div className="flex items-start gap-2 mt-3">
                     <Video className="h-4 w-4 mt-0.5 flex-shrink-0" />
                     <p className="text-sm">
-                      <strong>Video processed:</strong> Your responses have been merged into a single video file
+                      <strong>Video uploaded:</strong> Your video segments have been uploaded successfully. Video processing and merging will continue in the background.
                     </p>
                   </div>
                   {schoolCode && (

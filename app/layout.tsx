@@ -18,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50`}>
+      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50`} suppressHydrationWarning>
         <div className="flex flex-col min-h-screen">
           <main className="flex-1">
             {children}

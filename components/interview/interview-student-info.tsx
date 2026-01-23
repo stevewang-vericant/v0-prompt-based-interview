@@ -39,6 +39,7 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
   const [needFinancialAid, setNeedFinancialAid] = useState<string>("")
   const [cityError, setCityError] = useState("")
   const [gradeError, setGradeError] = useState("")
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
   
   // Country search dropdown state
   const [countrySearchQuery, setCountrySearchQuery] = useState("")
@@ -97,6 +98,7 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
   }
 
   const handleSubmit = () => {
+    setHasAttemptedSubmit(true)
     let hasError = false
 
     // Validate email (required)
@@ -224,7 +226,7 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
               setCurrentGrade(value)
               setGradeError("")
             }}>
-              <SelectTrigger id="grade" className={gradeError || !currentGrade ? "border-red-500" : ""}>
+              <SelectTrigger id="grade" className={gradeError ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select grade" />
               </SelectTrigger>
               <SelectContent>
@@ -257,7 +259,7 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
                   setResidencyCity(e.target.value)
                   setCityError("")
                 }}
-                className={`pl-10 ${cityError || !residencyCity.trim() ? "border-red-500" : ""}`}
+                className={`pl-10 ${cityError ? "border-red-500" : ""}`}
               />
             </div>
             {cityError && (
@@ -299,7 +301,7 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
                     setCountrySearchQuery(residenceCountry)
                   }
                 }}
-                className={residenceCountryError || !residenceCountry ? "border-red-500" : ""}
+                className={residenceCountryError ? "border-red-500" : ""}
               />
               {showCountryDropdown && (
                 <div
