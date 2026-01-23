@@ -101,9 +101,13 @@ export function InterviewComplete({
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                 <div className="flex-1">
                   <p className="font-medium text-blue-900">
-                    {uploadStatus || "Processing your interview video..."}
+                    {uploadStatus || "Uploading your interview video..."}
                   </p>
-                  <p className="text-sm text-blue-700">Please wait, do not close this page</p>
+                  <p className="text-sm text-blue-700">
+                    {uploadProgress < 100 
+                      ? "Please wait, do not close this page" 
+                      : "Upload complete! You can close this window. Video processing will continue in the background."}
+                  </p>
                   {interviewId && (
                     <p className="text-xs text-blue-600 font-mono mt-1">
                       Interview ID: {interviewId}
@@ -126,7 +130,7 @@ export function InterviewComplete({
             className="w-full" 
             size="lg"
           >
-            {isUploading ? "Processing Video..." : isSubmitting ? "Submitting Interview..." : "Submit Interview"}
+            {isUploading ? (uploadProgress < 100 ? "Uploading Video..." : "Upload Complete!") : isSubmitting ? "Submitting Interview..." : "Submit Interview"}
           </Button>
           <p className="text-xs text-center text-muted-foreground">
             By submitting, you confirm that all responses are your own work and were completed without assistance

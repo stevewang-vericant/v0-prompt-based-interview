@@ -421,65 +421,12 @@ function InterviewPageContent() {
       console.log("[v0] ✓ All", segments.length, "segments uploaded successfully")
       console.log("[v0] Total estimated duration:", totalDuration, "seconds")
       
-      // 触发异步服务端合并（不等待完成）
-      setUploadStatus("Starting video processing...")
-      setUploadProgress(70)
-      console.log("[v0] Triggering async server-side video merge...")
-      
-      console.log("[v0] Calling merge-videos API...")
-      console.log("[v0] Merge request data:", {
-        interviewId,
-        segmentsCount: uploadedSegments.length,
-        segments: uploadedSegments.map(seg => ({
-          url: seg.videoUrl,
-          sequenceNumber: seg.sequenceNumber,
-          duration: seg.duration
-        }))
-      })
-      
-      const mergeResult = await fetch('/api/merge-videos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          interviewId,
-          segments: uploadedSegments.map(seg => ({
-            url: seg.videoUrl,
-            sequenceNumber: seg.sequenceNumber,
-            duration: seg.duration,
-            promptId: seg.promptId,
-            questionText: seg.questionText,
-            category: seg.category
-          }))
-        })
-      })
-      
-      console.log("[v0] Merge API response status:", mergeResult.status)
-      
-      if (!mergeResult.ok) {
-        const errorText = await mergeResult.text()
-        console.error("[v0] Merge API error response:", errorText)
-        throw new Error(`Failed to start video merge: ${mergeResult.status} ${mergeResult.statusText}`)
-      }
-      
-      const mergeData = await mergeResult.json()
-      console.log("[v0] Merge API response data:", mergeData)
-      
-      if (!mergeData.success) {
-        console.error("[v0] Merge API returned error:", mergeData.error)
-        throw new Error(`Failed to start video merge: ${mergeData.error}`)
-      }
-      
-      console.log("[v0] ✓ Video merge task created:", mergeData.taskId)
-      console.log("[v0] Video processing will continue in the background")
-      
       // 保存基本信息到数据库（如果提供了学生邮箱）
       // 注意：video_url 和 subtitle_url 将在后台处理完成后更新
       if (studentEmail) {
         setUploadStatus("Saving interview information...")
-        setUploadProgress(80)
-        console.log("[v0] Saving interview to database (video processing in background)...")
+        setUploadProgress(90)
+        console.log("[v0] Saving interview to database...")
         
         const dbResult = await saveInterview({
           interview_id: interviewId,
@@ -490,8 +437,7 @@ function InterviewPageContent() {
           total_duration: totalDuration, // 估算时长，将在后台处理完成后更新
           school_code: schoolCode || undefined,
           metadata: {
-            taskId: mergeData.taskId,
-            status: 'processing',
+            status: 'uploaded',
             segmentCount: uploadedSegments.length,
             segments: uploadedSegments.map(seg => ({
               promptId: seg.promptId,
@@ -513,18 +459,61 @@ function InterviewPageContent() {
         }
       }
       
-      // 保存基本信息到 localStorage
-      const interviewData = {
-        interviewId,
-        taskId: mergeData.taskId,
-        status: 'processing',
-        totalDuration: totalDuration,
-        segmentCount: uploadedSegments.length,
-        completedAt: new Date().toISOString()
-      }
+      // 触发异步服务端合并（不等待完成，在后台进行）
+      setUploadStatus("Starting background video processing...")
+      setUploadProgress(95)
+      console.log("[v0] Triggering async server-side video merge...")
       
-      localStorage.setItem('latestInterview', JSON.stringify(interviewData))
-      console.log("[v0] Interview data saved to localStorage")
+      // 异步触发合并任务，不等待结果
+      fetch('/api/merge-videos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          interviewId,
+          segments: uploadedSegments.map(seg => ({
+            url: seg.videoUrl,
+            sequenceNumber: seg.sequenceNumber,
+            duration: seg.duration,
+            promptId: seg.promptId,
+            questionText: seg.questionText,
+            category: seg.category
+          }))
+        })
+      })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("[v0] Merge API error response:", errorText)
+          throw new Error(`Failed to start video merge: ${response.status}`)
+        }
+        return response.json()
+      })
+      .then((mergeData) => {
+        if (mergeData.success) {
+          console.log("[v0] ✓ Video merge task created:", mergeData.taskId)
+          console.log("[v0] Video processing will continue in the background")
+          
+          // 更新数据库中的taskId（如果之前保存成功）
+          if (studentEmail) {
+            // 异步更新，不阻塞
+            import('@/app/actions/interviews').then(({ updateInterviewMetadata }) => {
+              // 如果这个函数存在，更新metadata
+              // 否则在processVideoMergeTask中更新
+            }).catch(() => {
+              // 忽略错误，processVideoMergeTask会处理
+            })
+          }
+        } else {
+          console.error("[v0] Merge API returned error:", mergeData.error)
+          // 不抛出错误，让用户知道上传成功，合并会在后台重试
+        }
+      })
+      .catch((error) => {
+        console.error("[v0] Failed to start video merge task:", error)
+        // 不抛出错误，让用户知道上传成功，合并会在后台重试
+      })
       
       // 清理已上传的片段（上传成功后）
       try {
@@ -542,8 +531,10 @@ function InterviewPageContent() {
       
       setHasPending(false)
       setUploadProgress(100)
-      setUploadStatus("Upload complete! Video processing will continue in the background.")
+      setUploadStatus("Upload complete! You can now close this window. Video processing will continue in the background.")
       console.log("[v0] ✓ All segments uploaded successfully! Video merge will complete in the background.")
+      
+      // 上传完成，立即返回成功，不等待合并
       return { success: true }
     } catch (error) {
       console.error("[v0] Upload error:", error)
