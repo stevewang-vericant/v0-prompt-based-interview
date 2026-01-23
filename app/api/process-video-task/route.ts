@@ -79,6 +79,24 @@ export async function processVideoMergeTask(taskId: string) {
       throw new Error(`Interview ID is missing in task ${taskId}`)
     }
     console.log(`[Task ${taskId}] Segments count:`, segments.length)
+
+    // Load prompts text for better subtitles
+    const promptIds = Array.from(
+      new Set(segments.map((seg) => seg.promptId).filter(Boolean))
+    )
+    const prompts = promptIds.length
+      ? await prisma.prompt.findMany({
+          where: { id: { in: promptIds } },
+          select: { id: true, prompt_text: true, category: true },
+        })
+      : []
+    const promptMap = new Map<string, { prompt_text: string; category: string }>()
+    prompts.forEach((prompt) => {
+      promptMap.set(prompt.id, {
+        prompt_text: prompt.prompt_text,
+        category: prompt.category,
+      })
+    })
     
     // 下载所有分段视频并获取实际时长
     const videoBuffers: Buffer[] = []
@@ -235,11 +253,15 @@ export async function processVideoMergeTask(taskId: string) {
       mergedVideoUrl: mergedVideoUrl,
       questions: segments.map((seg: any, index: number) => {
         const scaledDuration = Math.round(segmentDurations[index] * scaleFactor)
+        const promptInfo = promptMap.get(seg.promptId)
+        const questionText =
+          promptInfo?.prompt_text || seg.questionText || `Question ${index + 1}`
+        const questionCategory = promptInfo?.category || seg.category || 'General'
         const questionData = {
           id: seg.promptId || `question-${index + 1}`,
           questionNumber: seg.sequenceNumber || index + 1,
-          category: seg.category || 'General',
-          text: seg.questionText || `Question ${index + 1}`,
+          category: questionCategory,
+          text: questionText,
           startTime: cumulativeTime,
           endTime: cumulativeTime + scaledDuration,
           duration: scaledDuration
