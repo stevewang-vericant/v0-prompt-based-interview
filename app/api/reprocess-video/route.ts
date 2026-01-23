@@ -129,38 +129,69 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Reprocess] Total expected duration: ${segmentDurations.reduce((sum, d) => sum + d, 0).toFixed(1)} seconds`)
 
-    // 3. Create concat file for FFmpeg
-    console.log('[Reprocess] Creating concat file...')
-    const concatFile = join(tempDir, `concat_${Date.now()}.txt`)
-    const concatContent = inputFiles.map(file => `file '${file}'`).join('\n')
-    writeFileSync(concatFile, concatContent)
-    tempFiles.push(concatFile)
-    
-    // Log concat file content
-    console.log('[Reprocess] Concat file content:')
-    console.log('---')
-    console.log(concatContent)
-    console.log('---')
-
-    // 4. Merge and convert to MP4 using FFmpeg
-    console.log('[Reprocess] Merging videos and converting to MP4...')
+    // 3. Merge and convert to MP4 using FFmpeg filter_complex
+    // This method is more robust than concat demuxer as it properly decodes and re-encodes all segments
+    console.log('[Reprocess] Merging videos using filter_complex (more robust method)...')
     const tempMergedFile = join(tempDir, `merged_${Date.now()}.mp4`)
     tempFiles.push(tempMergedFile)
 
-    const mergeCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c:v libx264 -preset medium -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -c:a aac -b:a 128k -movflags +faststart "${tempMergedFile}" -y`
+    // Build FFmpeg command with filter_complex
+    // First, build input arguments for all segments
+    const inputArgs: string[] = []
+    inputFiles.forEach(file => {
+      inputArgs.push('-i', file)
+    })
+    
+    // Build filter_complex to concatenate all inputs
+    // Format: [0:v][0:a][1:v][1:a]...concat=n=5:v=1:a=1[outv][outa]
+    const filterParts: string[] = []
+    for (let i = 0; i < inputFiles.length; i++) {
+      filterParts.push(`[${i}:v]`)
+      filterParts.push(`[${i}:a]`)
+    }
+    const filterComplex = `${filterParts.join('')}concat=n=${inputFiles.length}:v=1:a=1[outv][outa]`
+    
+    const mergeCommand = [
+      'ffmpeg',
+      ...inputArgs,
+      '-filter_complex', filterComplex,
+      '-map', '[outv]',
+      '-map', '[outa]',
+      '-c:v', 'libx264',
+      '-preset', 'medium',
+      '-crf', '23',
+      '-profile:v', 'high',
+      '-level', '4.0',
+      '-pix_fmt', 'yuv420p',
+      '-vsync', 'cfr',
+      '-r', '30',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
+      '-y',
+      tempMergedFile
+    ].join(' ')
     
     console.log('[Reprocess] Running FFmpeg command...')
     console.log(`[Reprocess] Command: ${mergeCommand}`)
+    console.log(`[Reprocess] Filter complex: ${filterComplex}`)
+    
     const { stdout, stderr } = await execAsync(mergeCommand)
     
     // Log full FFmpeg output
     console.log('[Reprocess] FFmpeg stdout:')
     console.log(stdout || '(empty)')
-    console.log('[Reprocess] FFmpeg stderr:')
-    console.log(stderr || '(empty)')
+    console.log('[Reprocess] FFmpeg stderr (last 50 lines):')
+    const stderrLines = stderr ? stderr.split('\n') : []
+    const lastStderrLines = stderrLines.slice(-50).join('\n')
+    console.log(lastStderrLines || '(empty)')
     
-    if (stderr && !stderr.includes('frame=')) {
-      console.warn('[Reprocess] FFmpeg warnings detected in stderr')
+    // Check for critical errors (but ignore warnings about frame timing which are normal)
+    if (stderr) {
+      const criticalErrors = stderr.match(/Error|error|Invalid|invalid|Failed|failed/g)
+      if (criticalErrors && criticalErrors.length > 10) {
+        console.warn(`[Reprocess] ⚠️  Multiple errors detected (${criticalErrors.length} occurrences), but continuing...`)
+      }
     }
 
     if (!existsSync(tempMergedFile)) {
