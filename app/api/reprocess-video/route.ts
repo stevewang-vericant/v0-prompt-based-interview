@@ -61,7 +61,15 @@ export async function POST(request: NextRequest) {
       where: { interview_id: interviewId },
       include: {
         responses: {
-          orderBy: { sequence_number: 'asc' }
+          orderBy: { sequence_number: 'asc' },
+          include: {
+            prompt: {
+              select: {
+                prompt_text: true,
+                category: true
+              }
+            }
+          }
         }
       }
     })
@@ -260,16 +268,18 @@ export async function POST(request: NextRequest) {
       mergedVideoUrl: mergedVideoUrl,
       questions: interview.responses.map((response, index) => {
         const scaledDuration = Math.round(segmentDurations[index] * scaleFactor * 10) / 10
+        const promptText = response.prompt?.prompt_text || `Question ${response.sequence_number}`
+        const promptCategory = response.prompt?.category || 'General'
         const questionData = {
           id: response.prompt_id || `question-${index + 1}`,
           questionNumber: response.sequence_number,
-          category: 'General',
-          text: `Question ${response.sequence_number}`,
+          category: promptCategory,
+          text: promptText,
           startTime: Math.round(cumulativeTime * 10) / 10,
           endTime: Math.round((cumulativeTime + scaledDuration) * 10) / 10,
           duration: scaledDuration
         }
-        console.log(`[Reprocess]   Question ${response.sequence_number}: ${questionData.startTime}s - ${questionData.endTime}s (${scaledDuration}s)`)
+        console.log(`[Reprocess]   Question ${response.sequence_number}: ${questionData.startTime}s - ${questionData.endTime}s (${scaledDuration}s) - "${promptText.substring(0, 50)}${promptText.length > 50 ? '...' : ''}"`)
         cumulativeTime += scaledDuration
         return questionData
       })
