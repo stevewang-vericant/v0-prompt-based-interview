@@ -81,12 +81,17 @@ export async function processVideoMergeTask(taskId: string) {
     console.log(`[Task ${taskId}] Segments count:`, segments.length)
 
     // Load prompts text for better subtitles
-    const promptIds = Array.from(
+    // UUID regex pattern to filter out non-UUID promptIds like "free-speech"
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const allPromptIds = Array.from(
       new Set(segments.map((seg) => seg.promptId).filter(Boolean))
     )
-    const prompts = promptIds.length
+    // Only query database with valid UUIDs
+    const validUuidPromptIds = allPromptIds.filter((id) => uuidPattern.test(id))
+    
+    const prompts = validUuidPromptIds.length
       ? await prisma.prompt.findMany({
-          where: { id: { in: promptIds } },
+          where: { id: { in: validUuidPromptIds } },
           select: { id: true, prompt_text: true, category: true },
         })
       : []
@@ -97,6 +102,14 @@ export async function processVideoMergeTask(taskId: string) {
         category: prompt.category,
       })
     })
+    
+    // Handle special "free-speech" prompt manually
+    if (allPromptIds.includes('free-speech')) {
+      promptMap.set('free-speech', {
+        prompt_text: 'This is your free speech time. You can say anything you want.',
+        category: 'Free Speech',
+      })
+    }
     
     // 下载所有分段视频并获取实际时长
     const videoBuffers: Buffer[] = []
