@@ -27,6 +27,7 @@ interface TranscriptionData {
   status: 'pending' | 'processing' | 'completed' | 'failed'
   transcription?: string
   aiSummary?: string
+  errorMessage?: string
   metadata?: {
     language?: string
     duration?: number
@@ -39,6 +40,7 @@ interface TranscriptionData {
     }>
     createdAt: string
     model: string
+    error?: string
   }
 }
 
@@ -69,7 +71,8 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
           status: data.status,
           transcription: data.transcription,
           aiSummary: data.aiSummary,
-          metadata: data.metadata
+          metadata: data.metadata,
+          errorMessage: data.errorMessage
         })
         console.log('[TranscriptionDisplay] State updated successfully')
       } else {
@@ -290,8 +293,13 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
           <div className="space-y-4">
             <Alert variant="destructive" className="mb-4">
               <XCircle className="h-4 w-4" />
-              <AlertDescription>
-                Transcription failed. Please try refreshing or contact support if the issue persists.
+              <AlertDescription className="space-y-1">
+                <div>Transcription failed. Please try refreshing or contact support if the issue persists.</div>
+                {transcriptionData.errorMessage && (
+                  <div className="text-xs opacity-80 mt-1 font-mono bg-destructive/10 p-2 rounded">
+                    Error: {transcriptionData.errorMessage}
+                  </div>
+                )}
               </AlertDescription>
             </Alert>
             
@@ -314,7 +322,7 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
                 )}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Click to manually retry transcription using OpenAI Whisper
+                Click to manually retry transcription
               </p>
             </div>
           </div>
@@ -357,7 +365,7 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
                 )}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Click to manually trigger transcription using OpenAI Whisper
+                Click to manually trigger transcription
               </p>
             </div>
           </div>

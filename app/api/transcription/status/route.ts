@@ -18,12 +18,16 @@ export async function GET(request: NextRequest) {
     const result = await getTranscriptionStatus(interviewId)
     
     if (result.success) {
+        // 从 metadata 中提取错误信息（如果有）
+        const errorMessage = (result.metadata as any)?.error
+        
         return NextResponse.json({
           success: true,
           status: result.status,
           transcription: result.transcription,
           aiSummary: result.aiSummary,
-          metadata: result.metadata
+          metadata: result.metadata,
+          errorMessage: errorMessage
         })
     } else {
       return NextResponse.json(
