@@ -1,0 +1,71 @@
+---
+description: Production deployment instructions for Linode-Athena server
+globs: 
+alwaysApply: true
+---
+
+# Production Deployment
+
+**IMPORTANT**: Production is deployed on Linode-Athena server via SSH, NOT Vercel.
+
+## Server Details
+
+- SSH Host: `linode-Athena` (configured in ~/.ssh/config)
+- User: `root` (SSH as root, then switch to v0-interview user)
+- Project Path: `/home/v0-interview/apps/v0-interview`
+- Deployment Script: `deploy-linode.sh`
+- Docker Compose File: `docker-compose.linode.yml`
+
+## Deployment Workflow
+
+1. **Local Development & Testing**:
+   - Implement feature on a feature branch
+   - Run `npm run dev` locally to test
+   - Verify functionality works correctly
+   - Only proceed to deployment after local verification passes
+
+2. **Code is merged to `main` branch** (after local testing passes)
+
+3. **SSH to server and deploy**:
+   ```bash
+   ssh linode-Athena
+   su - v0-interview
+   cd /home/v0-interview/apps/v0-interview
+   ./deploy-linode.sh
+   ```
+
+## Deployment Script Actions
+
+- Pulls latest code from `main` branch
+- Stops old containers
+- Builds new Docker images
+- Starts PostgreSQL and application containers
+- Runs Prisma database migrations (`npx prisma db push`)
+- Checks application health status
+
+## Manual Database Migration (if needed)
+
+```bash
+docker compose -f docker-compose.linode.yml exec -T interview-app sh -c 'npx prisma@6.19.0 db push'
+```
+
+## Verification
+
+```bash
+# Check container status
+docker compose -f docker-compose.linode.yml ps
+
+# View application logs
+docker compose -f docker-compose.linode.yml logs -f interview-app
+
+# Test application
+curl http://localhost:3001
+```
+
+## Important Notes
+
+- Always deploy from `main` branch after testing on feature branch
+- The deployment script handles code pulling automatically
+- Database migrations are run automatically via Prisma
+- If Prisma version conflicts occur, use `npx prisma@6.19.0` explicitly
+- Application runs on port 3001 (mapped from container port 3000)

@@ -1,0 +1,36 @@
+---
+description: Code style and editor preferences
+globs: 
+alwaysApply: true
+---
+
+# Code Style & Editor Preferences
+
+## Text Editor Commands
+
+- **Always use `vim` (or `vi`/`nvim`) for file editing commands in documentation and scripts**
+- **Never use `nano` or other editors in examples or instructions**
+
+### Examples
+
+- ✅ Correct: `vim .env.production`
+- ✅ Correct: `sudo vim /etc/nginx/sites-available/app`
+- ❌ Incorrect: `nano .env.production`
+
+## Code Style
+
+- Use TypeScript/JavaScript best practices
+- Follow Next.js conventions
+- Maintain consistent code formatting
+
+## Local Development
+
+**Platform**: macOS (no Docker)
+**Development Server**: Next.js dev server (`npm run dev`)
+**Port**: 3000 (default)
+
+### Workflow
+
+1. **Always test locally first**: After implementing a feature, run `npm run dev` to start the local development server
+2. **Verify functionality**: Test the feature thoroughly in the local environment before deploying to production
+3. **Only deploy after local verification**: Never deploy to production without first testing locally

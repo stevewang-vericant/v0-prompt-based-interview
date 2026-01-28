@@ -1,0 +1,65 @@
+---
+description: Database scripts and SQL conventions
+globs: "**/*.sql"
+alwaysApply: false
+---
+
+# Database Scripts Rules
+
+## SQL File Naming Convention
+
+**Format**: `YYMMDD_operation_description[_version].sql`
+
+### Components
+
+- **Prefix**: `YYMMDD_` - Date prefix (e.g., `241229_` for December 29, 2024)
+- **Operation Description**: Descriptive name with lowercase and underscores
+- **Version Suffix** (optional): `_1`, `_2`, etc.
+
+### Examples
+
+- ✅ `241229_add_student_gender_field.sql`
+- ✅ `241229_update_school_default_prompts.sql`
+- ❌ `add_field.sql` - Missing date prefix
+- ❌ `fix.sql` - Not descriptive
+
+## File Header Comment
+
+Always include:
+- What the script does
+- Why it's needed
+- Which tables/models are affected
+- Any dependencies
+- Author and date
+
+## Script Location
+
+- Place SQL files in the `scripts/` directory
+- Prisma migrations go in `prisma/migrations/`
+
+## Password Protection Rules
+
+**CRITICAL**: SQL scripts must protect user passwords from accidental overwrites.
+
+### Rules
+
+1. **Never update `password_hash` in `ON CONFLICT` clauses** unless explicitly resetting passwords
+2. **Skip existing records** when importing data, rather than updating them
+3. **Scripts that modify user/school data** must preserve existing passwords
+
+### Examples
+
+```sql
+-- ✅ Good: Adding schools without touching passwords
+INSERT INTO schools (code, name, email, password_hash, ...)
+VALUES (...)
+ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  updated_at = CURRENT_TIMESTAMP;
+  -- Note: password_hash is NOT updated
+
+-- ❌ Bad: Accidentally overwriting passwords
+ON CONFLICT (code) DO UPDATE SET
+  password_hash = EXCLUDED.password_hash;  -- DANGEROUS!
+```
