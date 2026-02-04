@@ -5,10 +5,15 @@ import { hashPassword, verifyPassword } from "@/lib/auth-utils"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { SignJWT, jwtVerify } from "jose"
+import crypto from "crypto"
+import { sendPasswordResetEmail } from "@/lib/email"
 
 // 简单的 Session 管理，使用 JWT 存储在 HttpOnly Cookie 中
 const SECRET_KEY = new TextEncoder().encode(process.env.AUTH_SECRET || "default_secret_key_change_me")
 const ALG = "HS256"
+
+// Password reset token expiration time (1 hour)
+const RESET_TOKEN_EXPIRATION_HOURS = 1
 
 /**
  * 学校列表类型
@@ -376,6 +381,220 @@ export async function changePassword(
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
+    }
+  }
+}
+
+/**
+ * 请求密码重置
+ * 支持两种账号类型：SchoolAdmin（新账号）和 School（旧账号，向后兼容）
+ * 无论邮箱是否存在，都返回相同的成功消息（安全考虑）
+ */
+export async function requestPasswordReset(
+  email: string
+): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim()
+
+    // 1. 查找用户（先查 SchoolAdmin，再查 School）
+    let userId: string | null = null
+    let userType: 'school_admin' | 'school' | null = null
+
+    // 首先查找 SchoolAdmin（新账号）
+    const admin = await prisma.schoolAdmin.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, active: true }
+    })
+
+    if (admin) {
+      // 只有已激活的账号才能重置密码
+      if (!admin.active) {
+        // 返回成功但不发送邮件（账号未激活）
+        console.log("[Auth] Password reset requested for inactive account:", normalizedEmail)
+        return { success: true }
+      }
+      userId = admin.id
+      userType = 'school_admin'
+    } else {
+      // 查找 School（旧账号，向后兼容）
+      const school = await prisma.school.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true, active: true }
+      })
+
+      if (school) {
+        if (!school.active) {
+          console.log("[Auth] Password reset requested for inactive school:", normalizedEmail)
+          return { success: true }
+        }
+        userId = school.id
+        userType = 'school'
+      }
+    }
+
+    // 如果用户不存在，仍返回成功（不透露用户是否存在）
+    if (!userId || !userType) {
+      console.log("[Auth] Password reset requested for non-existent email:", normalizedEmail)
+      return { success: true }
+    }
+
+    // 2. 生成 64 字符随机 token
+    const resetToken = crypto.randomBytes(32).toString('hex')
+
+    // 3. 删除该邮箱之前未使用的重置令牌
+    await prisma.passwordResetToken.deleteMany({
+      where: {
+        email: normalizedEmail,
+        used: false
+      }
+    })
+
+    // 4. 创建新的重置令牌记录（1小时有效期）
+    const expiresAt = new Date()
+    expiresAt.setHours(expiresAt.getHours() + RESET_TOKEN_EXPIRATION_HOURS)
+
+    await prisma.passwordResetToken.create({
+      data: {
+        token: resetToken,
+        email: normalizedEmail,
+        user_type: userType,
+        user_id: userId,
+        expires_at: expiresAt
+      }
+    })
+
+    // 5. 发送重置邮件
+    try {
+      await sendPasswordResetEmail(normalizedEmail, resetToken)
+      console.log("[Auth] Password reset email sent to:", normalizedEmail)
+    } catch (emailError) {
+      console.error("[Auth] Failed to send password reset email:", emailError)
+      // 删除刚创建的令牌
+      await prisma.passwordResetToken.deleteMany({
+        where: { token: resetToken }
+      })
+      return { success: false, error: "Failed to send reset email. Please try again later." }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error("[Auth] Unexpected error during password reset request:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * 验证重置令牌
+ */
+export async function verifyResetToken(
+  token: string
+): Promise<{
+  success: boolean
+  valid: boolean
+  error?: string
+}> {
+  try {
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token }
+    })
+
+    // 检查令牌是否存在
+    if (!resetToken) {
+      return { success: true, valid: false, error: "Invalid or expired reset link" }
+    }
+
+    // 检查是否已使用
+    if (resetToken.used) {
+      return { success: true, valid: false, error: "This reset link has already been used" }
+    }
+
+    // 检查是否过期
+    if (new Date() > resetToken.expires_at) {
+      return { success: true, valid: false, error: "This reset link has expired" }
+    }
+
+    return { success: true, valid: true }
+  } catch (error) {
+    console.error("[Auth] Unexpected error during token verification:", error)
+    return {
+      success: false,
+      valid: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * 重置密码（使用令牌）
+ */
+export async function resetPasswordWithToken(
+  token: string,
+  newPassword: string
+): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    // 1. 验证令牌
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token }
+    })
+
+    if (!resetToken) {
+      return { success: false, error: "Invalid or expired reset link" }
+    }
+
+    if (resetToken.used) {
+      return { success: false, error: "This reset link has already been used" }
+    }
+
+    if (new Date() > resetToken.expires_at) {
+      return { success: false, error: "This reset link has expired" }
+    }
+
+    // 2. 更新用户密码
+    const hashedPassword = await hashPassword(newPassword)
+
+    if (resetToken.user_type === 'school_admin') {
+      await prisma.schoolAdmin.update({
+        where: { id: resetToken.user_id },
+        data: { password_hash: hashedPassword }
+      })
+    } else {
+      await prisma.school.update({
+        where: { id: resetToken.user_id },
+        data: { password_hash: hashedPassword }
+      })
+    }
+
+    // 3. 标记令牌为已使用
+    await prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { used: true }
+    })
+
+    // 4. 删除该用户所有未使用的重置令牌（清理）
+    await prisma.passwordResetToken.deleteMany({
+      where: {
+        email: resetToken.email,
+        used: false
+      }
+    })
+
+    console.log("[Auth] Password reset successfully for:", resetToken.email)
+    return { success: true }
+  } catch (error) {
+    console.error("[Auth] Unexpected error during password reset:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
 }

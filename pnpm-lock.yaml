@@ -116,6 +116,9 @@ importers:
       '@types/fluent-ffmpeg':
         specifier: ^2.1.27
         version: 2.1.27
+      '@types/nodemailer':
+        specifier: ^7.0.9
+        version: 7.0.9
       '@vercel/analytics':
         specifier: latest
         version: 1.5.0(next@15.5.7(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
@@ -161,6 +164,9 @@ importers:
       next-themes:
         specifier: latest
         version: 0.4.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      nodemailer:
+        specifier: ^8.0.0
+        version: 8.0.0
       openai:
         specifier: ^6.5.0
         version: 6.5.0(ws@8.18.3)(zod@3.25.76)
@@ -1811,6 +1817,9 @@ packages:
   '@types/node@22.0.0':
     resolution: {integrity: sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==}
 
+  '@types/nodemailer@7.0.9':
+    resolution: {integrity: sha512-vI8oF1M+8JvQhsId0Pc38BdUP2evenIIys7c7p+9OZXSPOH5c1dyINP1jT8xQ2xPuBUXmIC87s+91IZMDjH8Ow==}
+
   '@types/phoenix@1.6.6':
     resolution: {integrity: sha512-PIzZZlEppgrpoT2QgbnDU+MMzuR6BbCjllj0bM70lWoejMeNJAxCchxnv7J3XFkI8MpygtRpzXrIlmWUBclP5A==}
 
@@ -2237,6 +2246,10 @@ packages:
 
   node-releases@2.0.23:
     resolution: {integrity: sha512-cCmFDMSm26S6tQSDpBCg/NR8NENrVPhAJSf+XbxBG4rPFaaonlEoE9wHQmun+cls499TQGSb7ZyPBRlzgKfpeg==}
+
+  nodemailer@8.0.0:
+    resolution: {integrity: sha512-xvVJf/f0bzmNpnRIbhCp/IKxaHgJ6QynvUbLXzzMRPG3LDQr5oXkYuw4uDFyFYs8cge8agwwrJAXZsd4hhMquw==}
+    engines: {node: '>=6.0.0'}
 
   normalize-range@0.1.2:
     resolution: {integrity: sha512-bdok/XvKII3nUpklnV6P2hxtMNrCboOjAcyBuQnWEhO665FwrSNRxU+AqpsyvO6LgGYPspN+lu5CLtw4jPRKNA==}
@@ -4521,6 +4534,10 @@ snapshots:
     dependencies:
       undici-types: 6.11.1
 
+  '@types/nodemailer@7.0.9':
+    dependencies:
+      '@types/node': 22.0.0
+
   '@types/phoenix@1.6.6': {}
 
   '@types/react-dom@19.0.0':
@@ -4872,6 +4889,8 @@ snapshots:
   node-gyp-build@4.8.4: {}
 
   node-releases@2.0.23: {}
+
+  nodemailer@8.0.0: {}
 
   normalize-range@0.1.2: {}
 
