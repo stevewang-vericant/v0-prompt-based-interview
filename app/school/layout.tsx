@@ -22,8 +22,11 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
 
-  // 如果是登录或注册页面，不需要检查认证
-  const isAuthPage = pathname === "/school/login" || pathname === "/school/register"
+  // 如果是登录、注册、忘记密码或重置密码页面，不需要检查认证
+  const isAuthPage = pathname === "/school/login" || 
+                     pathname === "/school/register" || 
+                     pathname === "/school/forgot-password" || 
+                     pathname === "/school/reset-password"
 
   useEffect(() => {
     // 如果是登录或注册页面，直接返回，不检查认证
