@@ -124,13 +124,9 @@ function ResetPasswordContent() {
               <Alert className="border-green-200 bg-green-50">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">
-                  Your password has been reset successfully!
+                  Your password has been reset successfully! You will be redirected to the login page in 3 seconds...
                 </AlertDescription>
               </Alert>
-              
-              <p className="text-sm text-slate-600 text-center">
-                密码重置成功！您将在3秒后跳转到登录页面...
-              </p>
 
               <div className="text-center pt-4">
                 <Link 
@@ -151,7 +147,7 @@ function ResetPasswordContent() {
               </Alert>
               
               <p className="text-sm text-slate-600 text-center">
-                重置链接无效或已过期。请重新请求密码重置。
+                The reset link is invalid or has expired. Please request a new password reset.
               </p>
 
               <div className="flex flex-col space-y-2 pt-4">

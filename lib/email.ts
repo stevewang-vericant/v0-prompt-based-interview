@@ -24,7 +24,7 @@ export async function sendPasswordResetEmail(
   const mailOptions = {
     from: process.env.GMAIL_USER,
     to,
-    subject: '重置您的密码 - Reset Your Password',
+    subject: 'Reset Your Password',
     html: `
       <!DOCTYPE html>
       <html>
@@ -34,20 +34,20 @@ export async function sendPasswordResetEmail(
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-          <h2 style="color: #1a1a1a; margin-bottom: 20px;">密码重置请求 / Password Reset Request</h2>
+          <h2 style="color: #1a1a1a; margin-bottom: 20px;">Password Reset Request</h2>
           
-          <p>您好，</p>
-          <p>您收到此邮件是因为您（或其他人）请求重置您的账户密码。</p>
-          <p>请点击下方按钮重置密码（链接在1小时内有效）：</p>
+          <p>Hello,</p>
+          <p>You are receiving this email because you (or someone else) requested to reset your account password.</p>
+          <p>Please click the button below to reset your password (this link is valid for 1 hour):</p>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="${resetUrl}" 
                style="background-color: #0070f3; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">
-              重置密码 / Reset Password
+              Reset Password
             </a>
           </div>
           
-          <p style="color: #666; font-size: 14px;">如果按钮无法点击，请复制以下链接到浏览器地址栏：</p>
+          <p style="color: #666; font-size: 14px;">If the button doesn't work, copy and paste the following link into your browser:</p>
           <p style="background-color: #e9ecef; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 13px;">
             ${resetUrl}
           </p>
@@ -55,28 +55,23 @@ export async function sendPasswordResetEmail(
           <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
           
           <p style="color: #666; font-size: 13px;">
-            如果您没有请求重置密码，请忽略此邮件，您的密码将保持不变。<br>
-            If you did not request a password reset, please ignore this email.
+            If you did not request a password reset, please ignore this email and your password will remain unchanged.
           </p>
         </div>
       </body>
       </html>
     `,
     text: `
-密码重置请求 / Password Reset Request
+Password Reset Request
 
-您好，
+Hello,
 
-您收到此邮件是因为您（或其他人）请求重置您的账户密码。
+You are receiving this email because you (or someone else) requested to reset your account password.
 
-请点击以下链接重置密码（链接在1小时内有效）：
+Please click the following link to reset your password (this link is valid for 1 hour):
 ${resetUrl}
 
-如果您没有请求重置密码，请忽略此邮件，您的密码将保持不变。
-
----
-
-If you did not request a password reset, please ignore this email.
+If you did not request a password reset, please ignore this email and your password will remain unchanged.
     `.trim(),
   }
 

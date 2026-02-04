@@ -59,10 +59,6 @@ export default function ForgotPasswordPage() {
                   Please check your inbox (and spam folder).
                 </AlertDescription>
               </Alert>
-              
-              <p className="text-sm text-slate-600 text-center">
-                如果该邮箱已注册，您将收到一封包含重置链接的邮件。请检查您的收件箱（包括垃圾邮件文件夹）。
-              </p>
 
               <div className="text-center pt-4">
                 <Link 
