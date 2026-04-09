@@ -17,12 +17,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { 
   saveVideoSegment, 
-  getPendingSegments, 
+  getPendingSegments,
+  getAllSegments,
   markSegmentAsUploaded, 
   clearUploadedSegments,
-  hasPendingUploads,
-  getInterviewsWithPendingUploads,
-  type VideoSegment
+  clearAllSegments,
+  getInterviewsWithPendingUploads
 } from "@/lib/indexeddb"
 
 interface Prompt {
@@ -52,6 +52,8 @@ function InterviewPageContent() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState("")
   const [hasPending, setHasPending] = useState(false)
+  const [isResumeUpload, setIsResumeUpload] = useState(false)
+  const [pendingUploadCount, setPendingUploadCount] = useState(0)
   // Student info collected before interview
   const [studentInfo, setStudentInfo] = useState<{
     email: string
@@ -123,111 +125,178 @@ function InterviewPageContent() {
     }
   }, [])
 
-  // 页面加载时检查是否有未完成的上传
+  // Check for unfinished interview data when page loads.
+  // Waits for both interviewId and prompts to be ready to avoid race conditions.
   useEffect(() => {
-    if (!interviewId) return // 等待 interviewId 初始化完成
-    
+    if (!interviewId) return
+    if (promptsLoading || prompts.length === 0) return
+
     const checkPendingUploads = async () => {
       try {
-        // 首先检查当前 interviewId 是否有未完成的上传
-        const pending = await hasPendingUploads(interviewId)
-        if (pending) {
-          setHasPending(true)
-          const pendingSegments = await getPendingSegments(interviewId)
-          console.log(`[v0] Found ${pendingSegments.length} pending segments for ${interviewId}`)
-          
-          // 检查是否所有问题都已录制完成
-          const totalPrompts = prompts.length
-          const recordedPrompts = pendingSegments.length
-          
-          if (recordedPrompts < totalPrompts) {
-            // 面试未完成，需要继续录制
-            const shouldResume = confirm(
-              `检测到未完成的面试（已录制 ${recordedPrompts}/${totalPrompts} 个问题）。是否继续完成面试？`
-            )
-            
-            if (shouldResume) {
-              // 恢复已录制的片段
-              const allResponses: Record<string, Blob> = {}
-              pendingSegments.forEach(seg => {
-                allResponses[seg.promptId] = seg.blob
-              })
-              setResponses(allResponses)
-              
-              // 设置当前问题索引为已录制的问题数量
-              setCurrentPromptIndex(recordedPrompts)
-              
-              // 继续面试流程（从下一个问题开始）
-              setStage("interview")
-              console.log(`[v0] Resuming interview from question ${recordedPrompts + 1}`)
-            }
-          } else {
-            // 所有问题都已录制完成，可以上传
-            const shouldResume = confirm(
-              `检测到 ${recordedPrompts} 个未上传的视频片段，是否继续上传？`
-            )
-            
-            if (shouldResume) {
-              // 自动继续上传
-              const allResponses: Record<string, Blob> = {}
-              pendingSegments.forEach(seg => {
-                allResponses[seg.promptId] = seg.blob
-              })
-              setResponses(allResponses)
-              setStage("complete")
-              // 注意：这里不自动触发上传，需要用户点击提交按钮
-            }
+        const totalPrompts = prompts.length
+
+        // Clean up old interview and start a fresh one
+        const startFresh = async (oldId: string) => {
+          console.log('[v0] Starting fresh, cleaning up:', oldId)
+          await clearAllSegments(oldId)
+          try {
+            const { deleteIncompleteInterview } = await import('@/app/actions/interviews')
+            await deleteIncompleteInterview(oldId)
+          } catch (err) {
+            console.warn('[v0] Could not delete incomplete interview from DB:', err)
           }
-        } else {
-          // 如果没有当前 interviewId 的未完成上传，检查是否有其他未完成的上传
-          const allPendingInterviews = await getInterviewsWithPendingUploads()
-          if (allPendingInterviews.length > 0) {
-            console.log(`[v0] Found ${allPendingInterviews.length} interviews with pending uploads:`, allPendingInterviews)
-            
-            // 如果有其他未完成的上传，询问用户是否恢复
-            const shouldResume = confirm(
-              `检测到 ${allPendingInterviews.length} 个未完成的面试，是否恢复最近的面试？`
-            )
-            
-            if (shouldResume && allPendingInterviews.length > 0) {
-              // 使用最近的 interviewId
-              const resumeInterviewId = allPendingInterviews[0]
-              setInterviewId(resumeInterviewId)
-              localStorage.setItem('currentInterviewId', resumeInterviewId)
-              
-              const pendingSegments = await getPendingSegments(resumeInterviewId)
-              const totalPrompts = prompts.length
-              const recordedPrompts = pendingSegments.length
-              
-              if (recordedPrompts < totalPrompts) {
-                // 面试未完成，需要继续录制
-                const allResponses: Record<string, Blob> = {}
-                pendingSegments.forEach(seg => {
-                  allResponses[seg.promptId] = seg.blob
-                })
-                setResponses(allResponses)
-                setCurrentPromptIndex(recordedPrompts)
-                setStage("interview")
-                console.log(`[v0] Resuming interview from question ${recordedPrompts + 1}`)
-              } else {
-                // 所有问题都已录制完成，可以上传
-                const allResponses: Record<string, Blob> = {}
-                pendingSegments.forEach(seg => {
-                  allResponses[seg.promptId] = seg.blob
-                })
-                setResponses(allResponses)
-                setStage("complete")
+          localStorage.removeItem('currentInterviewId')
+          const newId = `interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          localStorage.setItem('currentInterviewId', newId)
+          setInterviewId(newId)
+          setResponses({})
+          setHasPending(false)
+          console.log('[v0] Fresh start with new interviewId:', newId)
+        }
+
+        // Restore student info from the database
+        const restoreStudentInfo = async (targetId: string): Promise<boolean> => {
+          try {
+            const { getInterviewById } = await import('@/app/actions/interviews')
+            const result = await getInterviewById(targetId)
+            if (result.success && result.interview) {
+              const iv = result.interview
+              setStudentInfo({
+                email: iv.student_email || '',
+                name: iv.student_name || '',
+                gender: iv.student_gender,
+                currentGrade: iv.student_grade,
+                residencyCity: iv.student_city,
+                residenceCountry: 'Unknown',
+                needFinancialAid: iv.student_financial_aid
+              })
+              console.log('[v0] Restored student info from database')
+              return true
+            }
+          } catch (err) {
+            console.warn('[v0] Could not restore student info:', err)
+          }
+          return false
+        }
+
+        // Core resume handler for a given interviewId
+        const handleResume = async (targetId: string): Promise<boolean> => {
+          const allSegs = await getAllSegments(targetId)
+          const pendingSegs = await getPendingSegments(targetId)
+          const totalRecorded = allSegs.length
+          const totalPending = pendingSegs.length
+
+          if (totalRecorded === 0) return false
+
+          // Determine the correct expected prompt count for this interview.
+          // For the current interviewId we trust the page's prompts; for other
+          // interviews (possibly from a different school) we look up the DB
+          // metadata first and fall back to treating recorded count as total.
+          let expectedTotal = totalPrompts
+          if (targetId !== interviewId) {
+            try {
+              const { getInterviewById } = await import('@/app/actions/interviews')
+              const result = await getInterviewById(targetId)
+              if (result.success && result.interview?.metadata) {
+                const meta = result.interview.metadata as Record<string, any>
+                if (typeof meta.segmentCount === 'number' && meta.segmentCount > 0) {
+                  expectedTotal = meta.segmentCount
+                }
               }
+            } catch (err) {
+              console.warn('[v0] Could not fetch interview metadata for prompt count:', err)
+            }
+            if (totalRecorded > expectedTotal) {
+              expectedTotal = totalRecorded
             }
           }
+
+          console.log(`[v0] Interview ${targetId}: recorded=${totalRecorded}, pending=${totalPending}, expectedTotal=${expectedTotal}`)
+
+          // Case C: fully recorded & fully uploaded — stale data, just clean up
+          if (totalRecorded >= expectedTotal && totalPending === 0) {
+            console.log('[v0] All segments already uploaded, cleaning up stale data')
+            await clearAllSegments(targetId)
+            return false
+          }
+
+          // Case A: partially recorded (not all questions answered yet)
+          if (totalRecorded < expectedTotal) {
+            setHasPending(true)
+            const shouldContinue = confirm(
+              `You have an incomplete interview (recorded ${totalRecorded} of ${expectedTotal} questions). ` +
+              `Would you like to continue recording from question ${totalRecorded + 1}?\n\n` +
+              `Click OK to continue, or Cancel to start a new interview.`
+            )
+
+            if (shouldContinue) {
+              if (targetId !== interviewId) {
+                setInterviewId(targetId)
+                localStorage.setItem('currentInterviewId', targetId)
+              }
+              await restoreStudentInfo(targetId)
+              const restored: Record<string, Blob> = {}
+              allSegs.forEach(seg => { restored[seg.promptId] = seg.blob })
+              setResponses(restored)
+              setCurrentPromptIndex(totalRecorded)
+              setStage("interview")
+              console.log(`[v0] Resuming recording from question ${totalRecorded + 1}`)
+            } else {
+              await startFresh(targetId)
+            }
+            return true
+          }
+
+          // Case B: fully recorded, partially uploaded
+          const uploaded = totalRecorded - totalPending
+          setHasPending(true)
+          const shouldContinue = confirm(
+            `Your interview recording is complete (${uploaded} of ${expectedTotal} videos uploaded). ` +
+            `Would you like to continue uploading the remaining ${totalPending} videos?\n\n` +
+            `Click OK to continue uploading, or Cancel to start a new interview.`
+          )
+
+          if (shouldContinue) {
+            if (targetId !== interviewId) {
+              setInterviewId(targetId)
+              localStorage.setItem('currentInterviewId', targetId)
+            }
+            const restored = await restoreStudentInfo(targetId)
+            if (!restored) {
+              alert('Unable to restore student information. Please re-enter your details.')
+              setStage("student-info")
+              return true
+            }
+            const pendingResponses: Record<string, Blob> = {}
+            pendingSegs.forEach(seg => { pendingResponses[seg.promptId] = seg.blob })
+            setResponses(pendingResponses)
+            setIsResumeUpload(true)
+            setPendingUploadCount(totalPending)
+            setStage("complete")
+            console.log(`[v0] Resuming upload: ${totalPending} segments remaining`)
+          } else {
+            await startFresh(targetId)
+          }
+          return true
+        }
+
+        // 1. Check current interviewId first
+        const handled = await handleResume(interviewId)
+        if (handled) return
+
+        // 2. Check other interviews stored in IndexedDB
+        const otherInterviews = await getInterviewsWithPendingUploads()
+        if (otherInterviews.length > 0) {
+          console.log(`[v0] Found ${otherInterviews.length} other interviews with pending data:`, otherInterviews)
+          await handleResume(otherInterviews[0])
         }
       } catch (error) {
         console.error('[v0] Failed to check pending uploads:', error)
       }
     }
-    
+
     checkPendingUploads()
-  }, [interviewId])
+  }, [interviewId, prompts, promptsLoading])
 
   const handleStudentInfoComplete = (info: {
     email: string
@@ -712,12 +781,14 @@ function InterviewPageContent() {
 
         {stage === "complete" && (
           <InterviewComplete 
-            responsesCount={Object.keys(responses).length} 
+            responsesCount={isResumeUpload ? prompts.length : Object.keys(responses).length} 
             onSubmit={handleSubmitInterview}
             isUploading={isUploading}
             uploadProgress={uploadProgress}
             uploadStatus={uploadStatus}
             interviewId={interviewId}
+            isResumeUpload={isResumeUpload}
+            pendingCount={isResumeUpload ? pendingUploadCount : 0}
           />
         )}
       </main>

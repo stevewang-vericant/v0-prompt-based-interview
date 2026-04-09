@@ -43,6 +43,7 @@ export interface InterviewRecord {
   completed_at: string | null
   submitted_at: string | null
   metadata: Record<string, any> | null
+  responseCount: number
   // 评分字段
   total_score: number | null
   fluency_score: number | null
@@ -68,6 +69,7 @@ function mapInterviewToRecord(interview: any): InterviewRecord {
     student_city: interview.student?.residency_city || null,
     student_financial_aid: interview.student?.need_financial_aid || null,
     school_code: interview.school?.code || null,
+    responseCount: interview._count?.responses ?? 0,
     metadata: interview.metadata as Record<string, any> || {},
     total_score: interview.total_score ? Number(interview.total_score) : null,
     fluency_score: interview.fluency_score ? Number(interview.fluency_score) : null,
@@ -136,7 +138,7 @@ export async function saveInterview(data: InterviewData): Promise<{
                     completed_at: completedAt,
                     submitted_at: submittedAt
                  },
-                 include: { student: true, school: true }
+                 include: { student: true, school: true, _count: { select: { responses: true } } }
              })
              return { success: true, interview: mapInterviewToRecord(updated) }
         } else {
@@ -170,7 +172,8 @@ export async function saveInterview(data: InterviewData): Promise<{
       },
       include: {
         student: true,
-        school: true
+        school: true,
+        _count: { select: { responses: true } }
       }
     })
     
@@ -208,7 +211,7 @@ export async function getInterviews(
         orderBy: { created_at: 'desc' },
         skip: offset,
         take: limit,
-        include: { student: true, school: true }
+        include: { student: true, school: true, _count: { select: { responses: true } } }
       }),
       prisma.interview.count()
     ])
@@ -241,7 +244,7 @@ export async function getInterviewById(interviewId: string): Promise<{
     
     const interview = await prisma.interview.findUnique({
       where: { interview_id: interviewId },
-      include: { student: true, school: true }
+      include: { student: true, school: true, _count: { select: { responses: true } } }
     })
     
     if (!interview) {
@@ -282,7 +285,7 @@ export async function getInterviewsByEmail(studentEmail: string): Promise<{
         }
       },
       orderBy: { created_at: 'desc' },
-      include: { student: true, school: true }
+      include: { student: true, school: true, _count: { select: { responses: true } } }
     })
     
     console.log("[DB] Found", interviews.length, "interviews for student")
@@ -354,7 +357,7 @@ export async function getInterviewsBySchoolCode(
         orderBy: { created_at: 'desc' },
         skip: offset,
         take: limit,
-        include: { student: true, school: true }
+        include: { student: true, school: true, _count: { select: { responses: true } } }
       }),
       prisma.interview.count({
         where: {
@@ -373,6 +376,47 @@ export async function getInterviewsBySchoolCode(
     }
   } catch (error) {
     console.error("[DB] Unexpected error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * Delete an incomplete interview and its cascaded responses.
+ * Safety guard: only deletes if video_url is null (not yet fully processed).
+ */
+export async function deleteIncompleteInterview(interviewId: string): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    console.log("[DB] Attempting to delete incomplete interview:", interviewId)
+
+    const interview = await prisma.interview.findUnique({
+      where: { interview_id: interviewId },
+      select: { id: true, video_url: true }
+    })
+
+    if (!interview) {
+      console.log("[DB] Interview not found, nothing to delete")
+      return { success: true }
+    }
+
+    if (interview.video_url) {
+      console.log("[DB] Interview already has a merged video, refusing to delete")
+      return { success: false, error: "Cannot delete a completed interview with a processed video" }
+    }
+
+    await prisma.interview.delete({
+      where: { interview_id: interviewId }
+    })
+
+    console.log("[DB] Incomplete interview deleted successfully")
+    return { success: true }
+  } catch (error) {
+    console.error("[DB] Failed to delete incomplete interview:", error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

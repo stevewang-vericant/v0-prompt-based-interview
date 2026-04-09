@@ -11,7 +11,7 @@ import {
   InterviewRecord 
 } from "@/app/actions/interviews"
 import { getCurrentUser } from "@/app/actions/auth"
-import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut, Trash2, X, Upload } from "lucide-react"
+import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut, Trash2, X } from "lucide-react"
 import { format } from "date-fns"
 
 function SchoolDashboardContent() {
@@ -605,11 +605,31 @@ function SchoolDashboardContent() {
                             {interview.school_code}
                           </span>
                         )}
-                        {/* 显示处理状态 */}
+                        {/* Status badge */}
                         {!interview.video_url ? (
-                          <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-amber-100 text-amber-800">
-                            Processing
-                          </span>
+                          (() => {
+                            const meta = interview.metadata as Record<string, any> | null
+                            const isAllUploaded = meta?.status === 'uploaded'
+                            if (isAllUploaded) {
+                              return (
+                                <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-amber-100 text-amber-800">
+                                  Processing
+                                </span>
+                              )
+                            }
+                            if (interview.responseCount > 0) {
+                              return (
+                                <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-orange-100 text-orange-800">
+                                  Uploading ({interview.responseCount} uploaded)
+                                </span>
+                              )
+                            }
+                            return (
+                              <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-slate-100 text-slate-700">
+                                Not Started
+                              </span>
+                            )
+                          })()
                         ) : interview.status ? (
                           <span className={`px-2 py-0.5 text-xs rounded-full whitespace-nowrap ${
                             interview.status === 'completed' 
@@ -669,21 +689,6 @@ function SchoolDashboardContent() {
                       )}
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto shrink-0">
-                      {!interview.video_url && (
-                        <Button
-                          onClick={() => {
-                            // 跳转到重新上传页面
-                            window.location.href = `/student/interview/resume?interviewId=${interview.interview_id}&school=${interview.school_code || ''}`
-                          }}
-                          size="sm"
-                          variant="outline"
-                          className="w-full sm:w-auto"
-                          title="Resume upload if video segments are stored locally"
-                        >
-                          <Upload className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                          <span className="sm:inline">Resume Upload</span>
-                        </Button>
-                      )}
                       <Button
                         onClick={() => handleWatchInterview(interview)}
                         size="sm"
@@ -693,7 +698,7 @@ function SchoolDashboardContent() {
                       >
                         <Video className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                         <span className="sm:inline">
-                          {interview.video_url ? 'Watch' : 'Processing...'}
+                          {interview.video_url ? 'Watch' : ((interview.metadata as Record<string, any> | null)?.status === 'uploaded' ? 'Processing...' : 'Pending')}
                         </span>
                       </Button>
                     </div>
