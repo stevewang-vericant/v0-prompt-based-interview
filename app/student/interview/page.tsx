@@ -38,6 +38,7 @@ type InterviewStage = "setup" | "student-info" | "interview" | "complete"
 function InterviewPageContent() {
   const searchParams = useSearchParams()
   const schoolCode = searchParams.get("school")
+  const [isUnsupportedDevice, setIsUnsupportedDevice] = useState(false)
   
   const [stage, setStage] = useState<InterviewStage>("student-info")
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
@@ -64,6 +65,18 @@ function InterviewPageContent() {
     residenceCountry: string
     needFinancialAid?: boolean | null
   } | null>(null)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const userAgent = navigator.userAgent || ""
+    const isPhone = /iPhone|iPod|Android.*Mobile|Windows Phone|IEMobile|Opera Mini/i.test(userAgent)
+    const isTablet = /iPad|Tablet|PlayBook|Silk/i.test(userAgent) || (/Android/i.test(userAgent) && !/Mobile/i.test(userAgent))
+    // iPadOS 13+ may report itself as MacIntel; touch points help identify iPad.
+    const isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1
+
+    setIsUnsupportedDevice(isPhone || isTablet || isIPadOS)
+  }, [])
 
   // 加载 prompts
   useEffect(() => {
@@ -725,6 +738,16 @@ function InterviewPageContent() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isUnsupportedDevice && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Device Not Supported for Student Recording</AlertTitle>
+            <AlertDescription>
+              Interview recording is only available on PC or Mac. Please reopen this interview link on a desktop or laptop computer.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {promptsLoading && (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
@@ -752,7 +775,7 @@ function InterviewPageContent() {
           </Alert>
         )}
 
-        {!promptsLoading && !promptsError && prompts.length > 0 && (
+        {!isUnsupportedDevice && !promptsLoading && !promptsError && prompts.length > 0 && (
           <>
         {stage === "student-info" && (
           <InterviewStudentInfo 
