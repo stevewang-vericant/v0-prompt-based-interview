@@ -74,8 +74,8 @@ export default function StudentDashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading...</p>
         </div>
       </div>
     )
@@ -117,17 +117,17 @@ export default function StudentDashboardPage() {
   const statusInfo = getStatusInfo()
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f5f5f7]">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200">
+      <header className="bg-white border-b border-black/[0.06]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#1d1d1f] truncate">
                 Welcome, {student.firstName} {student.lastName}
               </h1>
-              <p className="text-sm text-slate-600 truncate">{student.email}</p>
-              <p className="text-xs text-slate-500 truncate">{student.schoolName}</p>
+              <p className="text-sm text-[rgba(0,0,0,0.56)] truncate">{student.email}</p>
+              <p className="text-xs text-[rgba(0,0,0,0.48)] truncate">{student.schoolName}</p>
             </div>
             <Button variant="outline" onClick={handleSignOut} className="w-full sm:w-auto">
               Sign Out
@@ -178,7 +178,7 @@ export default function StudentDashboardPage() {
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="h-5 w-5 text-slate-400" />
+                    <AlertCircle className="h-5 w-5 text-[rgba(0,0,0,0.36)]" />
                     <Badge variant="outline">Pending</Badge>
                   </>
                 )}
@@ -200,12 +200,12 @@ export default function StudentDashboardPage() {
                   </>
                 ) : student.interviewStatus === "in_progress" ? (
                   <>
-                    <Clock className="h-5 w-5 text-blue-600" />
+                    <Clock className="h-5 w-5 text-[#0071e3]" />
                     <Badge>In Progress</Badge>
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="h-5 w-5 text-slate-400" />
+                    <AlertCircle className="h-5 w-5 text-[rgba(0,0,0,0.36)]" />
                     <Badge variant="outline">Not Started</Badge>
                   </>
                 )}
@@ -255,8 +255,8 @@ export default function StudentDashboardPage() {
                   Watch Interview
                 </Button>
               </div>
-              <div className="bg-slate-100 p-3 rounded-lg">
-                <p className="text-xs text-slate-600">
+              <div className="bg-[#f5f5f7] p-3 rounded-lg">
+                <p className="text-xs text-[rgba(0,0,0,0.56)]">
                   ✓ Video with subtitles available
                 </p>
               </div>

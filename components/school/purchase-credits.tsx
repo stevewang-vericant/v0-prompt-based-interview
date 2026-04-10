@@ -46,7 +46,7 @@ export function PurchaseCredits() {
           <p className="text-sm text-muted-foreground">Minimum purchase: 10 credits</p>
         </div>
 
-        <div className="rounded-lg bg-slate-50 p-4 space-y-2">
+        <div className="rounded-lg bg-[#f5f5f7] p-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Price per credit:</span>
             <span className="font-medium">${pricePerCredit}</span>
@@ -55,7 +55,7 @@ export function PurchaseCredits() {
             <span className="text-muted-foreground">Quantity:</span>
             <span className="font-medium">{quantity}</span>
           </div>
-          <div className="border-t border-slate-200 pt-2 flex justify-between">
+          <div className="border-t border-black/[0.06] pt-2 flex justify-between">
             <span className="font-semibold">Total:</span>
             <span className="text-xl font-bold">${totalPrice.toLocaleString()}</span>
           </div>

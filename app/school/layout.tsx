@@ -22,14 +22,12 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
 
-  // 如果是登录、注册、忘记密码或重置密码页面，不需要检查认证
   const isAuthPage = pathname === "/school/login" || 
                      pathname === "/school/register" || 
                      pathname === "/school/forgot-password" || 
                      pathname === "/school/reset-password"
 
   useEffect(() => {
-    // 如果是登录或注册页面，直接返回，不检查认证
     if (isAuthPage) {
       return
     }
@@ -52,7 +50,6 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
     router.push("/school/login")
   }
 
-  // Build navigation dynamically based on user role
   const navigation = schoolInfo
     ? [
         {
@@ -82,27 +79,25 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
       ]
     : []
 
-  // 如果是登录或注册页面，直接渲染 children，不需要 sidebar
   if (isAuthPage) {
     return <>{children}</>
   }
 
-  // 如果还没有加载用户信息，显示加载状态
   if (!schoolInfo) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-[#f5f5f7]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-3 text-sm text-[rgba(0,0,0,0.48)] tracking-tight">Loading...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+    <div className="bg-[#f5f5f7]">
+      {/* Mobile top bar — frosted glass */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl backdrop-saturate-[180%] border-b border-black/[0.08] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Image
             src="/RGB Logo Verified Video Interviews.png"
@@ -112,11 +107,11 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
             className="h-5 w-auto"
             priority
           />
-          <span className="font-semibold text-slate-900 ml-2">{schoolInfo.name}</span>
+          <span className="font-semibold text-[#1d1d1f] ml-2 tracking-tight">{schoolInfo.name}</span>
         </div>
         <Button
           variant="ghost"
-          size="sm"
+          size="icon-sm"
           onClick={() => setSidebarOpen(!sidebarOpen)}
         >
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -126,16 +121,16 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <div
         className={`
-          fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transform transition-transform duration-200 ease-in-out
+          fixed inset-y-0 left-0 z-40 w-64 bg-white/80 backdrop-blur-xl backdrop-saturate-[180%] border-r border-black/[0.06] transform transition-transform duration-300 ease-out
           lg:translate-x-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
           pt-16 lg:pt-0
         `}
       >
         <div className="flex flex-col h-full">
-          {/* Logo/School Name */}
-          <div className="px-6 py-4 border-b border-slate-200">
-            <div className="flex flex-col gap-3">
+          {/* Logo / School Name */}
+          <div className="px-6 py-5 border-b border-black/[0.06]">
+            <div className="flex flex-col gap-4">
               <div className="flex justify-center">
                 <Image
                   src="/RGB Logo Verified Video Interviews.png"
@@ -146,18 +141,20 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                   priority
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-slate-600 flex-shrink-0" />
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-[#f5f5f7]">
+                  <Building2 className="h-4 w-4 text-[rgba(0,0,0,0.56)]" />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900 truncate text-sm">{schoolInfo.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{currentUser?.email}</p>
+                  <p className="font-semibold text-[#1d1d1f] truncate text-sm tracking-tight">{schoolInfo.name}</p>
+                  <p className="text-xs text-[rgba(0,0,0,0.48)] truncate tracking-tight">{currentUser?.email}</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-4 space-y-1">
+          <nav className="flex-1 px-3 py-4 space-y-0.5">
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -166,15 +163,15 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
                   className={`
-                    flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all tracking-tight
                     ${
                       isActive
-                        ? "bg-slate-100 text-slate-900"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        ? "bg-[#0071e3]/10 text-[#0071e3]"
+                        : "text-[rgba(0,0,0,0.64)] hover:bg-black/[0.04] hover:text-[#1d1d1f]"
                     }
                   `}
                 >
-                  <item.icon className="h-5 w-5" />
+                  <item.icon className={`h-[18px] w-[18px] ${isActive ? 'text-[#0071e3]' : ''}`} />
                   {item.name}
                 </Link>
               )
@@ -182,14 +179,14 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* Logout */}
-          <div className="px-4 py-4 border-t border-slate-200">
+          <div className="px-3 py-4 border-t border-black/[0.06]">
             <Button
               variant="ghost"
-              className="w-full justify-start text-slate-600 hover:text-slate-900"
+              className="w-full justify-start text-[rgba(0,0,0,0.56)] hover:text-[#1d1d1f] rounded-xl"
               onClick={handleLogout}
               disabled={loggingOut}
             >
-              <LogOut className="h-5 w-5 mr-3" />
+              <LogOut className="h-[18px] w-[18px] mr-3" />
               {loggingOut ? "Logging out..." : "Logout"}
             </Button>
           </div>
@@ -199,20 +196,20 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Main content */}
       <div className="lg:pl-64">
-        {/* Top bar - hidden on watch page since it has its own header */}
+        {/* Top bar — frosted glass header */}
         {pathname !== "/school/watch" && (
-          <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+          <header className="bg-white/80 backdrop-blur-xl backdrop-saturate-[180%] border-b border-black/[0.06] sticky top-0 z-20">
             <div className="px-4 sm:px-6 lg:px-8 py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  <h1 className="text-2xl sm:text-[28px] font-semibold text-[#1d1d1f] tracking-tight leading-tight">
                     {pathname === "/school/dashboard"
                       ? "Vericant Prompt Interviews"
                       : pathname === "/school/settings"
@@ -240,10 +237,10 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-screen bg-[#f5f5f7]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-            <p className="mt-2 text-sm text-slate-600">Loading...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+            <p className="mt-3 text-sm text-[rgba(0,0,0,0.48)] tracking-tight">Loading...</p>
           </div>
         </div>
       }
@@ -252,4 +249,3 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     </Suspense>
   )
 }
-

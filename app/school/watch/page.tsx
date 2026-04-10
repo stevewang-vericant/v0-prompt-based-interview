@@ -23,7 +23,7 @@ function SchoolWatchPageContent() {
 
   if (!videoUrl) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-[#f5f5f7]">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Error</CardTitle>
@@ -43,9 +43,9 @@ function SchoolWatchPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f5f5f7]">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200">
+      <header className="bg-white border-b border-black/[0.06]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
             <Button
@@ -58,17 +58,17 @@ function SchoolWatchPageContent() {
               Back to Dashboard
             </Button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">Interview Review</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-[#1d1d1f] mb-2">Interview Review</h1>
               <div className="space-y-2">
                 {/* Student basic info */}
               <div className="space-y-1">
                 {studentName && (
-                  <p className="text-xs sm:text-sm text-slate-700 truncate">
+                  <p className="text-xs sm:text-sm text-[#1d1d1f] truncate">
                     <span className="font-medium">Student:</span> {studentName}
                   </p>
                 )}
                 {studentEmail && (
-                  <p className="text-xs sm:text-sm text-slate-600 truncate">
+                  <p className="text-xs sm:text-sm text-[rgba(0,0,0,0.56)] truncate">
                     <span className="font-medium">Email:</span> {studentEmail}
                   </p>
                 )}
@@ -78,17 +78,17 @@ function SchoolWatchPageContent() {
                 {(studentGender || studentGrade || studentCity || studentFinancialAid) && (
                   <div className="flex flex-wrap items-center gap-2">
                     {studentGender && (
-                      <span className="px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700">
+                      <span className="px-2 py-0.5 text-xs rounded bg-[#f5f5f7] text-[#1d1d1f]">
                         {studentGender}
                       </span>
                     )}
                     {studentGrade && (
-                      <span className="px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700">
+                      <span className="px-2 py-0.5 text-xs rounded bg-[#f5f5f7] text-[#1d1d1f]">
                         {studentGrade}
                       </span>
                     )}
                     {studentCity && (
-                      <span className="px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700">
+                      <span className="px-2 py-0.5 text-xs rounded bg-[#f5f5f7] text-[#1d1d1f]">
                         📍 {studentCity}
                       </span>
                     )}
@@ -101,7 +101,7 @@ function SchoolWatchPageContent() {
                 )}
                 
                 {interviewId && (
-                  <p className="text-xs text-slate-500 font-mono truncate">
+                  <p className="text-xs text-[rgba(0,0,0,0.48)] font-mono truncate">
                     Interview ID: {interviewId}
                   </p>
                 )}
@@ -156,10 +156,10 @@ function SchoolWatchPageContent() {
 export default function SchoolWatchPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-[#f5f5f7]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading video player...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading video player...</p>
         </div>
       </div>
     }>

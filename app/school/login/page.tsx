@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,7 +25,6 @@ export default function SchoolLoginPage() {
     const result = await signIn(email, password)
 
     if (result.success) {
-      // 登录成功，跳转到 dashboard
       window.location.href = "/school/dashboard"
     } else {
       setError(result.error || "Login failed")
@@ -34,10 +33,9 @@ export default function SchoolLoginPage() {
   }
 
   return (
-    <div className="flex justify-center p-4 py-16 min-h-full">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center pb-4">
-          {/* Logo */}
+    <div className="flex justify-center items-center p-4 py-16 min-h-full bg-[#f5f5f7]">
+      <Card className="w-full max-w-md bg-white rounded-2xl shadow-[0_3px_30px_rgba(0,0,0,0.08)]">
+        <CardHeader className="text-center pb-2 pt-8">
           <div className="flex justify-center">
             <Image
               src="/RGB Logo Verified Video Interviews.png"
@@ -49,17 +47,17 @@ export default function SchoolLoginPage() {
             />
           </div>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="px-8 pb-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+              <Alert variant="destructive" className="rounded-xl border-[#ff3b30]/20 bg-[#ff3b30]/5">
+                <AlertCircle className="h-4 w-4 text-[#ff3b30]" />
+                <AlertDescription className="text-[#ff3b30]">{error}</AlertDescription>
               </Alert>
             )}
 
             <div className="space-y-2" suppressHydrationWarning>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium text-[#1d1d1f] tracking-tight">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -74,10 +72,10 @@ export default function SchoolLoginPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium text-[#1d1d1f] tracking-tight">Password</Label>
                 <Link 
                   href="/school/forgot-password" 
-                  className="text-sm text-blue-600 hover:underline"
+                  className="text-sm text-[#0066cc] hover:text-[#0066cc]/80 tracking-tight transition-colors"
                 >
                   Forgot password?
                 </Link>
@@ -108,9 +106,9 @@ export default function SchoolLoginPage() {
               )}
             </Button>
 
-            <div className="text-center text-sm text-slate-600">
-              Don't have an account?{" "}
-              <Link href="/school/register" className="text-blue-600 hover:underline">
+            <div className="text-center text-sm text-[rgba(0,0,0,0.48)] tracking-tight">
+              Don&apos;t have an account?{" "}
+              <Link href="/school/register" className="text-[#0066cc] hover:text-[#0066cc]/80 transition-colors">
                 Register your school
               </Link>
             </div>

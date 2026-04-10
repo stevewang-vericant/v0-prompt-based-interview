@@ -85,16 +85,16 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
         <CardContent className="space-y-6">
           {/* Device Status */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+            <div className="flex items-center justify-between p-4 border border-black/[0.06] rounded-lg">
               <div className="flex items-center gap-3">
-                <Video className="h-5 w-5 text-slate-600" />
+                <Video className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
                 <div>
                   <p className="font-medium">Camera</p>
                   <p className="text-sm text-muted-foreground">Required for video recording</p>
                 </div>
               </div>
               {cameraPermission === null ? (
-                <AlertCircle className="h-5 w-5 text-slate-400" />
+                <AlertCircle className="h-5 w-5 text-[rgba(0,0,0,0.36)]" />
               ) : cameraPermission ? (
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
@@ -102,16 +102,16 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
               )}
             </div>
 
-            <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+            <div className="flex items-center justify-between p-4 border border-black/[0.06] rounded-lg">
               <div className="flex items-center gap-3">
-                <Mic className="h-5 w-5 text-slate-600" />
+                <Mic className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
                 <div>
                   <p className="font-medium">Microphone</p>
                   <p className="text-sm text-muted-foreground">Required for audio recording</p>
                 </div>
               </div>
               {micPermission === null ? (
-                <AlertCircle className="h-5 w-5 text-slate-400" />
+                <AlertCircle className="h-5 w-5 text-[rgba(0,0,0,0.36)]" />
               ) : micPermission ? (
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
@@ -124,7 +124,7 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
           {isTestingCamera && (
             <div className="space-y-2">
               <p className="text-sm font-medium">Camera Preview</p>
-              <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-black">
+              <div className="relative rounded-lg overflow-hidden border border-black/[0.06] bg-black">
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto" />
               </div>
             </div>
@@ -196,7 +196,7 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
                     </div>
                     
                     {/* iOS Safari Instructions */}
-                    <div className="border-l-4 border-blue-500 pl-3">
+                    <div className="border-l-4 border-[#0071e3] pl-3">
                       <p className="font-semibold mb-1">🧭 iPhone Safari (推荐)：</p>
                       <ol className="list-decimal list-inside space-y-1 ml-2">
                         <li>点击地址栏左侧的 <strong>aA</strong> 图标</li>
@@ -267,7 +267,7 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center text-sm font-semibold">
               1
             </div>
             <div>
@@ -278,7 +278,7 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center text-sm font-semibold">
               2
             </div>
             <div>
@@ -289,7 +289,7 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center text-sm font-semibold">
               3
             </div>
             <div>
@@ -298,7 +298,7 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold">
+            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center text-sm font-semibold">
               4
             </div>
             <div>

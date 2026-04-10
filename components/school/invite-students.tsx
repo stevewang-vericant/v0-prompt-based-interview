@@ -55,7 +55,7 @@ export function InviteStudents() {
       <CardContent className="space-y-6">
         <div className="space-y-4">
           {students.map((student, index) => (
-            <div key={index} className="flex gap-4 items-start p-4 border border-slate-200 rounded-lg">
+            <div key={index} className="flex gap-4 items-start p-4 border border-black/[0.06] rounded-lg">
               <div className="flex-1 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -93,7 +93,7 @@ export function InviteStudents() {
           Add Another Student
         </Button>
 
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+        <div className="rounded-lg bg-[#0071e3]/5 border border-blue-200 p-4">
           <p className="text-sm text-blue-900">
             <strong>Credits Required:</strong> {validStudents.length} credit(s) will be used to send these invitations.
           </p>

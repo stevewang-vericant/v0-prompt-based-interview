@@ -58,7 +58,7 @@ export default function StudentRegisterPage() {
 
   if (!invitationValid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7] p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-destructive">Invalid Invitation</CardTitle>
@@ -72,7 +72,7 @@ export default function StudentRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7] p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Create Your Account</CardTitle>
@@ -80,7 +80,7 @@ export default function StudentRegisterPage() {
         </CardHeader>
         <CardContent>
           <Alert className="mb-6 bg-blue-50 border-blue-200">
-            <CheckCircle2 className="h-4 w-4 text-blue-600" />
+            <CheckCircle2 className="h-4 w-4 text-[#0071e3]" />
             <AlertDescription className="text-blue-900">
               You've been invited to complete a video interview assessment. Please register to get started.
             </AlertDescription>

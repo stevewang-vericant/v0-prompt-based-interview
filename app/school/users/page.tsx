@@ -202,8 +202,8 @@ export default function UsersPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading...</p>
         </div>
       </div>
     )
@@ -239,8 +239,8 @@ export default function UsersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">User Management</h2>
-        <p className="text-sm text-slate-600 mt-1">
+        <h2 className="text-2xl font-bold text-[#1d1d1f]">User Management</h2>
+        <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
           Manage all school user accounts. Activate new registrations and manage existing users.
         </p>
       </div>
@@ -280,17 +280,17 @@ export default function UsersPage() {
                   className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border border-amber-200 rounded-lg bg-white"
                 >
                   <div className="flex-1">
-                    <p className="font-semibold text-slate-900">
+                    <p className="font-semibold text-[#1d1d1f]">
                       {user.name}
                       {user.code && (
-                        <span className="text-sm font-normal text-slate-500 ml-2">({user.code})</span>
+                        <span className="text-sm font-normal text-[rgba(0,0,0,0.48)] ml-2">({user.code})</span>
                       )}
                     </p>
-                    <p className="text-sm text-slate-600">{user.email}</p>
+                    <p className="text-sm text-[rgba(0,0,0,0.56)]">{user.email}</p>
                     {user.contact_person && (
-                      <p className="text-xs text-slate-500">Contact: {user.contact_person}</p>
+                      <p className="text-xs text-[rgba(0,0,0,0.48)]">Contact: {user.contact_person}</p>
                     )}
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
                       Registered {user.created_at ? format(new Date(user.created_at), "MMM dd, yyyy HH:mm") : "—"}
                     </p>
                   </div>
@@ -328,25 +328,25 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-600 py-8">
+            <div className="flex items-center gap-2 text-sm text-[rgba(0,0,0,0.56)] py-8">
               <div className="h-4 w-4 border-b-2 border-purple-600 rounded-full animate-spin" />
               Loading users...
             </div>
           ) : users.length === 0 ? (
-            <p className="text-sm text-slate-600 py-8 text-center">No users found.</p>
+            <p className="text-sm text-[rgba(0,0,0,0.56)] py-8 text-center">No users found.</p>
           ) : (
             <div className="space-y-3">
               {users.map((user) => (
                 <div
                   key={user.id}
-                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border rounded-lg hover:bg-slate-50"
+                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border rounded-lg hover:bg-black/[0.04]"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-[#1d1d1f]">
                         {user.name}
                         {user.code && (
-                          <span className="text-sm font-normal text-slate-500 ml-2">({user.code})</span>
+                          <span className="text-sm font-normal text-[rgba(0,0,0,0.48)] ml-2">({user.code})</span>
                         )}
                       </p>
                       {user.is_super_admin && (
@@ -356,11 +356,11 @@ export default function UsersPage() {
                         <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">Inactive</span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-600">{user.email}</p>
+                    <p className="text-sm text-[rgba(0,0,0,0.56)]">{user.email}</p>
                     {user.contact_person && (
-                      <p className="text-xs text-slate-500">Contact: {user.contact_person}</p>
+                      <p className="text-xs text-[rgba(0,0,0,0.48)]">Contact: {user.contact_person}</p>
                     )}
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
                       Created {user.created_at ? format(new Date(user.created_at), "MMM dd, yyyy") : "—"}
                     </p>
                   </div>

@@ -476,7 +476,7 @@ export function VideoPlayerWithSubtitles({
           </div>
 
           {debug && (
-            <div className="mt-4 p-4 border border-dashed rounded-lg bg-slate-50 text-xs font-mono text-slate-700 space-y-1">
+            <div className="mt-4 p-4 border border-dashed rounded-lg bg-[#f5f5f7] text-xs font-mono text-[#1d1d1f] space-y-1">
               <p className="font-semibold">Debug Info</p>
               <p>readyState: {videoStats.readyState}</p>
               <p>networkState: {videoStats.networkState}</p>

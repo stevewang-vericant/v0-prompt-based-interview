@@ -173,7 +173,7 @@ export function AISummary({ summary: initialSummary, transcription, className }:
             {/* 摘要内容 */}
             <div className="bg-gradient-to-br from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
               <div className="prose prose-sm max-w-none">
-                <div className="whitespace-pre-wrap text-slate-700 leading-relaxed">
+                <div className="whitespace-pre-wrap text-[#1d1d1f] leading-relaxed">
                   {summary}
                 </div>
               </div>

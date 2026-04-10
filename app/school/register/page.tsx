@@ -138,15 +138,15 @@ export default function SchoolRegisterPage() {
               </Label>
               {loading ? (
                 <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                  <span className="ml-2 text-sm text-slate-600">Loading schools...</span>
+                  <Loader2 className="h-5 w-5 animate-spin text-[rgba(0,0,0,0.36)]" />
+                  <span className="ml-2 text-sm text-[rgba(0,0,0,0.56)]">Loading schools...</span>
                 </div>
               ) : (
                 <select
                   id="school"
                   value={formData.schoolId}
                   onChange={(e) => setFormData({ ...formData, schoolId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-black/[0.08] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                   disabled={submitting}
                 >
@@ -158,7 +158,7 @@ export default function SchoolRegisterPage() {
                   ))}
                 </select>
               )}
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[rgba(0,0,0,0.48)]">
                 Don't see your school? Contact support to add it.
               </p>
             </div>
@@ -245,9 +245,9 @@ export default function SchoolRegisterPage() {
             </Button>
 
             {/* 登录链接 */}
-            <div className="text-center text-sm text-slate-600">
+            <div className="text-center text-sm text-[rgba(0,0,0,0.56)]">
               Already have an account?{" "}
-              <Link href="/school/login" className="text-blue-600 hover:underline">
+              <Link href="/school/login" className="text-[#0071e3] hover:underline">
                 Sign in
               </Link>
             </div>

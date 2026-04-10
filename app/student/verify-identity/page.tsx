@@ -81,14 +81,14 @@ export default function VerifyIdentityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f5f5f7]">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200">
+      <header className="bg-white border-b border-black/[0.06]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Identity Verification</h1>
-              <p className="text-sm text-slate-600">Verify your identity to proceed with the interview</p>
+              <h1 className="text-2xl font-bold text-[#1d1d1f]">Identity Verification</h1>
+              <p className="text-sm text-[rgba(0,0,0,0.56)]">Verify your identity to proceed with the interview</p>
             </div>
             <Button variant="outline" onClick={() => (window.location.href = "/student/dashboard")}>
               Back to Dashboard
@@ -172,15 +172,15 @@ export default function VerifyIdentityPage() {
                 {!idPreview ? (
                   <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 transition-colors"
+                    className="border-2 border-dashed border-black/[0.08] rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 transition-colors"
                   >
-                    <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                    <p className="text-sm font-medium text-slate-700 mb-1">Click to upload your ID document</p>
-                    <p className="text-xs text-slate-500">or drag and drop</p>
+                    <Upload className="h-12 w-12 mx-auto text-[rgba(0,0,0,0.36)] mb-4" />
+                    <p className="text-sm font-medium text-[#1d1d1f] mb-1">Click to upload your ID document</p>
+                    <p className="text-xs text-[rgba(0,0,0,0.48)]">or drag and drop</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="relative rounded-lg overflow-hidden border border-slate-200">
+                    <div className="relative rounded-lg overflow-hidden border border-black/[0.06]">
                       <img src={idPreview || "/placeholder.svg"} alt="ID Document Preview" className="w-full h-auto" />
                     </div>
                     <div className="flex gap-2">
@@ -220,9 +220,9 @@ export default function VerifyIdentityPage() {
                 {!selfieImage ? (
                   <>
                     {!isCameraActive ? (
-                      <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center">
-                        <Camera className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                        <p className="text-sm font-medium text-slate-700 mb-4">Ready to take your selfie?</p>
+                      <div className="border-2 border-dashed border-black/[0.08] rounded-lg p-12 text-center">
+                        <Camera className="h-12 w-12 mx-auto text-[rgba(0,0,0,0.36)] mb-4" />
+                        <p className="text-sm font-medium text-[#1d1d1f] mb-4">Ready to take your selfie?</p>
                         <Button onClick={startCamera}>
                           <Camera className="h-4 w-4 mr-2" />
                           Start Camera
@@ -230,7 +230,7 @@ export default function VerifyIdentityPage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-black">
+                        <div className="relative rounded-lg overflow-hidden border border-black/[0.06] bg-black">
                           <video ref={videoRef} autoPlay playsInline className="w-full h-auto" />
                         </div>
                         <div className="flex gap-2">
@@ -248,7 +248,7 @@ export default function VerifyIdentityPage() {
                   </>
                 ) : (
                   <div className="space-y-4">
-                    <div className="relative rounded-lg overflow-hidden border border-slate-200">
+                    <div className="relative rounded-lg overflow-hidden border border-black/[0.06]">
                       <img src={selfieImage || "/placeholder.svg"} alt="Selfie Preview" className="w-full h-auto" />
                     </div>
                     <div className="flex gap-2">
@@ -284,7 +284,7 @@ export default function VerifyIdentityPage() {
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>ID Document</Label>
-                  <div className="relative rounded-lg overflow-hidden border border-slate-200">
+                  <div className="relative rounded-lg overflow-hidden border border-black/[0.06]">
                     {idPreview && (
                       <img src={idPreview || "/placeholder.svg"} alt="ID Document" className="w-full h-auto" />
                     )}
@@ -295,7 +295,7 @@ export default function VerifyIdentityPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Selfie Photo</Label>
-                  <div className="relative rounded-lg overflow-hidden border border-slate-200">
+                  <div className="relative rounded-lg overflow-hidden border border-black/[0.06]">
                     {selfieImage && (
                       <img src={selfieImage || "/placeholder.svg"} alt="Selfie" className="w-full h-auto" />
                     )}
@@ -307,7 +307,7 @@ export default function VerifyIdentityPage() {
               </div>
 
               <Alert className="bg-blue-50 border-blue-200">
-                <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                <CheckCircle2 className="h-4 w-4 text-[#0071e3]" />
                 <AlertDescription className="text-blue-900">
                   Your documents will be reviewed by our verification team within 24-48 hours. You'll receive an email
                   notification once verified.

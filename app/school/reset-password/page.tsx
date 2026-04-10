@@ -92,8 +92,8 @@ function ResetPasswordContent() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-8 pb-8">
             <div className="flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-              <p className="text-slate-600">Verifying reset link...</p>
+              <Loader2 className="h-8 w-8 animate-spin text-[#0071e3]" />
+              <p className="text-[rgba(0,0,0,0.56)]">Verifying reset link...</p>
             </div>
           </CardContent>
         </Card>
@@ -131,7 +131,7 @@ function ResetPasswordContent() {
               <div className="text-center pt-4">
                 <Link 
                   href="/school/login"
-                  className="inline-flex items-center text-blue-600 hover:underline"
+                  className="inline-flex items-center text-[#0071e3] hover:underline"
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Go to Login Now
@@ -146,7 +146,7 @@ function ResetPasswordContent() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
               
-              <p className="text-sm text-slate-600 text-center">
+              <p className="text-sm text-[rgba(0,0,0,0.56)] text-center">
                 The reset link is invalid or has expired. Please request a new password reset.
               </p>
 
@@ -156,7 +156,7 @@ function ResetPasswordContent() {
                 </Link>
                 <Link 
                   href="/school/login"
-                  className="inline-flex items-center justify-center text-blue-600 hover:underline text-sm"
+                  className="inline-flex items-center justify-center text-[#0071e3] hover:underline text-sm"
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back to Login
@@ -167,8 +167,8 @@ function ResetPasswordContent() {
             // Form state
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="text-center mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">Reset Your Password</h2>
-                <p className="text-sm text-slate-600 mt-1">
+                <h2 className="text-lg font-semibold text-[#1d1d1f]">Reset Your Password</h2>
+                <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
                   Enter your new password below.
                 </p>
               </div>
@@ -197,7 +197,7 @@ function ResetPasswordContent() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(0,0,0,0.36)] hover:text-[rgba(0,0,0,0.56)]"
                     tabIndex={-1}
                   >
                     {showPassword ? (
@@ -207,7 +207,7 @@ function ResetPasswordContent() {
                     )}
                   </button>
                 </div>
-                <p className="text-xs text-slate-500">Minimum 8 characters</p>
+                <p className="text-xs text-[rgba(0,0,0,0.48)]">Minimum 8 characters</p>
               </div>
 
               <div className="space-y-2">
@@ -226,7 +226,7 @@ function ResetPasswordContent() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[rgba(0,0,0,0.36)] hover:text-[rgba(0,0,0,0.56)]"
                     tabIndex={-1}
                   >
                     {showConfirmPassword ? (
@@ -253,10 +253,10 @@ function ResetPasswordContent() {
                 )}
               </Button>
 
-              <div className="text-center text-sm text-slate-600">
+              <div className="text-center text-sm text-[rgba(0,0,0,0.56)]">
                 <Link 
                   href="/school/login" 
-                  className="inline-flex items-center text-blue-600 hover:underline"
+                  className="inline-flex items-center text-[#0071e3] hover:underline"
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back to Login
@@ -277,8 +277,8 @@ export default function ResetPasswordPage() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-8 pb-8">
             <div className="flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-              <p className="text-slate-600">Loading...</p>
+              <Loader2 className="h-8 w-8 animate-spin text-[#0071e3]" />
+              <p className="text-[rgba(0,0,0,0.56)]">Loading...</p>
             </div>
           </CardContent>
         </Card>

@@ -46,15 +46,15 @@ export function InterviewComplete({
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {isResumeUpload ? (
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-blue-200 bg-[#0071e3]/5">
           <CardContent className="pt-6">
             <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100">
-                <Clock className="h-8 w-8 text-blue-600" />
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#0071e3]/10">
+                <Clock className="h-8 w-8 text-[#0071e3]" />
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-blue-900">Upload Incomplete</h2>
-                <p className="text-sm sm:text-base text-blue-700">
+                <p className="text-sm sm:text-base text-[#0071e3]">
                   {pendingCount} of {responsesCount} videos still need to be uploaded
                 </p>
               </div>
@@ -84,8 +84,8 @@ export function InterviewComplete({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-3 sm:gap-4">
-              <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+              <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#0071e3]/10 flex items-center justify-center">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-[#0071e3]" />
               </div>
               <div className="min-w-0">
                 <p className="font-medium text-sm sm:text-base">Verification Process</p>
@@ -96,8 +96,8 @@ export function InterviewComplete({
             </div>
 
             <div className="flex gap-3 sm:gap-4">
-              <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+              <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#0071e3]/10 flex items-center justify-center">
+                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-[#0071e3]" />
               </div>
               <div className="min-w-0">
                 <p className="font-medium text-sm sm:text-base">Video Delivery</p>
@@ -122,20 +122,20 @@ export function InterviewComplete({
         </CardHeader>
         <CardContent className="space-y-4">
           {isUploading && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+            <div className="p-4 bg-[#0071e3]/5 border border-blue-200 rounded-lg space-y-3">
               <div className="flex items-center gap-3">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#0071e3]"></div>
                 <div className="flex-1">
                   <p className="font-medium text-blue-900">
                     {uploadStatus || "Uploading your interview video..."}
                   </p>
-                  <p className="text-sm text-blue-700">
+                  <p className="text-sm text-[#0071e3]">
                     {uploadProgress < 100 
                       ? "Please wait, do not close this page" 
                       : "Upload complete! You can close this window. Video processing will continue in the background."}
                   </p>
                   {interviewId && (
-                    <p className="text-xs text-blue-600 font-mono mt-1">
+                    <p className="text-xs text-[#0071e3] font-mono mt-1">
                       Interview ID: {interviewId}
                     </p>
                   )}
@@ -144,7 +144,7 @@ export function InterviewComplete({
               {uploadProgress > 0 && (
                 <div className="space-y-1">
                   <Progress value={uploadProgress} className="h-2" />
-                  <p className="text-xs text-blue-600 text-right">{uploadProgress}%</p>
+                  <p className="text-xs text-[#0071e3] text-right">{uploadProgress}%</p>
                 </div>
               )}
             </div>

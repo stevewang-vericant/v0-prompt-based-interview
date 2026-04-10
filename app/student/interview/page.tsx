@@ -662,20 +662,20 @@ function InterviewPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f5f5f7]">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200">
+      <header className="bg-white border-b border-black/[0.06]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-slate-900">Video Interview Assessment</h1>
-              <p className="text-sm text-slate-600">
+              <h1 className="text-2xl font-bold text-[#1d1d1f]">Video Interview Assessment</h1>
+              <p className="text-sm text-[rgba(0,0,0,0.56)]">
                 {stage === "student-info" && "Student information"}
                 {stage === "setup" && "System check and preparation"}
                 {stage === "interview" && prompts.length > 0 && `Question ${currentPromptIndex + 1} of ${prompts.length}`}
                 {stage === "complete" && "Interview completed"}
               </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[rgba(0,0,0,0.48)] mt-1">
                 {schoolCode && (
                   <p>
                     School: <span className="font-medium">{schoolCode}</span>
@@ -728,8 +728,8 @@ function InterviewPageContent() {
         {promptsLoading && (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-              <p className="mt-2 text-sm text-slate-600">Loading interview questions...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+              <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading interview questions...</p>
             </div>
           </div>
         )}
@@ -799,10 +799,10 @@ function InterviewPageContent() {
 export default function InterviewPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-[#f5f5f7]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading interview...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading interview...</p>
         </div>
       </div>
     }>

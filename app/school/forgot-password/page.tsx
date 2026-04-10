@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
               <div className="text-center pt-4">
                 <Link 
                   href="/school/login"
-                  className="inline-flex items-center text-blue-600 hover:underline"
+                  className="inline-flex items-center text-[#0071e3] hover:underline"
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back to Login
@@ -74,8 +74,8 @@ export default function ForgotPasswordPage() {
             // Form state
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="text-center mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">Forgot Password?</h2>
-                <p className="text-sm text-slate-600 mt-1">
+                <h2 className="text-lg font-semibold text-[#1d1d1f]">Forgot Password?</h2>
+                <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
                   Enter your email address and we'll send you a link to reset your password.
                 </p>
               </div>
@@ -117,10 +117,10 @@ export default function ForgotPasswordPage() {
                 )}
               </Button>
 
-              <div className="text-center text-sm text-slate-600">
+              <div className="text-center text-sm text-[rgba(0,0,0,0.56)]">
                 <Link 
                   href="/school/login" 
-                  className="inline-flex items-center text-blue-600 hover:underline"
+                  className="inline-flex items-center text-[#0071e3] hover:underline"
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back to Login

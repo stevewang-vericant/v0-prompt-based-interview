@@ -233,21 +233,21 @@ function ResumeUploadContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Checking for pending uploads...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Checking for pending uploads...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
+    <div className="min-h-screen bg-[#f5f5f7]">
+      <header className="bg-white border-b border-black/[0.06]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold text-slate-900">Resume Upload</h1>
-          <p className="text-sm text-slate-600 mt-1">
+          <h1 className="text-2xl font-bold text-[#1d1d1f]">Resume Upload</h1>
+          <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
             Interview ID: <span className="font-mono">{interviewId}</span>
           </p>
         </div>
@@ -276,7 +276,7 @@ function ResumeUploadContent() {
         {pendingSegments.length > 0 && !success && (
           <div className="space-y-6">
             <Alert className="bg-blue-50 border-blue-200">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertCircle className="h-4 w-4 text-[#0071e3]" />
               <AlertTitle className="text-blue-900">Pending Uploads Found</AlertTitle>
               <AlertDescription className="text-blue-700">
                 Found {pendingSegments.length} video segment{pendingSegments.length !== 1 ? 's' : ''} that need to be uploaded.
@@ -288,12 +288,12 @@ function ResumeUploadContent() {
               <h2 className="text-lg font-semibold mb-4">Pending Segments</h2>
               <div className="space-y-2">
                 {pendingSegments.map((segment, index) => (
-                  <div key={segment.id} className="flex items-center justify-between p-3 bg-slate-50 rounded">
+                  <div key={segment.id} className="flex items-center justify-between p-3 bg-[#f5f5f7] rounded">
                     <div>
                       <p className="font-medium text-sm">Segment {segment.sequenceNumber}</p>
-                      <p className="text-xs text-slate-600 truncate">{segment.questionText}</p>
+                      <p className="text-xs text-[rgba(0,0,0,0.56)] truncate">{segment.questionText}</p>
                     </div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-[rgba(0,0,0,0.48)]">
                       {(segment.blob.size / 1024 / 1024).toFixed(2)} MB
                     </div>
                   </div>
@@ -306,7 +306,7 @@ function ResumeUploadContent() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Upload Progress</span>
-                    <span className="text-sm text-slate-600">{uploadProgress}%</span>
+                    <span className="text-sm text-[rgba(0,0,0,0.56)]">{uploadProgress}%</span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-2">
                     <div
@@ -315,7 +315,7 @@ function ResumeUploadContent() {
                     />
                   </div>
                   {uploadStatus && (
-                    <p className="text-sm text-slate-600">{uploadStatus}</p>
+                    <p className="text-sm text-[rgba(0,0,0,0.56)]">{uploadStatus}</p>
                   )}
                 </div>
               </div>
@@ -335,7 +335,7 @@ function ResumeUploadContent() {
 
         {pendingSegments.length === 0 && !error && !success && (
           <div className="text-center py-12">
-            <p className="text-slate-600">No pending uploads found.</p>
+            <p className="text-[rgba(0,0,0,0.56)]">No pending uploads found.</p>
           </div>
         )}
       </main>
@@ -346,10 +346,10 @@ function ResumeUploadContent() {
 export default function ResumeUploadPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-[#f5f5f7]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading...</p>
         </div>
       </div>
     }>

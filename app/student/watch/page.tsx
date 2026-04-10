@@ -27,9 +27,9 @@ function WatchPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f5f5f7]">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200">
+      <header className="bg-white border-b border-black/[0.06]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-4">
             <Button
@@ -41,10 +41,10 @@ function WatchPageContent() {
               Back to Dashboard
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">
+              <h1 className="text-xl font-bold text-[#1d1d1f]">
                 Interview Playback
               </h1>
-              <p className="text-sm text-slate-600">Watch your interview with subtitles</p>
+              <p className="text-sm text-[rgba(0,0,0,0.56)]">Watch your interview with subtitles</p>
               {debugMode && (
                 <p className="text-xs text-amber-600 font-mono mt-1">
                   Debug mode active – collect playback diagnostics below.
@@ -81,8 +81,8 @@ export default function WatchPage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading video player...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading video player...</p>
         </div>
       </div>
     }>

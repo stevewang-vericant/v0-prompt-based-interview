@@ -317,7 +317,7 @@ function SchoolDashboardContent() {
   // 如果认证失败，显示错误
   if (authError) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center p-4">
         <Card className="max-w-2xl w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-600">
@@ -333,10 +333,10 @@ function SchoolDashboardContent() {
                 {authError}
               </AlertDescription>
             </Alert>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-[rgba(0,0,0,0.56)]">
               You need to be logged in to access the school dashboard.
             </p>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-[rgba(0,0,0,0.56)]">
               Redirecting to login page...
             </p>
             <Button onClick={() => window.location.href = "/school/login"}>
@@ -376,7 +376,7 @@ function SchoolDashboardContent() {
           <Card className="mb-6 bg-blue-50 border-blue-200">
             <CardHeader className="space-y-2">
               <div className="flex items-center gap-2">
-                <LinkIcon className="h-5 w-5 text-blue-600" />
+                <LinkIcon className="h-5 w-5 text-[#0071e3]" />
                 <CardTitle className="text-blue-900 text-sm sm:text-base">Student Interview Link</CardTitle>
               </div>
               <CardDescription className="text-blue-700 text-xs sm:text-sm">
@@ -390,7 +390,7 @@ function SchoolDashboardContent() {
                 readOnly
                 value={typeof window !== 'undefined' ? `${window.location.origin}/student/interview?school=${schoolInfo?.code}` : ''}
                 data-interview-link
-                className="w-full bg-white rounded-lg border border-blue-300 px-4 py-3 font-mono text-xs sm:text-sm text-slate-700 break-all focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-text"
+                className="w-full bg-white rounded-lg border border-blue-300 px-4 py-3 font-mono text-xs sm:text-sm text-[#1d1d1f] break-all focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-text"
                 onClick={(e) => {
                   // 点击时自动选中文本
                   const target = e.target as HTMLInputElement
@@ -469,7 +469,7 @@ function SchoolDashboardContent() {
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative flex-1 sm:w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[rgba(0,0,0,0.36)]" />
                   <Input
                     type="text"
                     placeholder="Search email, ID, school..."
@@ -499,9 +499,9 @@ function SchoolDashboardContent() {
                       type="checkbox"
                       checked={selectedInterviews.size === filteredInterviews.length && filteredInterviews.length > 0}
                       onChange={handleSelectAll}
-                      className="rounded border-slate-300"
+                      className="rounded border-black/[0.08]"
                     />
-                    <span className="text-sm text-slate-600">
+                    <span className="text-sm text-[rgba(0,0,0,0.56)]">
                       Select All ({selectedInterviews.size} selected)
                     </span>
                   </label>
@@ -525,7 +525,7 @@ function SchoolDashboardContent() {
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-slate-600">Loading interviews...</span>
+                <span className="ml-3 text-[rgba(0,0,0,0.56)]">Loading interviews...</span>
               </div>
             ) : error ? (
               <div className="text-center py-12">
@@ -536,11 +536,11 @@ function SchoolDashboardContent() {
               </div>
             ) : filteredInterviews.length === 0 ? (
               <div className="text-center py-12">
-                <Video className="mx-auto h-12 w-12 text-slate-400" />
-                <p className="mt-4 text-slate-600">
+                <Video className="mx-auto h-12 w-12 text-[rgba(0,0,0,0.36)]" />
+                <p className="mt-4 text-[rgba(0,0,0,0.56)]">
                   {searchQuery ? 'No interviews match your search' : 'No interviews found'}
                 </p>
-                <p className="text-sm text-slate-500 mt-2">
+                <p className="text-sm text-[rgba(0,0,0,0.48)] mt-2">
                   {searchQuery 
                     ? `Try searching with different keywords`
                     : schoolInfo?.is_super_admin 
@@ -562,7 +562,7 @@ function SchoolDashboardContent() {
             ) : (
               <>
                 {searchQuery && (
-                  <div className="mb-4 text-sm text-slate-600">
+                  <div className="mb-4 text-sm text-[rgba(0,0,0,0.56)]">
                     Found <strong>{filteredInterviews.length}</strong> interview{filteredInterviews.length !== 1 ? 's' : ''} matching "<strong>{searchQuery}</strong>"
                   </div>
                 )}
@@ -570,7 +570,7 @@ function SchoolDashboardContent() {
                   {filteredInterviews.map((interview) => (
                   <div
                     key={interview.id}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border rounded-lg hover:bg-black/[0.04] transition-colors"
                   >
                     {/* Selection checkbox for super admins */}
                     {schoolInfo?.is_super_admin && (
@@ -579,7 +579,7 @@ function SchoolDashboardContent() {
                           type="checkbox"
                           checked={selectedInterviews.has(interview.id)}
                           onChange={() => handleSelectInterview(interview.id)}
-                          className="rounded border-slate-300"
+                          className="rounded border-black/[0.08]"
                         />
                       </div>
                     )}
@@ -588,14 +588,14 @@ function SchoolDashboardContent() {
                       {/* First row: Name and badges */}
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400 flex-shrink-0" />
+                          <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-[rgba(0,0,0,0.36)] flex-shrink-0" />
                           <div className="flex flex-col min-w-0">
                             {interview.student_name && (
-                              <span className="font-medium text-slate-900 truncate text-sm sm:text-base">
+                              <span className="font-medium text-[#1d1d1f] truncate text-sm sm:text-base">
                                 {interview.student_name}
                               </span>
                             )}
-                            <span className={`${interview.student_name ? "text-xs sm:text-sm text-slate-600" : "text-sm sm:text-base font-medium text-slate-900"} truncate`}>
+                            <span className={`${interview.student_name ? "text-xs sm:text-sm text-[rgba(0,0,0,0.56)]" : "text-sm sm:text-base font-medium text-[#1d1d1f]"} truncate`}>
                               {interview.student_email || 'Unknown'}
                             </span>
                           </div>
@@ -625,7 +625,7 @@ function SchoolDashboardContent() {
                               )
                             }
                             return (
-                              <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-slate-100 text-slate-700">
+                              <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-[#f5f5f7] text-[#1d1d1f]">
                                 Not Started
                               </span>
                             )
@@ -636,7 +636,7 @@ function SchoolDashboardContent() {
                               ? 'bg-green-100 text-green-800' 
                               : interview.status === 'reviewing'
                               ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-slate-100 text-slate-800'
+                              : 'bg-[#f5f5f7] text-[#1d1d1f]'
                           }`}>
                             {interview.status}
                           </span>
@@ -647,7 +647,7 @@ function SchoolDashboardContent() {
                         )}
                       </div>
                       {/* Second row: Date, duration, ID */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-600">
+                      <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-[rgba(0,0,0,0.56)]">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           <span className="whitespace-nowrap">{format(new Date(interview.created_at), 'MMM dd, yyyy HH:mm')}</span>
@@ -658,30 +658,30 @@ function SchoolDashboardContent() {
                             <span>{formatDuration(interview.total_duration)}</span>
                           </div>
                         )}
-                        <div className="text-xs text-slate-500 font-mono truncate hidden sm:block">
+                        <div className="text-xs text-[rgba(0,0,0,0.48)] font-mono truncate hidden sm:block">
                           ID: {interview.interview_id}
                         </div>
                       </div>
                       {/* Third row: Additional student info (if available) */}
                       {(interview.student_gender || interview.student_grade || interview.student_city || interview.student_financial_aid !== null) && (
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[rgba(0,0,0,0.56)]">
                           {interview.student_gender && (
-                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                            <span className="px-2 py-0.5 rounded bg-[#f5f5f7] text-[#1d1d1f]">
                               {interview.student_gender}
                             </span>
                           )}
                           {interview.student_grade && (
-                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                            <span className="px-2 py-0.5 rounded bg-[#f5f5f7] text-[#1d1d1f]">
                               {interview.student_grade}
                             </span>
                           )}
                           {interview.student_city && (
-                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                            <span className="px-2 py-0.5 rounded bg-[#f5f5f7] text-[#1d1d1f]">
                               📍 {interview.student_city}
                             </span>
                           )}
                           {interview.student_financial_aid !== null && (
-                            <span className={`px-2 py-0.5 rounded ${interview.student_financial_aid ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}`}>
+                            <span className={`px-2 py-0.5 rounded ${interview.student_financial_aid ? 'bg-purple-100 text-purple-700' : 'bg-[#f5f5f7] text-[#1d1d1f]'}`}>
                               {interview.student_financial_aid ? '💰 Financial Aid' : 'No Financial Aid'}
                             </span>
                           )}
@@ -719,8 +719,8 @@ function SchoolDashboardContent() {
                 <Trash2 className="h-5 w-5 text-red-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">Delete Interviews</h3>
-                <p className="text-sm text-slate-600">
+                <h3 className="text-lg font-semibold text-[#1d1d1f]">Delete Interviews</h3>
+                <p className="text-sm text-[rgba(0,0,0,0.56)]">
                   Are you sure you want to delete {selectedInterviews.size} interview{selectedInterviews.size !== 1 ? 's' : ''}?
                 </p>
               </div>
@@ -768,10 +768,10 @@ function SchoolDashboardContent() {
 export default function SchoolDashboard() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-[#f5f5f7]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading dashboard...</p>
         </div>
       </div>
     }>

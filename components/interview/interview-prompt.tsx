@@ -246,9 +246,9 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
           {/* Reading Stage - Only show for first question */}
           {stage === "reading" && (
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+              <div className="bg-[#0071e3]/5 border border-blue-200 rounded-lg p-4 space-y-2">
                 <p className="text-sm font-medium text-blue-900">What to expect:</p>
-                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                <ul className="text-sm text-[#0071e3] space-y-1 list-disc list-inside">
                   <li>Preparation time: {prompt.preparationTime} seconds</li>
                   <li>Recording time: {prompt.responseTime} seconds</li>
                 </ul>
@@ -262,17 +262,17 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
           {/* Preparing Stage */}
           {stage === "preparing" && (
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2 mb-4">
+              <div className="bg-[#0071e3]/5 border border-blue-200 rounded-lg p-4 space-y-2 mb-4">
                 <p className="text-sm font-medium text-blue-900">Preparation Phase</p>
-                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                <ul className="text-sm text-[#0071e3] space-y-1 list-disc list-inside">
                   <li>Use this time to think about your response</li>
                   <li>Recording will start automatically when time is up</li>
                   <li>You'll have {prompt.responseTime} seconds to respond</li>
                 </ul>
               </div>
               <div className="text-center py-6 sm:py-8">
-                <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-blue-100 mb-4">
-                  <span className="text-4xl sm:text-5xl font-bold text-blue-600">{timeRemaining}</span>
+                <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-[#0071e3]/10 mb-4">
+                  <span className="text-4xl sm:text-5xl font-bold text-[#0071e3]">{timeRemaining}</span>
                 </div>
                 <p className="text-lg sm:text-xl font-medium">Preparation Time</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">Get ready to record your response</p>
@@ -284,8 +284,8 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
           {/* Recording Stage */}
           {stage === "recording" && (
             <div className="space-y-4">
-              <div className="relative rounded-lg overflow-hidden border-2 border-red-500 bg-slate-900">
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto min-h-[250px] sm:min-h-[400px] bg-slate-900" />
+              <div className="relative rounded-lg overflow-hidden border-2 border-red-500 bg-[#1d1d1f]">
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto min-h-[250px] sm:min-h-[400px] bg-[#1d1d1f]" />
                 <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex items-center gap-1 sm:gap-2 bg-red-600 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm">
                   <Circle className="h-2 w-2 sm:h-3 sm:w-3 fill-current animate-pulse" />
                   <span className="font-medium">Recording</span>

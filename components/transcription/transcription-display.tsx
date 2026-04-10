@@ -400,7 +400,7 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
                       ?.split(/[.!?]+/)
                       .filter(sentence => sentence.trim().length > 0)
                       .map((sentence, index) => (
-                        <p key={index} className="text-slate-700">
+                        <p key={index} className="text-[#1d1d1f]">
                           {sentence.trim()}
                           {!sentence.trim().endsWith('.') && 
                            !sentence.trim().endsWith('!') && 

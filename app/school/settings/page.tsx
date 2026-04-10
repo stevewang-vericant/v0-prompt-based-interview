@@ -304,8 +304,8 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
-        <p className="text-sm text-slate-600 mt-1">
+        <h2 className="text-2xl font-bold text-[#1d1d1f]">Settings</h2>
+        <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
           Manage global settings and interview prompts
         </p>
       </div>
@@ -332,7 +332,7 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-slate-600" />
+                  <Clock className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
                   <div>
                     <CardTitle>Global Timing Settings</CardTitle>
                     <CardDescription>
@@ -344,7 +344,7 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 {timingLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-900"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#0071e3] border-t-transparent"></div>
                   </div>
                 ) : (
                   <>
@@ -385,7 +385,7 @@ export default function SettingsPage() {
                             }
                           }}
                         />
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-[rgba(0,0,0,0.48)]">
                           Time students have to prepare before recording (1-300 seconds)
                         </p>
                       </div>
@@ -425,13 +425,13 @@ export default function SettingsPage() {
                             }
                           }}
                         />
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-[rgba(0,0,0,0.48)]">
                           Time students have to record their response (1-600 seconds)
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-2">
-                      <p className="text-sm text-slate-600">
+                      <p className="text-sm text-[rgba(0,0,0,0.56)]">
                         Current settings: <strong>{globalTimingSettings.preparationTime}s</strong> preparation, <strong>{globalTimingSettings.responseTime}s</strong> response
                       </p>
                       <Button
@@ -463,8 +463,8 @@ export default function SettingsPage() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-bold text-slate-900">Interview Prompts</h3>
-              <p className="text-sm text-slate-600 mt-1">
+              <h3 className="text-xl font-bold text-[#1d1d1f]">Interview Prompts</h3>
+              <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
                 Select exactly 4 prompts for student interviews. You can choose from default prompts or create your own.
               </p>
             </div>
@@ -497,8 +497,8 @@ export default function SettingsPage() {
           {promptsLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-                <p className="mt-2 text-sm text-slate-600">Loading prompts...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+                <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading prompts...</p>
               </div>
             </div>
           ) : (
@@ -507,8 +507,8 @@ export default function SettingsPage() {
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">
-                      Selected: <strong className="text-slate-900">{selectedIds.size} / 4</strong>
+                    <span className="text-sm text-[rgba(0,0,0,0.56)]">
+                      Selected: <strong className="text-[#1d1d1f]">{selectedIds.size} / 4</strong>
                     </span>
                     {selectedIds.size !== 4 && (
                       <span className="text-xs text-amber-600">
@@ -532,12 +532,12 @@ export default function SettingsPage() {
                 <CardContent>
                   <div className="space-y-3">
                     {defaultPrompts.length === 0 ? (
-                      <p className="text-sm text-slate-500">No default prompts available</p>
+                      <p className="text-sm text-[rgba(0,0,0,0.48)]">No default prompts available</p>
                     ) : (
                       defaultPrompts.map((prompt) => (
                         <div
                           key={prompt.id}
-                          className="flex items-start gap-3 p-3 border rounded-lg hover:bg-slate-50"
+                          className="flex items-start gap-3 p-3 border rounded-lg hover:bg-black/[0.04]"
                         >
                           <Checkbox
                             checked={selectedIds.has(prompt.id)}
@@ -550,13 +550,13 @@ export default function SettingsPage() {
                                 {prompt.category}
                               </span>
                               {prompt.difficulty_level && (
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-[rgba(0,0,0,0.48)]">
                                   {prompt.difficulty_level}
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-slate-900">{prompt.prompt_text}</p>
-                            <p className="text-xs text-slate-500 mt-1">
+                            <p className="text-sm text-[#1d1d1f]">{prompt.prompt_text}</p>
+                            <p className="text-xs text-[rgba(0,0,0,0.48)] mt-1">
                               Prep: {prompt.preparation_time}s | Response: {prompt.response_time}s
                             </p>
                           </div>
@@ -591,7 +591,7 @@ export default function SettingsPage() {
                 <CardContent>
                   {/* Add Prompt Form */}
                   {showAddForm && (
-                    <div className="mb-6 p-4 border rounded-lg bg-slate-50 space-y-4">
+                    <div className="mb-6 p-4 border rounded-lg bg-[#f5f5f7] space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="category">Category *</Label>
@@ -661,12 +661,12 @@ export default function SettingsPage() {
                   {/* Custom Prompts List */}
                   <div className="space-y-3">
                     {customPrompts.length === 0 ? (
-                      <p className="text-sm text-slate-500">No custom prompts yet. Create one above!</p>
+                      <p className="text-sm text-[rgba(0,0,0,0.48)]">No custom prompts yet. Create one above!</p>
                     ) : (
                       customPrompts.map((prompt) => (
                         <div
                           key={prompt.id}
-                          className="flex items-start gap-3 p-3 border rounded-lg hover:bg-slate-50"
+                          className="flex items-start gap-3 p-3 border rounded-lg hover:bg-black/[0.04]"
                         >
                           <Checkbox
                             checked={selectedIds.has(prompt.id)}
@@ -679,7 +679,7 @@ export default function SettingsPage() {
                                 {prompt.category}
                               </span>
                               {prompt.difficulty_level && (
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-[rgba(0,0,0,0.48)]">
                                   {prompt.difficulty_level}
                                 </span>
                               )}
@@ -687,8 +687,8 @@ export default function SettingsPage() {
                                 Custom
                               </span>
                             </div>
-                            <p className="text-sm text-slate-900">{prompt.prompt_text}</p>
-                            <p className="text-xs text-slate-500 mt-1">
+                            <p className="text-sm text-[#1d1d1f]">{prompt.prompt_text}</p>
+                            <p className="text-xs text-[rgba(0,0,0,0.48)] mt-1">
                               Prep: {prompt.preparation_time}s | Response: {prompt.response_time}s
                             </p>
                           </div>

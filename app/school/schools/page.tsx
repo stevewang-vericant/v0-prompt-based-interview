@@ -133,8 +133,8 @@ export default function SchoolsPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-slate-600">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+          <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading...</p>
         </div>
       </div>
     )
@@ -167,8 +167,8 @@ export default function SchoolsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">School Management</h2>
-        <p className="text-sm text-slate-600 mt-1">
+        <h2 className="text-2xl font-bold text-[#1d1d1f]">School Management</h2>
+        <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
           Manage all schools in the system. Add new schools or remove existing ones.
         </p>
       </div>
@@ -207,7 +207,7 @@ export default function SchoolsPage() {
               {isCreatingSchool ? "Adding..." : "Add School"}
             </Button>
           </form>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-[rgba(0,0,0,0.48)]">
             School codes must be lowercase letters, numbers, or hyphen. Example: harvard, mit, the-governors-academy.
           </p>
         </CardContent>
@@ -225,25 +225,25 @@ export default function SchoolsPage() {
         </CardHeader>
         <CardContent>
           {schoolsLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-600 py-8">
+            <div className="flex items-center gap-2 text-sm text-[rgba(0,0,0,0.56)] py-8">
               <div className="h-4 w-4 border-b-2 border-purple-600 rounded-full animate-spin" />
               Loading schools...
             </div>
           ) : managedSchools.length === 0 ? (
-            <p className="text-sm text-slate-600 py-8 text-center">No schools yet. Add one above to get started.</p>
+            <p className="text-sm text-[rgba(0,0,0,0.56)] py-8 text-center">No schools yet. Add one above to get started.</p>
           ) : (
             <div className="space-y-3">
               {managedSchools.map((school) => (
                 <div
                   key={school.id}
-                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border rounded-lg hover:bg-slate-50"
+                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border rounded-lg hover:bg-black/[0.04]"
                 >
                   <div>
-                    <p className="font-semibold text-slate-900">
+                    <p className="font-semibold text-[#1d1d1f]">
                       {school.name}{" "}
-                      <span className="text-sm font-normal text-slate-500">({school.code})</span>
+                      <span className="text-sm font-normal text-[rgba(0,0,0,0.48)]">({school.code})</span>
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
                       Added {school.created_at ? format(new Date(school.created_at), "MMM dd, yyyy") : "—"}
                     </p>
                   </div>

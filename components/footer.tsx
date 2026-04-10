@@ -11,13 +11,13 @@ export function Footer() {
   }, [])
 
   return (
-    <footer className="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 border-t border-slate-200 w-full">
+    <footer className="bg-[#f5f5f7] border-t border-black/[0.06] w-full">
       <div className="lg:pl-64">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-8 max-w-4xl mx-auto">
             {/* Need help section */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">
+              <h3 className="text-sm font-semibold text-[#1d1d1f] mb-4 tracking-tight">
                 Need help or have questions?
               </h3>
               <ul className="space-y-3">
@@ -26,17 +26,17 @@ export function Footer() {
                     href="https://calendly.com/brandon_woods_vericant/meet_brandon"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center"
+                    className="text-sm text-[#0066cc] hover:text-[#0066cc]/80 transition-colors inline-flex items-center tracking-tight"
                   >
-                    → Book time with Brandon (Calendly)
+                    Book time with Brandon (Calendly) &rsaquo;
                   </Link>
                 </li>
                 <li>
                   <Link
                     href="mailto:info@vericant.com"
-                    className="text-sm text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center"
+                    className="text-sm text-[#0066cc] hover:text-[#0066cc]/80 transition-colors inline-flex items-center tracking-tight"
                   >
-                    → Contact Support at info@vericant.com
+                    Contact Support at info@vericant.com &rsaquo;
                   </Link>
                 </li>
               </ul>
@@ -44,7 +44,7 @@ export function Footer() {
 
             {/* Quick links section */}
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">
+              <h3 className="text-sm font-semibold text-[#1d1d1f] mb-4 tracking-tight">
                 Quick links
               </h3>
               <ul className="space-y-3">
@@ -53,9 +53,9 @@ export function Footer() {
                     href="https://www.vericant.com/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-slate-600 hover:text-slate-900 transition-colors"
+                    className="text-sm text-[#0066cc] hover:text-[#0066cc]/80 transition-colors tracking-tight"
                   >
-                    Website
+                    Website &rsaquo;
                   </Link>
                 </li>
                 <li>
@@ -63,9 +63,9 @@ export function Footer() {
                     href="https://www.vericant.com/knowledge-base/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-slate-600 hover:text-slate-900 transition-colors"
+                    className="text-sm text-[#0066cc] hover:text-[#0066cc]/80 transition-colors tracking-tight"
                   >
-                    FAQ
+                    FAQ &rsaquo;
                   </Link>
                 </li>
               </ul>
@@ -74,13 +74,12 @@ export function Footer() {
         </div>
       </div>
       
-      {/* Copyright - positioned relative to full page width */}
-      <div className="pt-6 pb-4 border-t border-slate-200 w-full">
-        <p className="text-sm text-slate-500 text-center" suppressHydrationWarning>
-          © {currentYear || new Date().getFullYear()} Vericant. All rights reserved.
+      {/* Copyright */}
+      <div className="pt-5 pb-4 border-t border-black/[0.06] w-full">
+        <p className="text-xs text-[rgba(0,0,0,0.36)] text-center tracking-tight" suppressHydrationWarning>
+          Copyright &copy; {currentYear || new Date().getFullYear()} Vericant. All rights reserved.
         </p>
       </div>
     </footer>
   )
 }
-

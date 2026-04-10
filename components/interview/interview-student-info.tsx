@@ -180,7 +180,7 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
               Email Address <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[rgba(0,0,0,0.36)]" />
               <Input
                 id="email"
                 type="email"
@@ -249,7 +249,7 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
               Residency City <span className="text-red-500">*</span>
             </Label>
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[rgba(0,0,0,0.36)]" />
               <Input
                 id="city"
                 type="text"
@@ -306,21 +306,21 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
               {showCountryDropdown && (
                 <div
                   ref={countryDropdownRef}
-                  className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto"
+                  className="absolute z-50 w-full mt-1 bg-white border border-black/[0.06] rounded-md shadow-lg max-h-60 overflow-auto"
                 >
                   {filteredCountries.length > 0 ? (
                     filteredCountries.map((country) => (
                       <button
                         key={country}
                         type="button"
-                        className="w-full text-left px-4 py-2 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none"
+                        className="w-full text-left px-4 py-2 hover:bg-[#f5f5f7] focus:bg-[#f5f5f7] focus:outline-none"
                         onClick={() => handleCountrySelect(country)}
                       >
                         {country}
                       </button>
                     ))
                   ) : (
-                    <div className="px-4 py-2 text-sm text-slate-500">
+                    <div className="px-4 py-2 text-sm text-[rgba(0,0,0,0.48)]">
                       No countries found
                     </div>
                   )}
