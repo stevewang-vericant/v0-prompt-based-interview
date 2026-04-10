@@ -22,7 +22,7 @@ export default function HomePage() {
               />
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-semibold text-[#1d1d1f] tracking-tight leading-[1.07]">
-              Prompt-Based Interview Platform
+              Guided Interview Platform
             </h1>
             <p className="text-lg sm:text-xl text-[rgba(0,0,0,0.56)] leading-relaxed tracking-tight max-w-2xl mx-auto">
               School customized video interviews plus AI summaries. Trusted by top universities and K-12 programs.

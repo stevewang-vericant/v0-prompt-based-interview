@@ -211,7 +211,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                 <div>
                   <h1 className="text-2xl sm:text-[28px] font-semibold text-[#1d1d1f] tracking-tight leading-tight">
                     {pathname === "/school/dashboard"
-                      ? "Vericant Prompt Interviews"
+                      ? "Vericant Guided Interviews"
                       : pathname === "/school/settings"
                         ? "Settings"
                         : pathname === "/school/users"
