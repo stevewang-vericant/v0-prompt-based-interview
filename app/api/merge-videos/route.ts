@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { processVideoMergeTask } from '../process-video-task/route'
 
 export async function POST(request: NextRequest) {
   try {
+    const requestUrl = new URL(request.url)
     const { interviewId, segments } = await request.json()
     
     console.log('[Merge] Creating async task for interview:', interviewId)
@@ -35,8 +35,17 @@ export async function POST(request: NextRequest) {
     setTimeout(async () => {
       try {
         console.log(`[Merge] Starting async processing for task ${task.id}`)
-        await processVideoMergeTask(task.id)
-        console.log(`[Merge] Async processing completed for task ${task.id}`)
+        const processUrl = `${requestUrl.origin}/api/process-video-task`
+        const triggerResponse = await fetch(processUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: task.id }),
+        })
+        if (!triggerResponse.ok) {
+          const body = await triggerResponse.text()
+          throw new Error(`Trigger failed: ${triggerResponse.status} ${body}`)
+        }
+        console.log(`[Merge] Async processing triggered for task ${task.id}`)
       } catch (error) {
         console.error(`[Merge] Async processing failed for task ${task.id}:`, error)
       }

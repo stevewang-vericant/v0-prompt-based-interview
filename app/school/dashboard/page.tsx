@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, Suspense, useCallback, type FormEvent } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -11,7 +11,7 @@ import {
   InterviewRecord 
 } from "@/app/actions/interviews"
 import { getCurrentUser } from "@/app/actions/auth"
-import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Building2, Copy, Search, Link as LinkIcon, CheckCircle, LogOut, Trash2, X } from "lucide-react"
+import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Copy, Search, Link as LinkIcon, CheckCircle, Trash2, FileText } from "lucide-react"
 import { format } from "date-fns"
 
 function SchoolDashboardContent() {
@@ -35,6 +35,7 @@ function SchoolDashboardContent() {
   const [selectedInterviews, setSelectedInterviews] = useState<Set<string>>(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [rescoringInterviewIds, setRescoringInterviewIds] = useState<Set<string>>(new Set())
 
   const loadUserAndSchool = async () => {
     try {
@@ -240,6 +241,67 @@ function SchoolDashboardContent() {
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = Math.floor(seconds % 60)
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
+
+  const getFinalScore = (interview: InterviewRecord): number | null => {
+    if (interview.total_score !== null && interview.total_score !== undefined) {
+      return Number(interview.total_score)
+    }
+    const metadata = interview.metadata as Record<string, any> | null
+    const metaScore = metadata?.cathoven?.response?.final_score
+    return typeof metaScore === 'number' ? metaScore : null
+  }
+
+  const hasScoreDetail = (interview: InterviewRecord): boolean => {
+    const metadata = interview.metadata as Record<string, any> | null
+    return Boolean(metadata?.cathoven?.response)
+  }
+
+  const handleOpenScoreDetail = (interview: InterviewRecord) => {
+    if (!interview.interview_id) return
+    window.location.href = `/school/interview-report?interviewId=${encodeURIComponent(interview.interview_id)}`
+  }
+
+  const getCathovenStatus = (interview: InterviewRecord): 'completed' | 'failed' | 'not_called' => {
+    const metadata = interview.metadata as Record<string, any> | null
+    const status = metadata?.cathoven?.status
+    if (status === 'completed') return 'completed'
+    if (status === 'failed') return 'failed'
+    return 'not_called'
+  }
+
+  const canRetryCathoven = (interview: InterviewRecord): boolean => {
+    return Boolean(interview.video_url && interview.interview_id)
+  }
+
+  const handleRetryCathoven = async (interview: InterviewRecord) => {
+    if (!interview.interview_id || !canRetryCathoven(interview)) return
+    const interviewId = interview.interview_id
+
+    setRescoringInterviewIds(prev => new Set(prev).add(interviewId))
+    try {
+      const response = await fetch('/api/cathoven/retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interviewId }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to call Cathoven API')
+      }
+
+      await loadInterviews()
+    } catch (error) {
+      console.error('[Cathoven] Retry failed:', error)
+      setError(error instanceof Error ? error.message : 'Failed to call Cathoven API')
+    } finally {
+      setRescoringInterviewIds(prev => {
+        const next = new Set(prev)
+        next.delete(interviewId)
+        return next
+      })
+    }
   }
 
   // 复制面试链接到剪贴板（支持多种方法）
@@ -605,6 +667,29 @@ function SchoolDashboardContent() {
                             {interview.school_code}
                           </span>
                         )}
+                        {(() => {
+                          const cathovenStatus = getCathovenStatus(interview)
+                          if (!interview.video_url) return null
+                          if (cathovenStatus === 'completed') {
+                            return (
+                              <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-emerald-100 text-emerald-800">
+                                CAP Scored
+                              </span>
+                            )
+                          }
+                          if (cathovenStatus === 'failed') {
+                            return (
+                              <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-red-100 text-red-800">
+                                CAP Failed
+                              </span>
+                            )
+                          }
+                          return (
+                            <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-slate-100 text-slate-700">
+                              CAP Not Called
+                            </span>
+                          )
+                        })()}
                         {/* Status badge */}
                         {!interview.video_url ? (
                           (() => {
@@ -661,6 +746,11 @@ function SchoolDashboardContent() {
                         <div className="text-xs text-[rgba(0,0,0,0.48)] font-mono truncate hidden sm:block">
                           ID: {interview.interview_id}
                         </div>
+                        {getFinalScore(interview) !== null && (
+                          <div className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-medium">
+                            Final Score: {getFinalScore(interview)!.toFixed(2)}
+                          </div>
+                        )}
                       </div>
                       {/* Third row: Additional student info (if available) */}
                       {(interview.student_gender || interview.student_grade || interview.student_city || interview.student_financial_aid !== null) && (
@@ -699,6 +789,30 @@ function SchoolDashboardContent() {
                         <Video className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                         <span className="sm:inline">
                           {interview.video_url ? 'Watch' : ((interview.metadata as Record<string, any> | null)?.status === 'uploaded' ? 'Processing...' : 'Pending')}
+                        </span>
+                      </Button>
+                      <Button
+                        onClick={() => handleOpenScoreDetail(interview)}
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        disabled={!hasScoreDetail(interview)}
+                        title={!hasScoreDetail(interview) ? 'Score detail not ready yet' : 'Open score detail'}
+                      >
+                        <FileText className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                        <span className="sm:inline">Detail</span>
+                      </Button>
+                      <Button
+                        onClick={() => handleRetryCathoven(interview)}
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        disabled={!canRetryCathoven(interview) || (!!interview.interview_id && rescoringInterviewIds.has(interview.interview_id))}
+                        title={!canRetryCathoven(interview) ? 'Video is not ready yet' : 'Call Cathoven API to get score'}
+                      >
+                        <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 sm:mr-2 ${interview.interview_id && rescoringInterviewIds.has(interview.interview_id) ? 'animate-spin' : ''}`} />
+                        <span className="sm:inline">
+                          {interview.interview_id && rescoringInterviewIds.has(interview.interview_id) ? 'Scoring...' : 'CAP Retry'}
                         </span>
                       </Button>
                     </div>

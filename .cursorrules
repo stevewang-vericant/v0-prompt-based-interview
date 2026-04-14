@@ -32,6 +32,7 @@
 
 ### Branch-Based Development
 - **Always create a feature/fix branch** before making changes that need testing
+- **For every new feature development or bug fix, branch creation is mandatory before any code changes**
 - **Branch naming convention**: 
   - Features: `feature/description`
   - Fixes: `fix/description`
