@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { prisma } from '@/lib/prisma'
 import { transcribeVideo } from '@/app/actions/transcription-simple'
+import { evaluateInterviewWithCathoven } from '@/lib/cathoven'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
@@ -23,7 +24,7 @@ const s3Client = new S3Client({
 /**
  * 处理视频合并任务的核心函数
  */
-export async function processVideoMergeTask(taskId: string) {
+async function processVideoMergeTask(taskId: string) {
   try {
     // 获取任务信息
     const task = await prisma.videoProcessingTask.findUnique({
@@ -283,6 +284,9 @@ export async function processVideoMergeTask(taskId: string) {
         return questionData
       })
     }
+    const questionTexts = subtitleMetadata.questions
+      .map((item) => item.text)
+      .filter((text): text is string => typeof text === 'string' && text.trim().length > 0)
     
     // 上传字幕元数据到 B2
     console.log(`[Task ${taskId}] Uploading subtitle metadata to B2...`)
@@ -311,7 +315,8 @@ export async function processVideoMergeTask(taskId: string) {
     
     // 更新数据库中的视频URL和字幕URL
     console.log(`[Task ${taskId}] Updating database for interview_id: ${interviewId}`)
-    
+    let interviewDbId: string | null = null
+
     try {
         // 使用 external ID 查找 Interview
         const interview = await prisma.interview.findUnique({
@@ -319,6 +324,7 @@ export async function processVideoMergeTask(taskId: string) {
         })
         
         if (interview) {
+            interviewDbId = interview.id
             await prisma.interview.update({
                 where: { id: interview.id },
                 data: {
@@ -347,6 +353,64 @@ export async function processVideoMergeTask(taskId: string) {
         }
     } catch (updateError) {
         console.error(`[Task ${taskId}] ⚠️ Failed to update database:`, updateError)
+    }
+
+    // 调用 Cathoven 评分 API（完整视频生成后）
+    if (interviewDbId) {
+      console.log(`[Task ${taskId}] Calling Cathoven IELTS Speaking API...`)
+      const cathovenResult = await evaluateInterviewWithCathoven({
+        interviewId,
+        questions: questionTexts,
+        mergedVideoBuffer: mergedBuffer,
+      })
+
+      const reportUrl = `/school/interview-report?interviewId=${encodeURIComponent(interviewId)}`
+
+      try {
+        const existingInterview = await prisma.interview.findUnique({
+          where: { id: interviewDbId },
+          select: { metadata: true },
+        })
+        const existingMetadata =
+          existingInterview?.metadata && typeof existingInterview.metadata === 'object'
+            ? (existingInterview.metadata as Record<string, any>)
+            : {}
+
+        const nextMetadata = {
+          ...existingMetadata,
+          cathoven: {
+            status: cathovenResult.success ? 'completed' : 'failed',
+            evaluatedAt: new Date().toISOString(),
+            reportUrl,
+            rubric: 'vericant_lite',
+            response: cathovenResult.response || null,
+            error: cathovenResult.error || null,
+          },
+        }
+
+        await prisma.interview.update({
+          where: { id: interviewDbId },
+          data: {
+            metadata: nextMetadata,
+            total_score:
+              cathovenResult.success && cathovenResult.finalScore !== null
+                ? cathovenResult.finalScore
+                : undefined,
+            status:
+              cathovenResult.success && cathovenResult.finalScore !== null
+                ? 'scored'
+                : undefined,
+          },
+        })
+
+        if (cathovenResult.success) {
+          console.log(`[Task ${taskId}] ✓ Cathoven scoring completed`)
+        } else {
+          console.error(`[Task ${taskId}] ✗ Cathoven scoring failed:`, cathovenResult.error)
+        }
+      } catch (cathovenUpdateError) {
+        console.error(`[Task ${taskId}] ✗ Failed to save Cathoven result:`, cathovenUpdateError)
+      }
     }
     
     // 更新任务状态为 completed

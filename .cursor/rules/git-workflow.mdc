@@ -9,6 +9,7 @@ alwaysApply: true
 ## Branch-Based Development
 
 - **Always create a feature/fix branch** before making changes that need testing
+- **For every new feature development or bug fix, branch creation is mandatory before any code changes**
 - **Never commit directly to `main`** for changes that require testing
 
 ## Branch Naming Convention

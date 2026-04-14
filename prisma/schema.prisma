@@ -248,3 +248,22 @@ model PasswordResetToken {
   @@index([expires_at])
   @@map("password_reset_tokens")
 }
+
+model ExternalApiLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  provider         String   @db.VarChar(100)
+  interview_id     String?  @db.VarChar(255)
+  endpoint         String   @db.VarChar(500)
+  request_payload  String?  @db.Text
+  response_payload String?  @db.Text
+  status_code      Int?
+  success          Boolean  @default(false)
+  error_message    String?  @db.Text
+  duration_ms      Int?
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([provider])
+  @@index([interview_id])
+  @@index([created_at])
+  @@map("external_api_logs")
+}
