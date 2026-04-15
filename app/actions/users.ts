@@ -265,6 +265,101 @@ export async function deactivateUser(userId: string, userType?: 'school_admin' |
 }
 
 /**
+ * 拒绝待审批用户请求
+ * 仅允许拒绝未激活账号
+ */
+export async function declineUserRequest(userId: string, userType?: 'school_admin' | 'school'): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    await ensureSuperAdmin()
+
+    // 如果没有指定类型，先尝试查找 SchoolAdmin
+    if (!userType) {
+      const admin = await prisma.schoolAdmin.findUnique({
+        where: { id: userId }
+      })
+      if (admin) {
+        userType = 'school_admin'
+      } else {
+        userType = 'school'
+      }
+    }
+
+    if (userType === 'school_admin') {
+      const admin = await prisma.schoolAdmin.findUnique({
+        where: { id: userId }
+      })
+
+      if (!admin) {
+        return { success: false, error: "User not found" }
+      }
+
+      if (admin.is_super_admin) {
+        return { success: false, error: "Cannot modify super admin account" }
+      }
+
+      if (admin.active) {
+        return { success: false, error: "Only pending requests can be declined" }
+      }
+
+      await prisma.schoolAdmin.delete({
+        where: { id: userId }
+      })
+    } else {
+      const schoolUser = await prisma.school.findUnique({
+        where: { id: userId },
+        select: { id: true, code: true, is_super_admin: true, active: true }
+      })
+
+      if (!schoolUser) {
+        return { success: false, error: "User not found" }
+      }
+
+      if (schoolUser.is_super_admin) {
+        return { success: false, error: "Cannot modify super admin account" }
+      }
+
+      if (schoolUser.active) {
+        return { success: false, error: "Only pending requests can be declined" }
+      }
+
+      if (schoolUser.code === "_system") {
+        return { success: false, error: "System user cannot be declined" }
+      }
+
+      // 避免误删已有业务数据的旧账号
+      const interviewCount = await prisma.interview.count({
+        where: { school_id: userId }
+      })
+
+      if (interviewCount > 0) {
+        return {
+          success: false,
+          error: "Cannot decline request with existing interviews. Please deactivate the account instead.",
+        }
+      }
+
+      await prisma.prompt.deleteMany({
+        where: { school_id: userId }
+      })
+
+      await prisma.school.delete({
+        where: { id: userId }
+      })
+    }
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    }
+  }
+}
+
+/**
  * 删除用户
  */
 export async function deleteUser(userId: string): Promise<{

@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/app/actions/auth"
 import { 
   listUsers, 
   activateUser, 
+  declineUserRequest,
   deactivateUser, 
   deleteUser, 
   resetUserPassword,
@@ -122,6 +123,30 @@ export default function UsersPage() {
         setTimeout(() => setSuccess(null), 3000)
       } else {
         setError(result.error || "Failed to deactivate user")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDecline = async (userId: string, userType?: 'school_admin' | 'school') => {
+    const confirmed = window.confirm("Are you sure you want to decline this request? This action cannot be undone.")
+    if (!confirmed) return
+
+    setActionLoading(userId)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const result = await declineUserRequest(userId, userType)
+      if (result.success) {
+        setSuccess("Request declined successfully")
+        await fetchUsers()
+        setTimeout(() => setSuccess(null), 3000)
+      } else {
+        setError(result.error || "Failed to decline request")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error")
@@ -295,6 +320,20 @@ export default function UsersPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDecline(user.id, user.type)}
+                      disabled={actionLoading === user.id}
+                      className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                    >
+                      {actionLoading === user.id ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <UserX className="h-4 w-4 mr-2" />
+                      )}
+                      Decline
+                    </Button>
                     <Button
                       variant="default"
                       size="sm"
