@@ -125,6 +125,8 @@ export default async function InterviewReportPage({
               <Link
                 href={`/school/interview-report/raw?interviewId=${encodeURIComponent(interviewId)}`}
                 className="text-sm text-blue-600 hover:text-blue-700 underline"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 View raw JSON
               </Link>

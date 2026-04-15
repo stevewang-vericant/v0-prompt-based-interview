@@ -196,6 +196,8 @@ function SchoolDashboardContent() {
     const proxySubtitleUrl = interview.subtitle_url 
       ? `/api/proxy-json?url=${encodeURIComponent(interview.subtitle_url)}` 
       : ''
+    const finalScore = getFinalScore(interview)
+    const scoreDetailReady = hasScoreDetail(interview)
     
     const params = new URLSearchParams({
       videoUrl: proxyVideoUrl,
@@ -230,6 +232,12 @@ function SchoolDashboardContent() {
     if (interview.student_financial_aid !== null) {
       params.append('studentFinancialAid', interview.student_financial_aid.toString())
     }
+
+    if (finalScore !== null) {
+      params.append('finalScore', finalScore.toFixed(2))
+    }
+
+    params.append('scoreDetailReady', String(scoreDetailReady))
     
     const watchUrl = `/school/watch?${params.toString()}`
     
