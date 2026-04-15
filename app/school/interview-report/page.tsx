@@ -1,43 +1,18 @@
 import Link from "next/link"
-import type { ReactNode } from "react"
 import { prisma } from "@/lib/prisma"
 
-function renderJsonNode(value: unknown, depth = 0): ReactNode {
-  if (value === null || value === undefined) {
-    return <span className="text-[rgba(0,0,0,0.48)]">null</span>
-  }
+function formatNumber(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  return "N/A"
+}
 
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return <span>{String(value)}</span>
-  }
-
-  if (Array.isArray(value)) {
-    return (
-      <div className="space-y-2">
-        {value.map((item, index) => (
-          <div key={`array-${depth}-${index}`} className="pl-4 border-l border-black/[0.08]">
-            <div className="text-xs text-[rgba(0,0,0,0.48)] mb-1">[{index}]</div>
-            {renderJsonNode(item, depth + 1)}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (typeof value === "object") {
-    return (
-      <div className="space-y-2">
-        {Object.entries(value as Record<string, unknown>).map(([key, child]) => (
-          <div key={`${depth}-${key}`} className="pl-4 border-l border-black/[0.08]">
-            <div className="text-xs font-medium text-[#1d1d1f] mb-1">{key}</div>
-            {renderJsonNode(child, depth + 1)}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  return <span>{String(value)}</span>
+function toTitleCase(input: string): string {
+  return input
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
 }
 
 export default async function InterviewReportPage({
@@ -81,6 +56,10 @@ export default async function InterviewReportPage({
   const cathoven = (metadata.cathoven as Record<string, any> | undefined) || {}
   const responseJson = cathoven.response || null
   const reportUrl = cathoven.reportUrl || null
+  const breakdown = (responseJson?.breakdown as Record<string, any> | undefined) || {}
+  const breakdownItems = Object.entries(breakdown)
+  const vericantLite = (responseJson?.vericant_lite as Record<string, any> | undefined) || {}
+  const vericantLiteItems = Object.entries(vericantLite)
   const apiLogs = await prisma.externalApiLog.findMany({
     where: {
       provider: "cathoven",
@@ -122,15 +101,9 @@ export default async function InterviewReportPage({
           <section className="rounded border border-black/[0.08] bg-white p-4">
             <h2 className="text-lg font-semibold mb-3">Final Score</h2>
             <div className="text-3xl font-bold text-[#1d1d1f]">
-              {interview.total_score ? Number(interview.total_score).toFixed(2) : "N/A"}
+              {responseJson?.band ?? (interview.total_score ? Number(interview.total_score).toFixed(2) : "N/A")}
             </div>
-            <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-              <div className="rounded bg-[#f5f5f7] p-2">Fluency: {interview.fluency_score ? Number(interview.fluency_score).toFixed(2) : "N/A"}</div>
-              <div className="rounded bg-[#f5f5f7] p-2">Coherence: {interview.coherence_score ? Number(interview.coherence_score).toFixed(2) : "N/A"}</div>
-              <div className="rounded bg-[#f5f5f7] p-2">Vocabulary: {interview.vocabulary_score ? Number(interview.vocabulary_score).toFixed(2) : "N/A"}</div>
-              <div className="rounded bg-[#f5f5f7] p-2">Grammar: {interview.grammar_score ? Number(interview.grammar_score).toFixed(2) : "N/A"}</div>
-              <div className="rounded bg-[#f5f5f7] p-2">Pronunciation: {interview.pronunciation_score ? Number(interview.pronunciation_score).toFixed(2) : "N/A"}</div>
-            </div>
+            <div className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">CEFR: {responseJson?.cefr || "N/A"}</div>
           </section>
 
           <section className="rounded border border-black/[0.08] bg-white p-4 space-y-2">
@@ -147,11 +120,58 @@ export default async function InterviewReportPage({
           </section>
 
           <section className="rounded border border-black/[0.08] bg-white p-4">
-            <h2 className="text-lg font-semibold mb-3">Full Cathoven JSON</h2>
-            {responseJson ? (
-              <div className="text-sm">{renderJsonNode(responseJson)}</div>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="text-lg font-semibold">Breakdown (from JSON)</h2>
+              <Link
+                href={`/school/interview-report/raw?interviewId=${encodeURIComponent(interviewId)}`}
+                className="text-sm text-blue-600 hover:text-blue-700 underline"
+              >
+                View raw JSON
+              </Link>
+            </div>
+            {breakdownItems.length > 0 ? (
+              <div className="space-y-3">
+                {breakdownItems.map(([key, value]) => {
+                  const item = value as Record<string, any>
+                  const itemBreakdown = (item?.breakdown as Record<string, any> | undefined) || {}
+                  return (
+                    <div key={key} className="rounded border border-black/[0.08] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-medium">{item?.name || toTitleCase(key)}</div>
+                        <div className="text-sm">
+                          Band: <span className="font-semibold">{formatNumber(item?.band)}</span>
+                        </div>
+                      </div>
+                      {Object.keys(itemBreakdown).length > 0 && (
+                        <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                          {Object.entries(itemBreakdown).map(([metricKey, metricValue]) => (
+                            <div key={metricKey} className="rounded bg-[#f5f5f7] p-2">
+                              {toTitleCase(metricKey)}: {formatNumber(metricValue)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             ) : (
-              <div className="text-sm text-[rgba(0,0,0,0.56)]">No Cathoven response saved yet.</div>
+              <div className="text-sm text-[rgba(0,0,0,0.56)]">No breakdown data in Cathoven response.</div>
+            )}
+          </section>
+
+          <section className="rounded border border-black/[0.08] bg-white p-4">
+            <h2 className="text-lg font-semibold mb-3">Vericant Lite Metrics</h2>
+            {vericantLiteItems.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                {vericantLiteItems.map(([metricKey, metricValue]) => (
+                  <div key={metricKey} className="rounded bg-[#f5f5f7] p-2">
+                    {toTitleCase(metricKey)}: {formatNumber(metricValue)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-[rgba(0,0,0,0.56)]">No vericant_lite section in response.</div>
             )}
           </section>
 
