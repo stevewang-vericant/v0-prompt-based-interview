@@ -1,0 +1,28 @@
+---
+description: Enforce Apple-style UI for frontend changes
+globs: "{app,components}/**/*.{ts,tsx,js,jsx,css}"
+alwaysApply: false
+---
+
+# Frontend Apple Design Rule
+
+For frontend UI updates, follow the Apple style from awesome-design-md as the default visual direction.
+
+Reference:
+- https://github.com/VoltAgent/awesome-design-md
+- Use the Apple DESIGN.md style as the primary design language.
+
+## Required Styling Principles
+
+- Prioritize clean hierarchy: primary info first, secondary info de-emphasized.
+- Use list-first layouts for dense data; avoid stacking many heavy cards.
+- Keep visual noise low: light separators, subtle borders, restrained color accents.
+- Use generous spacing and clear alignment; avoid crowded badge/button clusters.
+- Maintain calm typography: neutral colors, moderate weight changes, no excessive emphasis.
+- Preserve existing behavior and data visibility while simplifying presentation.
+
+## Interaction Guidelines
+
+- Primary action should remain clear and easy to reach.
+- Secondary actions should be visually lighter (`outline`/ghost-like treatment).
+- Hover/focus states should be subtle and polished, not high-contrast or flashy.

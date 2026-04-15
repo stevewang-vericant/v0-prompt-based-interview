@@ -282,6 +282,45 @@ function SchoolDashboardContent() {
     return Boolean(interview.video_url && interview.interview_id)
   }
 
+  const getProgressBadge = (interview: InterviewRecord): { label: string; className: string } => {
+    if (!interview.video_url) {
+      const meta = interview.metadata as Record<string, any> | null
+      const isAllUploaded = meta?.status === "uploaded"
+
+      if (isAllUploaded) {
+        return { label: "Processing", className: "bg-amber-100 text-amber-800" }
+      }
+      if (interview.responseCount > 0) {
+        return {
+          label: `Uploading (${interview.responseCount})`,
+          className: "bg-orange-100 text-orange-800",
+        }
+      }
+      return { label: "Not Started", className: "bg-[#f5f5f7] text-[#1d1d1f]" }
+    }
+
+    if (interview.status === "completed") {
+      return { label: "Completed", className: "bg-green-100 text-green-800" }
+    }
+    if (interview.status === "reviewing") {
+      return { label: "Reviewing", className: "bg-yellow-100 text-yellow-800" }
+    }
+    return { label: "Ready", className: "bg-emerald-100 text-emerald-800" }
+  }
+
+  const getCathovenBadge = (interview: InterviewRecord): { label: string; className: string } | null => {
+    if (!interview.video_url) return null
+
+    const cathovenStatus = getCathovenStatus(interview)
+    if (cathovenStatus === "completed") {
+      return { label: "CAP Scored", className: "bg-emerald-100 text-emerald-800" }
+    }
+    if (cathovenStatus === "failed") {
+      return { label: "CAP Failed", className: "bg-red-100 text-red-800" }
+    }
+    return { label: "CAP Not Called", className: "bg-slate-100 text-slate-700" }
+  }
+
   const handleRetryCathoven = async (interview: InterviewRecord) => {
     if (!interview.interview_id || !canRetryCathoven(interview)) return
     const interviewId = interview.interview_id
@@ -528,14 +567,14 @@ function SchoolDashboardContent() {
         </div>
 
         {/* Interview List */}
-        <Card>
-          <CardHeader className="space-y-2">
+        <section className="space-y-2">
+          <div className="space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <CardTitle>Recent Interviews</CardTitle>
-                <CardDescription>
+                <h2 className="text-lg font-semibold text-[#1d1d1f]">Recent Interviews</h2>
+                <p className="text-sm text-[rgba(0,0,0,0.56)]">
                   View and review student interviews
-                </CardDescription>
+                </p>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative flex-1 sm:w-64">
@@ -562,7 +601,7 @@ function SchoolDashboardContent() {
             
             {/* Super Admin Bulk Actions */}
             {schoolInfo?.is_super_admin && filteredInterviews.length > 0 && (
-              <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center justify-between pt-4 border-t border-black/[0.06]">
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -590,8 +629,8 @@ function SchoolDashboardContent() {
                 </div>
               </div>
             )}
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -636,201 +675,178 @@ function SchoolDashboardContent() {
                     Found <strong>{filteredInterviews.length}</strong> interview{filteredInterviews.length !== 1 ? 's' : ''} matching "<strong>{searchQuery}</strong>"
                   </div>
                 )}
-                <div className="space-y-4">
-                  {filteredInterviews.map((interview) => (
-                  <div
-                    key={interview.id}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border rounded-lg hover:bg-black/[0.04] transition-colors"
-                  >
-                    {/* Selection checkbox for super admins */}
-                    {schoolInfo?.is_super_admin && (
-                      <div className="flex items-center sm:mr-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedInterviews.has(interview.id)}
-                          onChange={() => handleSelectInterview(interview.id)}
-                          className="rounded border-black/[0.08]"
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="flex-1 min-w-0 space-y-2">
-                      {/* First row: Name and badges */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-[rgba(0,0,0,0.36)] flex-shrink-0" />
-                          <div className="flex flex-col min-w-0">
-                            {interview.student_name && (
-                              <span className="font-medium text-[#1d1d1f] truncate text-sm sm:text-base">
-                                {interview.student_name}
+                <div className="hidden lg:grid grid-cols-[minmax(0,1fr)_220px_320px] items-center px-4 py-2 text-xs font-medium uppercase tracking-wide text-[rgba(0,0,0,0.44)] border-y border-black/[0.08]">
+                  <span>Candidate</span>
+                  <span>Status</span>
+                  <span className="text-right">Actions</span>
+                </div>
+                <div className="divide-y divide-black/[0.06] border-y border-black/[0.08] bg-transparent">
+                  {filteredInterviews.map((interview) => {
+                    const progressBadge = getProgressBadge(interview)
+                    const cathovenBadge = getCathovenBadge(interview)
+                    return (
+                    <div
+                      key={interview.id}
+                      className="px-4 py-4 sm:px-5 transition-colors hover:bg-black/[0.015]"
+                    >
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_320px] lg:items-center">
+                        {/* Selection checkbox for super admins */}
+                        {schoolInfo?.is_super_admin && (
+                          <div className="flex items-center lg:col-span-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedInterviews.has(interview.id)}
+                              onChange={() => handleSelectInterview(interview.id)}
+                              className="rounded border-black/[0.08]"
+                            />
+                          </div>
+                        )}
+
+                        <div className="min-w-0 space-y-2.5">
+                          <div className="flex flex-wrap items-start justify-between gap-2 lg:justify-start">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-3.5 w-3.5 text-[rgba(0,0,0,0.36)]" />
+                                <p className="truncate text-base font-semibold text-[#1d1d1f]">
+                                  {interview.student_name || interview.student_email || "Unknown Student"}
+                                </p>
+                              </div>
+                              {interview.student_name && (
+                                <p className="truncate pl-6 text-sm text-[rgba(0,0,0,0.56)]">
+                                  {interview.student_email || "Unknown"}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[rgba(0,0,0,0.56)]">
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {format(new Date(interview.created_at), "MMM dd, yyyy HH:mm")}
+                            </span>
+                            {interview.total_duration && (
+                              <span className="inline-flex items-center gap-1.5">
+                                <Clock className="h-3.5 w-3.5" />
+                                {formatDuration(interview.total_duration)}
                               </span>
                             )}
-                            <span className={`${interview.student_name ? "text-xs sm:text-sm text-[rgba(0,0,0,0.56)]" : "text-sm sm:text-base font-medium text-[#1d1d1f]"} truncate`}>
-                              {interview.student_email || 'Unknown'}
-                            </span>
+                            {getFinalScore(interview) !== null && (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                                Score {getFinalScore(interview)!.toFixed(2)}
+                              </span>
+                            )}
+                            {interview.interview_id && (
+                              <span className="truncate rounded-md bg-black/[0.03] px-2 py-0.5 font-mono text-xs text-[rgba(0,0,0,0.48)] max-w-[260px]">
+                                ID: {interview.interview_id}
+                              </span>
+                            )}
                           </div>
-                        </div>
-                        {interview.school_code && (
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
-                            {interview.school_code}
-                          </span>
-                        )}
-                        {(() => {
-                          const cathovenStatus = getCathovenStatus(interview)
-                          if (!interview.video_url) return null
-                          if (cathovenStatus === 'completed') {
-                            return (
-                              <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-emerald-100 text-emerald-800">
-                                CAP Scored
-                              </span>
-                            )
-                          }
-                          if (cathovenStatus === 'failed') {
-                            return (
-                              <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-red-100 text-red-800">
-                                CAP Failed
-                              </span>
-                            )
-                          }
-                          return (
-                            <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-slate-100 text-slate-700">
-                              CAP Not Called
-                            </span>
-                          )
-                        })()}
-                        {/* Status badge */}
-                        {!interview.video_url ? (
-                          (() => {
-                            const meta = interview.metadata as Record<string, any> | null
-                            const isAllUploaded = meta?.status === 'uploaded'
-                            if (isAllUploaded) {
-                              return (
-                                <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-amber-100 text-amber-800">
-                                  Processing
+
+                          {(interview.student_gender || interview.student_grade || interview.student_city || interview.student_financial_aid !== null) && (
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                              {interview.student_gender && (
+                                <span className="rounded-md bg-black/[0.03] px-2 py-0.5 text-[#1d1d1f]">
+                                  {interview.student_gender}
                                 </span>
-                              )
-                            }
-                            if (interview.responseCount > 0) {
-                              return (
-                                <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-orange-100 text-orange-800">
-                                  Uploading ({interview.responseCount} uploaded)
+                              )}
+                              {interview.student_grade && (
+                                <span className="rounded-md bg-black/[0.03] px-2 py-0.5 text-[#1d1d1f]">
+                                  {interview.student_grade}
                                 </span>
-                              )
-                            }
-                            return (
-                              <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-[#f5f5f7] text-[#1d1d1f]">
-                                Not Started
-                              </span>
-                            )
-                          })()
-                        ) : interview.status ? (
-                          <span className={`px-2 py-0.5 text-xs rounded-full whitespace-nowrap ${
-                            interview.status === 'completed' 
-                              ? 'bg-green-100 text-green-800' 
-                              : interview.status === 'reviewing'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-[#f5f5f7] text-[#1d1d1f]'
-                          }`}>
-                            {interview.status}
+                              )}
+                              {interview.student_city && (
+                                <span className="rounded-md bg-black/[0.03] px-2 py-0.5 text-[#1d1d1f]">
+                                  {interview.student_city}
+                                </span>
+                              )}
+                              {interview.student_financial_aid !== null && (
+                                <span
+                                  className={`rounded-md px-2 py-0.5 ${
+                                    interview.student_financial_aid
+                                      ? "bg-purple-100 text-purple-700"
+                                      : "bg-black/[0.03] text-[#1d1d1f]"
+                                  }`}
+                                >
+                                  {interview.student_financial_aid ? "Financial Aid" : "No Financial Aid"}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {interview.school_code && (
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                              {interview.school_code}
+                            </span>
+                          )}
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${progressBadge.className}`}>
+                            {progressBadge.label}
                           </span>
-                        ) : (
-                          <span className="px-2 py-0.5 text-xs rounded-full whitespace-nowrap bg-green-100 text-green-800">
-                            Ready
-                          </span>
-                        )}
+                          {cathovenBadge && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${cathovenBadge.className}`}
+                            >
+                              {cathovenBadge.label}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid w-full shrink-0 grid-cols-3 gap-1.5 rounded-xl border border-black/[0.06] bg-black/[0.02] p-1 lg:justify-self-end">
+                          <Button
+                            onClick={() => handleWatchInterview(interview)}
+                            size="sm"
+                            className="col-span-1 min-w-0 border border-[#0071e3]/80 bg-[#0071e3] text-white shadow-sm hover:bg-[#0067cf] active:bg-[#005bb5] disabled:border-[#0071e3]/20 disabled:bg-white disabled:text-[rgba(0,0,0,0.42)] disabled:opacity-100 disabled:shadow-none"
+                            disabled={!interview.video_url}
+                            title={!interview.video_url ? "Video is still processing..." : "Watch interview"}
+                          >
+                            <Video className="mr-1.5 h-3.5 w-3.5" />
+                            {interview.video_url
+                              ? "Watch"
+                              : (interview.metadata as Record<string, any> | null)?.status === "uploaded"
+                                ? "Processing"
+                                : "Pending"}
+                          </Button>
+                          <Button
+                            onClick={() => handleOpenScoreDetail(interview)}
+                            size="sm"
+                            variant="ghost"
+                            className="col-span-1 min-w-0 border border-black/[0.14] bg-white text-[#1d1d1f] hover:bg-black/[0.04] active:bg-black/[0.08] disabled:border-black/[0.08] disabled:bg-black/[0.02] disabled:text-[rgba(0,0,0,0.32)] disabled:opacity-100"
+                            disabled={!hasScoreDetail(interview)}
+                            title={!hasScoreDetail(interview) ? "Score detail not ready yet" : "Open score detail"}
+                          >
+                            <FileText className="mr-1.5 h-3.5 w-3.5" />
+                            Detail
+                          </Button>
+                          <Button
+                            onClick={() => handleRetryCathoven(interview)}
+                            size="sm"
+                            variant="ghost"
+                            className="col-span-1 min-w-0 border border-black/[0.14] bg-white text-[#1d1d1f] hover:bg-black/[0.04] active:bg-black/[0.08] disabled:border-black/[0.08] disabled:bg-black/[0.02] disabled:text-[rgba(0,0,0,0.32)] disabled:opacity-100"
+                            disabled={!canRetryCathoven(interview) || (!!interview.interview_id && rescoringInterviewIds.has(interview.interview_id))}
+                            title={!canRetryCathoven(interview) ? "Video is not ready yet" : "Call Cathoven API to get score"}
+                          >
+                            <RefreshCw
+                              className={`mr-1.5 h-3.5 w-3.5 ${
+                                interview.interview_id && rescoringInterviewIds.has(interview.interview_id)
+                                  ? "animate-spin"
+                                  : ""
+                              }`}
+                            />
+                            {interview.interview_id && rescoringInterviewIds.has(interview.interview_id)
+                              ? "Scoring"
+                              : "CAP Retry"}
+                          </Button>
+                        </div>
                       </div>
-                      {/* Second row: Date, duration, ID */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-[rgba(0,0,0,0.56)]">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          <span className="whitespace-nowrap">{format(new Date(interview.created_at), 'MMM dd, yyyy HH:mm')}</span>
-                        </div>
-                        {interview.total_duration && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            <span>{formatDuration(interview.total_duration)}</span>
-                          </div>
-                        )}
-                        <div className="text-xs text-[rgba(0,0,0,0.48)] font-mono truncate hidden sm:block">
-                          ID: {interview.interview_id}
-                        </div>
-                        {getFinalScore(interview) !== null && (
-                          <div className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-medium">
-                            Final Score: {getFinalScore(interview)!.toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                      {/* Third row: Additional student info (if available) */}
-                      {(interview.student_gender || interview.student_grade || interview.student_city || interview.student_financial_aid !== null) && (
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-[rgba(0,0,0,0.56)]">
-                          {interview.student_gender && (
-                            <span className="px-2 py-0.5 rounded bg-[#f5f5f7] text-[#1d1d1f]">
-                              {interview.student_gender}
-                            </span>
-                          )}
-                          {interview.student_grade && (
-                            <span className="px-2 py-0.5 rounded bg-[#f5f5f7] text-[#1d1d1f]">
-                              {interview.student_grade}
-                            </span>
-                          )}
-                          {interview.student_city && (
-                            <span className="px-2 py-0.5 rounded bg-[#f5f5f7] text-[#1d1d1f]">
-                              📍 {interview.student_city}
-                            </span>
-                          )}
-                          {interview.student_financial_aid !== null && (
-                            <span className={`px-2 py-0.5 rounded ${interview.student_financial_aid ? 'bg-purple-100 text-purple-700' : 'bg-[#f5f5f7] text-[#1d1d1f]'}`}>
-                              {interview.student_financial_aid ? '💰 Financial Aid' : 'No Financial Aid'}
-                            </span>
-                          )}
-                        </div>
-                      )}
                     </div>
-                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
-                      <Button
-                        onClick={() => handleWatchInterview(interview)}
-                        size="sm"
-                        className="w-full sm:w-auto"
-                        disabled={!interview.video_url}
-                        title={!interview.video_url ? 'Video is still processing...' : 'Watch interview'}
-                      >
-                        <Video className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                        <span className="sm:inline">
-                          {interview.video_url ? 'Watch' : ((interview.metadata as Record<string, any> | null)?.status === 'uploaded' ? 'Processing...' : 'Pending')}
-                        </span>
-                      </Button>
-                      <Button
-                        onClick={() => handleOpenScoreDetail(interview)}
-                        size="sm"
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        disabled={!hasScoreDetail(interview)}
-                        title={!hasScoreDetail(interview) ? 'Score detail not ready yet' : 'Open score detail'}
-                      >
-                        <FileText className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                        <span className="sm:inline">Detail</span>
-                      </Button>
-                      <Button
-                        onClick={() => handleRetryCathoven(interview)}
-                        size="sm"
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        disabled={!canRetryCathoven(interview) || (!!interview.interview_id && rescoringInterviewIds.has(interview.interview_id))}
-                        title={!canRetryCathoven(interview) ? 'Video is not ready yet' : 'Call Cathoven API to get score'}
-                      >
-                        <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 sm:mr-2 ${interview.interview_id && rescoringInterviewIds.has(interview.interview_id) ? 'animate-spin' : ''}`} />
-                        <span className="sm:inline">
-                          {interview.interview_id && rescoringInterviewIds.has(interview.interview_id) ? 'Scoring...' : 'CAP Retry'}
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                    )
+                })}
               </div>
               </>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
