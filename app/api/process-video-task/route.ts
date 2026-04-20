@@ -21,6 +21,85 @@ const s3Client = new S3Client({
   forcePathStyle: true,
 })
 
+async function runPostMergeProcessing(params: {
+  taskId: string
+  interviewId: string
+  interviewDbId: string
+  mergedVideoBuffer: Buffer
+  questionTexts: string[]
+  mergedVideoUrl: string
+}) {
+  const { taskId, interviewId, interviewDbId, mergedVideoBuffer, questionTexts, mergedVideoUrl } = params
+
+  // Cathoven scoring should never block video availability.
+  try {
+    console.log(`[Task ${taskId}] Calling Cathoven IELTS Speaking API...`)
+    const cathovenResult = await evaluateInterviewWithCathoven({
+      interviewId,
+      questions: questionTexts,
+      mergedVideoBuffer,
+    })
+
+    const reportUrl = `/school/interview-report?interviewId=${encodeURIComponent(interviewId)}`
+    const existingInterview = await prisma.interview.findUnique({
+      where: { id: interviewDbId },
+      select: { metadata: true },
+    })
+    const existingMetadata =
+      existingInterview?.metadata && typeof existingInterview.metadata === 'object'
+        ? (existingInterview.metadata as Record<string, any>)
+        : {}
+
+    const nextMetadata = {
+      ...existingMetadata,
+      cathoven: {
+        status: cathovenResult.success ? 'completed' : 'failed',
+        evaluatedAt: new Date().toISOString(),
+        reportUrl,
+        rubric: 'vericant_lite',
+        response: cathovenResult.response || null,
+        error: cathovenResult.error || null,
+      },
+    }
+
+    await prisma.interview.update({
+      where: { id: interviewDbId },
+      data: {
+        metadata: nextMetadata,
+        total_score:
+          cathovenResult.success && cathovenResult.finalScore !== null
+            ? cathovenResult.finalScore
+            : undefined,
+        status:
+          cathovenResult.success && cathovenResult.finalScore !== null
+            ? 'scored'
+            : undefined,
+      },
+    })
+
+    if (cathovenResult.success) {
+      console.log(`[Task ${taskId}] ✓ Cathoven scoring completed`)
+    } else {
+      console.error(`[Task ${taskId}] ✗ Cathoven scoring failed:`, cathovenResult.error)
+    }
+  } catch (error) {
+    console.error(`[Task ${taskId}] ✗ Cathoven scoring exception:`, error)
+  }
+
+  // Transcription should also be best-effort and non-blocking for watch flow.
+  try {
+    console.log(`[Task ${taskId}] Starting transcription...`)
+    const transcriptionResult = await transcribeVideo(interviewId, mergedVideoUrl)
+    if (transcriptionResult.success) {
+      console.log(`[Task ${taskId}] ✓ Transcription completed`)
+    } else {
+      console.error(`[Task ${taskId}] ✗ Transcription failed:`, transcriptionResult.error)
+    }
+  } catch (error) {
+    console.error(`[Task ${taskId}] ✗ Transcription exception:`, error)
+  }
+}
+
 /**
  * 处理视频合并任务的核心函数
  */
@@ -355,65 +434,8 @@ async function processVideoMergeTask(taskId: string) {
         console.error(`[Task ${taskId}] ⚠️ Failed to update database:`, updateError)
     }
 
-    // 调用 Cathoven 评分 API（完整视频生成后）
-    if (interviewDbId) {
-      console.log(`[Task ${taskId}] Calling Cathoven IELTS Speaking API...`)
-      const cathovenResult = await evaluateInterviewWithCathoven({
-        interviewId,
-        questions: questionTexts,
-        mergedVideoBuffer: mergedBuffer,
-      })
-
-      const reportUrl = `/school/interview-report?interviewId=${encodeURIComponent(interviewId)}`
-
-      try {
-        const existingInterview = await prisma.interview.findUnique({
-          where: { id: interviewDbId },
-          select: { metadata: true },
-        })
-        const existingMetadata =
-          existingInterview?.metadata && typeof existingInterview.metadata === 'object'
-            ? (existingInterview.metadata as Record<string, any>)
-            : {}
-
-        const nextMetadata = {
-          ...existingMetadata,
-          cathoven: {
-            status: cathovenResult.success ? 'completed' : 'failed',
-            evaluatedAt: new Date().toISOString(),
-            reportUrl,
-            rubric: 'vericant_lite',
-            response: cathovenResult.response || null,
-            error: cathovenResult.error || null,
-          },
-        }
-
-        await prisma.interview.update({
-          where: { id: interviewDbId },
-          data: {
-            metadata: nextMetadata,
-            total_score:
-              cathovenResult.success && cathovenResult.finalScore !== null
-                ? cathovenResult.finalScore
-                : undefined,
-            status:
-              cathovenResult.success && cathovenResult.finalScore !== null
-                ? 'scored'
-                : undefined,
-          },
-        })
-
-        if (cathovenResult.success) {
-          console.log(`[Task ${taskId}] ✓ Cathoven scoring completed`)
-        } else {
-          console.error(`[Task ${taskId}] ✗ Cathoven scoring failed:`, cathovenResult.error)
-        }
-      } catch (cathovenUpdateError) {
-        console.error(`[Task ${taskId}] ✗ Failed to save Cathoven result:`, cathovenUpdateError)
-      }
-    }
-    
-    // 更新任务状态为 completed
+    // 只要完整视频和基础元数据已落库，就立刻把视频任务标记完成。
+    // 后续转录和 Cathoven 评分属于附加流程，不应阻塞 Watch。
     await prisma.videoProcessingTask.update({
       where: { id: taskId },
       data: {
@@ -424,18 +446,17 @@ async function processVideoMergeTask(taskId: string) {
         segment_durations: segmentDurations
       }
     })
-    
-    // 触发转录任务
-    console.log(`[Task ${taskId}] Starting transcription...`)
-    try {
-      const transcriptionResult = await transcribeVideo(interviewId, mergedVideoUrl)
-      if (transcriptionResult.success) {
-        console.log(`[Task ${taskId}] ✓ Transcription completed`)
-      } else {
-        console.error(`[Task ${taskId}] ✗ Transcription failed:`, transcriptionResult.error)
-      }
-    } catch (error) {
-      console.error(`[Task ${taskId}] ✗ Transcription exception:`, error)
+
+    // 异步执行后处理，避免卡住主流程。
+    if (interviewDbId) {
+      void runPostMergeProcessing({
+        taskId,
+        interviewId,
+        interviewDbId,
+        mergedVideoBuffer: mergedBuffer,
+        questionTexts,
+        mergedVideoUrl,
+      })
     }
     
     return {
