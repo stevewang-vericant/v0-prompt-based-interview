@@ -6,12 +6,14 @@ import { VideoPlayerWithSubtitles } from '@/components/video-player-with-subtitl
 import { TranscriptionDisplay } from '@/components/transcription/transcription-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { CopyLinkButton } from '@/components/copy-link-button'
 import { ArrowLeft, FileText } from 'lucide-react'
 
 function SchoolWatchPageContent() {
   const searchParams = useSearchParams()
   const videoUrl = searchParams.get('videoUrl')
   const subtitleUrl = searchParams.get('subtitleUrl')
+  const b2VideoUrl = searchParams.get('b2VideoUrl')
   const interviewId = searchParams.get('interviewId')
   const studentEmail = searchParams.get('studentEmail')
   const studentName = searchParams.get('studentName')
@@ -107,6 +109,25 @@ function SchoolWatchPageContent() {
                   <p className="text-xs text-[rgba(0,0,0,0.48)] font-mono truncate">
                     Interview ID: {interviewId}
                   </p>
+                )}
+                {b2VideoUrl && (
+                  <div className="space-y-2 pt-1">
+                    <p className="text-xs text-[rgba(0,0,0,0.56)]">Merged Video (B2)</p>
+                    <div className="rounded bg-[#f5f5f7] px-2 py-1 font-mono text-xs break-all">
+                      {b2VideoUrl}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={b2VideoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-8 items-center rounded-md border border-black/[0.14] px-3 text-xs text-[#1d1d1f] hover:bg-black/[0.04]"
+                      >
+                        Open Video
+                      </a>
+                      <CopyLinkButton value={b2VideoUrl} />
+                    </div>
+                  </div>
                 )}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="px-2 py-0.5 text-xs rounded bg-emerald-100 text-emerald-800">

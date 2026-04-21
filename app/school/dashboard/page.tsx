@@ -203,6 +203,10 @@ function SchoolDashboardContent() {
       videoUrl: proxyVideoUrl,
       interviewId: interview.interview_id || ''
     })
+
+    if (interview.video_url) {
+      params.append('b2VideoUrl', interview.video_url)
+    }
     
     if (proxySubtitleUrl) {
       params.append('subtitleUrl', proxySubtitleUrl)
