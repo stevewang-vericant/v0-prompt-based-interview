@@ -6,7 +6,6 @@ import { VideoPlayerWithSubtitles } from '@/components/video-player-with-subtitl
 import { TranscriptionDisplay } from '@/components/transcription/transcription-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CopyLinkButton } from '@/components/copy-link-button'
 import { ArrowLeft, FileText } from 'lucide-react'
 
 function SchoolWatchPageContent() {
@@ -113,20 +112,14 @@ function SchoolWatchPageContent() {
                 {b2VideoUrl && (
                   <div className="space-y-2 pt-1">
                     <p className="text-xs text-[rgba(0,0,0,0.56)]">Merged Video (B2)</p>
-                    <div className="rounded bg-[#f5f5f7] px-2 py-1 font-mono text-xs break-all">
+                    <a
+                      href={b2VideoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded bg-[#f5f5f7] px-2 py-1 font-mono text-xs break-all text-[#1d1d1f] underline hover:text-[#0071e3]"
+                    >
                       {b2VideoUrl}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <a
-                        href={b2VideoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-8 items-center rounded-md border border-black/[0.14] px-3 text-xs text-[#1d1d1f] hover:bg-black/[0.04]"
-                      >
-                        Open Video
-                      </a>
-                      <CopyLinkButton value={b2VideoUrl} />
-                    </div>
+                    </a>
                   </div>
                 )}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
