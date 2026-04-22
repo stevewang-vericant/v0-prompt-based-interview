@@ -11,6 +11,20 @@ import { tmpdir } from 'os'
 
 const execAsync = promisify(exec)
 
+// 单进程内对重型任务（视频下载 + ffmpeg 重编码 + 合并视频上传）串行化。
+// 服务器只有 2GB RAM，两路 libx264 并发会直接 OOM 让容器被重启。
+let mergeQueue: Promise<unknown> = Promise.resolve()
+function runSerialized<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const next = mergeQueue.then(
+    () => fn(),
+    () => fn(), // 前一个任务失败也要继续跑队列中的下一个
+  )
+  // 静默消费队列链上的异常，避免 unhandledRejection，同时不丢失真正调用者的结果。
+  mergeQueue = next.catch(() => undefined)
+  console.log(`[MergeQueue] Enqueued task ${label}`)
+  return next
+}
+
 const s3Client = new S3Client({
   endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
   region: process.env.B2_BUCKET_REGION!,
@@ -101,9 +115,19 @@ async function runPostMergeProcessing(params: {
 }
 
 /**
- * 处理视频合并任务的核心函数
+ * 处理视频合并任务的核心函数。
+ *
+ * 对外导出以便 /api/merge-videos 直接内存调用，不再依赖 HTTP 自调
+ * （HTTP 自调在反向代理下会因 origin 构造错误导致 SSL "wrong version number"，
+ * 任务永远停留在 pending）。
+ *
+ * 同一 Node 进程内的多个调用会经 `runSerialized` 排队，避免多路 ffmpeg 同时重编码耗尽内存。
  */
-async function processVideoMergeTask(taskId: string) {
+export async function processVideoMergeTask(taskId: string) {
+  return runSerialized(taskId, () => processVideoMergeTaskInner(taskId))
+}
+
+async function processVideoMergeTaskInner(taskId: string) {
   try {
     // 获取任务信息
     const task = await prisma.videoProcessingTask.findUnique({
@@ -273,7 +297,8 @@ async function processVideoMergeTask(taskId: string) {
       console.log(`[Task ${taskId}] Merging videos and converting to MP4 format...`)
       
       // 使用重新编码方式合并为MP4，确保浏览器兼容性
-      const mergeCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c:v libx264 -preset medium -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -c:a aac -b:a 128k -movflags +faststart "${tempMergedFile}" -y`
+      // preset 用 veryfast：生产机器只有 2GB RAM / 单核，medium 会让任务跑 8+ 分钟且容易 OOM。
+      const mergeCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -threads 1 -c:a aac -b:a 128k -movflags +faststart "${tempMergedFile}" -y`
       
       const { stdout: mergeStdout, stderr: mergeStderr } = await execAsync(mergeCommand)
       if (mergeStderr) console.log(`[Task ${taskId}] FFmpeg merge stderr:`, mergeStderr)
