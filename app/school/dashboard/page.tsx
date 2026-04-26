@@ -746,7 +746,7 @@ function SchoolDashboardContent() {
                               </span>
                             )}
                             {interview.interview_id && (
-                              <span className="truncate rounded-md bg-black/[0.03] px-2 py-0.5 font-mono text-xs text-[rgba(0,0,0,0.48)] max-w-[260px]">
+                              <span className="rounded-md bg-black/[0.03] px-2 py-0.5 font-mono text-xs text-[rgba(0,0,0,0.48)] break-all">
                                 ID: {interview.interview_id}
                               </span>
                             )}

@@ -332,7 +332,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
               <Progress value={getProgressPercentage()} className="h-2" />
               <Button onClick={stopRecording} variant="destructive" className="w-full" size="lg">
                 <Square className="h-4 w-4 mr-2 fill-current" />
-                Done — Next Question
+                {promptNumber < totalPrompts ? "Done — Next Question" : "Done"}
               </Button>
             </div>
           )}
