@@ -298,9 +298,10 @@ async function processVideoMergeTaskInner(taskId: string) {
       
       // 使用重新编码方式合并为MP4，确保浏览器兼容性
       // preset 用 veryfast：生产机器只有 2GB RAM / 单核，medium 会让任务跑 8+ 分钟且容易 OOM。
-      const mergeCommand = `ffmpeg -f concat -safe 0 -i "${concatFile}" -c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -threads 1 -c:a aac -b:a 128k -movflags +faststart "${tempMergedFile}" -y`
+      // -loglevel error：只输出真正的错误，避免大量进度日志撑爆 execAsync 默认 1MB stdout 缓冲。
+      const mergeCommand = `ffmpeg -loglevel error -f concat -safe 0 -i "${concatFile}" -c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -threads 1 -c:a aac -b:a 128k -movflags +faststart "${tempMergedFile}" -y`
       
-      const { stdout: mergeStdout, stderr: mergeStderr } = await execAsync(mergeCommand)
+      const { stdout: mergeStdout, stderr: mergeStderr } = await execAsync(mergeCommand, { maxBuffer: 100 * 1024 * 1024 })
       if (mergeStderr) console.log(`[Task ${taskId}] FFmpeg merge stderr:`, mergeStderr)
       
       if (!existsSync(tempMergedFile)) {
@@ -493,6 +494,7 @@ async function processVideoMergeTaskInner(taskId: string) {
     
   } catch (error) {
     console.error(`[Task ${taskId}] ❌ Error:`, error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     
     // 更新任务状态为 failed
     try {
@@ -501,11 +503,31 @@ async function processVideoMergeTaskInner(taskId: string) {
             data: {
                 status: 'failed',
                 completed_at: new Date(),
-                error_message: error instanceof Error ? error.message : 'Unknown error'
+                error_message: errorMessage,
             }
         })
     } catch (e) {
         console.error("Failed to update task status to failed:", e)
+    }
+
+    // 同步将 interview 状态从 processing 更新为 failed，避免面试永远卡在 processing
+    try {
+      const task = await prisma.videoProcessingTask.findUnique({ where: { id: taskId }, select: { interview_id: true } })
+      if (task?.interview_id) {
+        await prisma.interview.updateMany({
+          where: { interview_id: task.interview_id, status: 'processing' },
+          data: {
+            status: 'failed',
+            metadata: {
+              videoProcessingError: errorMessage,
+              videoProcessingFailedAt: new Date().toISOString(),
+            },
+          },
+        })
+        console.log(`[Task ${taskId}] Interview status updated to failed`)
+      }
+    } catch (e) {
+      console.error(`[Task ${taskId}] Failed to update interview status to failed:`, e)
     }
     
     throw error

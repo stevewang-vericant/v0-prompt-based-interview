@@ -161,6 +161,7 @@ export async function POST(request: NextRequest) {
     
     const mergeCommand = [
       'ffmpeg',
+      '-loglevel', 'error',
       ...inputArgs,
       '-filter_complex', filterComplex,
       '-map', '[outv]',
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Reprocess] Command: ${mergeCommand}`)
     console.log(`[Reprocess] Filter complex: ${filterComplex}`)
     
-    const { stdout, stderr } = await execAsync(mergeCommand)
+    const { stdout, stderr } = await execAsync(mergeCommand, { maxBuffer: 100 * 1024 * 1024 })
     
     // Log full FFmpeg output
     console.log('[Reprocess] FFmpeg stdout:')
