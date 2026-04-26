@@ -45,13 +45,24 @@ export interface InterviewRecord {
   submitted_at: string | null
   metadata: Record<string, any> | null
   responseCount: number
-  // 评分字段
+  // Cathoven 评分字段
   total_score: number | null
   fluency_score: number | null
   coherence_score: number | null
   vocabulary_score: number | null
   grammar_score: number | null
   pronunciation_score: number | null
+  // Score approval workflow
+  score_approved: boolean
+  score_approved_at: string | null
+  score_approved_by: string | null
+  // Rater override scores
+  rater_total_score: number | null
+  rater_fluency_score: number | null
+  rater_coherence_score: number | null
+  rater_vocabulary_score: number | null
+  rater_grammar_score: number | null
+  rater_pronunciation_score: number | null
 }
 
 // Helper to map Prisma interview to InterviewRecord
@@ -78,6 +89,15 @@ function mapInterviewToRecord(interview: any): InterviewRecord {
     vocabulary_score: interview.vocabulary_score ? Number(interview.vocabulary_score) : null,
     grammar_score: interview.grammar_score ? Number(interview.grammar_score) : null,
     pronunciation_score: interview.pronunciation_score ? Number(interview.pronunciation_score) : null,
+    score_approved: interview.score_approved ?? false,
+    score_approved_at: interview.score_approved_at?.toISOString() || null,
+    score_approved_by: interview.score_approved_by || null,
+    rater_total_score: interview.rater_total_score ? Number(interview.rater_total_score) : null,
+    rater_fluency_score: interview.rater_fluency_score ? Number(interview.rater_fluency_score) : null,
+    rater_coherence_score: interview.rater_coherence_score ? Number(interview.rater_coherence_score) : null,
+    rater_vocabulary_score: interview.rater_vocabulary_score ? Number(interview.rater_vocabulary_score) : null,
+    rater_grammar_score: interview.rater_grammar_score ? Number(interview.rater_grammar_score) : null,
+    rater_pronunciation_score: interview.rater_pronunciation_score ? Number(interview.rater_pronunciation_score) : null,
   }
 }
 

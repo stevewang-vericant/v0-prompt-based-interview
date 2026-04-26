@@ -12,6 +12,7 @@ import {
   deactivateUser, 
   deleteUser, 
   resetUserPassword,
+  toggleRaterRole,
   type ManagedUser 
 } from "@/app/actions/users"
 import { AlertCircle, CheckCircle2, Trash2, UserCheck, UserX, KeyRound, Loader2 } from "lucide-react"
@@ -223,6 +224,27 @@ export default function UsersPage() {
     }
   }
 
+  const handleToggleRater = async (userId: string, currentIsRater: boolean) => {
+    setActionLoading(userId)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const result = await toggleRaterRole(userId, !currentIsRater)
+      if (result.success) {
+        setSuccess(!currentIsRater ? "User granted rater role" : "Rater role removed")
+        await fetchUsers()
+        setTimeout(() => setSuccess(null), 3000)
+      } else {
+        setError(result.error || "Failed to toggle rater role")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -391,6 +413,9 @@ export default function UsersPage() {
                       {user.is_super_admin && (
                         <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800">Super Admin</span>
                       )}
+                      {user.is_rater && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">Rater</span>
+                      )}
                       {!user.active && (
                         <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">Inactive</span>
                       )}
@@ -433,6 +458,20 @@ export default function UsersPage() {
                               <UserCheck className="h-4 w-4 mr-2" />
                             )}
                             Activate
+                          </Button>
+                        )}
+                        {user.type === 'school_admin' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleRater(user.id, user.is_rater)}
+                            disabled={actionLoading === user.id}
+                            className={user.is_rater ? "border-blue-200 text-blue-700 hover:bg-blue-50" : ""}
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : null}
+                            {user.is_rater ? "Remove Rater" : "Set Rater"}
                           </Button>
                         )}
                         <Button

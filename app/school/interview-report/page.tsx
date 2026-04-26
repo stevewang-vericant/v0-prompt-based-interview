@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
+import { getCurrentUser } from "@/app/actions/auth"
 
 function formatNumber(value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value)) return String(value)
@@ -31,6 +32,10 @@ export default async function InterviewReportPage({
     )
   }
 
+  const userResult = await getCurrentUser()
+  const isRater = userResult.success && userResult.user?.is_rater
+  const isSuperAdmin = userResult.success && userResult.user?.school.is_super_admin
+
   const interview = await prisma.interview.findUnique({
     where: { interview_id: interviewId },
     select: {
@@ -41,6 +46,7 @@ export default async function InterviewReportPage({
       vocabulary_score: true,
       grammar_score: true,
       pronunciation_score: true,
+      score_approved: true,
       metadata: true,
       student: {
         select: {
@@ -51,6 +57,20 @@ export default async function InterviewReportPage({
       created_at: true,
     },
   })
+
+  if (interview && !interview.score_approved && !isRater && !isSuperAdmin) {
+    return (
+      <main className="max-w-5xl mx-auto p-6">
+        <h1 className="text-2xl font-bold mb-4">Interview Scoring Detail</h1>
+        <div className="rounded border border-amber-200 bg-amber-50 p-4 text-amber-700">
+          Score details are not yet available. The score is pending approval.
+        </div>
+        <Link href="/school/dashboard" className="text-sm text-blue-600 hover:text-blue-700 underline mt-4 inline-block">
+          Back to dashboard
+        </Link>
+      </main>
+    )
+  }
 
   const metadata = (interview?.metadata as Record<string, any> | null) || {}
   const cathoven = (metadata.cathoven as Record<string, any> | undefined) || {}

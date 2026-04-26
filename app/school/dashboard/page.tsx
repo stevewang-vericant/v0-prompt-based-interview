@@ -26,6 +26,7 @@ function SchoolDashboardContent() {
   } | null>(null)
   const [currentUser, setCurrentUser] = useState<{
     email: string
+    is_rater: boolean
   } | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -44,7 +45,7 @@ function SchoolDashboardContent() {
       
       if (result.success && result.user) {
         console.log("[School] User loaded:", result.user.email)
-        setCurrentUser({ email: result.user.email })
+        setCurrentUser({ email: result.user.email, is_rater: result.user.is_rater })
         if (result.user.school.code) {
           setSchoolInfo({
             code: result.user.school.code,
@@ -261,18 +262,38 @@ function SchoolDashboardContent() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
+  // Only super admins have elevated visibility in the Interviews page.
+  // Raters review unapproved scores via the Rating page, not here.
+  const isPrivilegedUser = schoolInfo?.is_super_admin
+
   const getFinalScore = (interview: InterviewRecord): number | null => {
+    // Only show scores that have been approved (super admins always see them)
+    if (!isPrivilegedUser && !interview.score_approved) {
+      return null
+    }
+
+    // If approved with rater override, show override score
+    if (interview.score_approved && interview.rater_total_score !== null) {
+      return interview.rater_total_score
+    }
+
     if (interview.total_score !== null && interview.total_score !== undefined) {
       return Number(interview.total_score)
     }
     const metadata = interview.metadata as Record<string, any> | null
-    const metaScore = metadata?.cathoven?.response?.final_score
+    const response = metadata?.cathoven?.response
+    const metaScore = response?.band ?? response?.final_score ?? response?.finalScore ?? null
     return typeof metaScore === 'number' ? metaScore : null
   }
 
   const hasScoreDetail = (interview: InterviewRecord): boolean => {
     const metadata = interview.metadata as Record<string, any> | null
-    return Boolean(metadata?.cathoven?.response)
+    const hasCathovenResponse = Boolean(metadata?.cathoven?.response)
+    // Score detail only visible for approved interviews (super admins always see them)
+    if (!isPrivilegedUser && !interview.score_approved) {
+      return false
+    }
+    return hasCathovenResponse
   }
 
   const handleOpenScoreDetail = (interview: InterviewRecord) => {
@@ -323,7 +344,10 @@ function SchoolDashboardContent() {
 
     const cathovenStatus = getCathovenStatus(interview)
     if (cathovenStatus === "completed") {
-      return { label: "CAP Scored", className: "bg-emerald-100 text-emerald-800" }
+      if (interview.score_approved) {
+        return { label: "Score Approved", className: "bg-emerald-100 text-emerald-800" }
+      }
+      return { label: "Pending Rating", className: "bg-amber-100 text-amber-800" }
     }
     if (cathovenStatus === "failed") {
       return { label: "CAP Failed", className: "bg-red-100 text-red-800" }

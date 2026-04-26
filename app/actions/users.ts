@@ -11,11 +11,12 @@ export interface ManagedUser {
   code: string | null
   active: boolean
   is_super_admin: boolean
+  is_rater: boolean
   contact_person: string | null
   created_at: Date | null
   updated_at: Date | null
-  type: 'school_admin' | 'school' // 账号类型：新账号或旧账号
-  school_id?: string // 如果是 school_admin，记录所属学校
+  type: 'school_admin' | 'school'
+  school_id?: string
 }
 
 async function ensureSuperAdmin() {
@@ -89,6 +90,7 @@ export async function listUsers(): Promise<{
       code: admin.school.code || '',
       active: admin.active,
       is_super_admin: admin.is_super_admin,
+      is_rater: admin.is_rater,
       contact_person: admin.name,
       created_at: admin.created_at,
       updated_at: admin.updated_at,
@@ -103,6 +105,7 @@ export async function listUsers(): Promise<{
       code: school.code || '',
       active: school.active,
       is_super_admin: school.is_super_admin,
+      is_rater: false,
       contact_person: school.contact_person,
       created_at: school.created_at,
       updated_at: school.updated_at,
@@ -476,6 +479,38 @@ export async function resetUserPassword(userId: string, newPassword: string, use
         data: { password_hash: hashedPassword }
       })
     }
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    }
+  }
+}
+
+/**
+ * Toggle rater role for a SchoolAdmin user (super admin only)
+ */
+export async function toggleRaterRole(userId: string, isRater: boolean): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    await ensureSuperAdmin()
+
+    const admin = await prisma.schoolAdmin.findUnique({
+      where: { id: userId }
+    })
+
+    if (!admin) {
+      return { success: false, error: "User not found or not a SchoolAdmin" }
+    }
+
+    await prisma.schoolAdmin.update({
+      where: { id: userId },
+      data: { is_rater: isRater }
+    })
 
     return { success: true }
   } catch (error) {

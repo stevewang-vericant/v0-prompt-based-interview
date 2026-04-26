@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
-import { Building2, Video, Settings, LogOut, Menu, X, Users } from "lucide-react"
+import { Building2, Video, Settings, LogOut, Menu, X, Users, ClipboardCheck } from "lucide-react"
 import Link from "next/link"
 
 function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
@@ -18,6 +18,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   } | null>(null)
   const [currentUser, setCurrentUser] = useState<{
     email: string
+    is_rater: boolean
   } | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
@@ -35,7 +36,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
     const loadUser = async () => {
       const result = await getCurrentUser()
       if (result.success && result.user) {
-        setCurrentUser({ email: result.user.email })
+        setCurrentUser({ email: result.user.email, is_rater: result.user.is_rater })
         setSchoolInfo(result.user.school)
       } else {
         router.push("/school/login")
@@ -57,6 +58,15 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
           href: "/school/dashboard",
           icon: Video,
         },
+        ...(currentUser?.is_rater
+          ? [
+              {
+                name: "Rating",
+                href: "/school/rating",
+                icon: ClipboardCheck,
+              },
+            ]
+          : []),
         ...(schoolInfo.is_super_admin
           ? [
               {
@@ -218,7 +228,9 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                           ? "Users"
                           : pathname === "/school/schools"
                             ? "Schools"
-                            : ""}
+                            : pathname === "/school/rating"
+                              ? "Rating"
+                              : ""}
                   </h1>
                 </div>
               </div>

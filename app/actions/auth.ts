@@ -29,6 +29,7 @@ export interface School {
  */
 export interface CurrentUser {
   email: string
+  is_rater: boolean
   school: {
     id: string
     name: string
@@ -175,7 +176,8 @@ export async function signIn(
         sub: admin.school_id, 
         admin_id: admin.id,
         email: admin.email,
-        role: 'school_admin'
+        role: 'school_admin',
+        is_rater: admin.is_rater
       })
         .setProtectedHeader({ alg: ALG })
         .setExpirationTime('24h')
@@ -288,6 +290,7 @@ export async function getCurrentUser(): Promise<{
           success: true,
           user: {
             email: admin.email,
+            is_rater: admin.is_rater,
             school: {
               id: admin.school.id,
               name: admin.school.name,
@@ -312,6 +315,7 @@ export async function getCurrentUser(): Promise<{
         success: true,
         user: {
           email: school.email,
+          is_rater: false,
           school: {
             id: school.id,
             name: school.name,
