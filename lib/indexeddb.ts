@@ -16,6 +16,10 @@ export interface VideoSegment {
   questionText: string
   category: string
   responseTime: number
+  // 这一题实际使用的 prep 时长（秒）。新流程把 prep+response 连续录在同一段里，
+  // 服务端用这个值来裁掉前面的 prep 部分以生成"仅 response"的最终视频。
+  // 老数据可能没有此字段，按缺失处理（fallback 到只生成 response-only 视频）。
+  prepDuration?: number
   timestamp: number
   uploaded: boolean
   uploadedUrl?: string
@@ -63,7 +67,8 @@ export async function saveVideoSegment(
   blob: Blob,
   questionText: string,
   category: string,
-  responseTime: number
+  responseTime: number,
+  prepDuration?: number,
 ): Promise<void> {
   try {
     const db = await openDB()
@@ -79,6 +84,7 @@ export async function saveVideoSegment(
       questionText,
       category,
       responseTime,
+      prepDuration,
       timestamp: Date.now(),
       uploaded: false
     }

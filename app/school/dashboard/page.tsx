@@ -207,7 +207,13 @@ function SchoolDashboardContent() {
     if (interview.video_url) {
       params.append('b2VideoUrl', interview.video_url)
     }
-    
+
+    // 仅当本次面试用了"prep+response 连续录制"流程时才转发；
+    // 老面试该字段为 null，不会在 watch 页渲染额外的链接面板。
+    if (interview.video_with_prep_url) {
+      params.append('videoWithPrepUrl', interview.video_with_prep_url)
+    }
+
     if (proxySubtitleUrl) {
       params.append('subtitleUrl', proxySubtitleUrl)
     }

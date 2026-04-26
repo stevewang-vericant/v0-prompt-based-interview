@@ -19,7 +19,11 @@ interface InterviewPromptProps {
   prompt: Prompt
   promptNumber: number
   totalPrompts: number
-  onComplete: (promptId: string, videoBlob: Blob) => Promise<void>
+  onComplete: (
+    promptId: string,
+    videoBlob: Blob,
+    prepDurationSec: number,
+  ) => Promise<void>
 }
 
 type Stage = "reading" | "preparing" | "recording"
@@ -35,6 +39,9 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
   const chunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
   const shouldProcessUploadRef = useRef(true)
+  // 记录这一题实际使用的 prep 时长（秒），用于服务端在合成"仅 response"视频时
+  // 知道要从片段开头裁掉多少秒。即使 prompt 对象变化也保留启动时的值。
+  const prepDurationRef = useRef<number>(0)
 
   useEffect(() => {
     const initializeStream = async () => {
@@ -81,8 +88,13 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
   }, [])
 
   useEffect(() => {
-    if (streamInitialized && streamRef.current && videoRef.current && stage === "recording") {
-      console.log("[v0] Attaching stream to video element for recording")
+    if (
+      streamInitialized &&
+      streamRef.current &&
+      videoRef.current &&
+      (stage === "preparing" || stage === "recording")
+    ) {
+      console.log("[v0] Attaching stream to video element for stage:", stage)
       videoRef.current.srcObject = streamRef.current
       videoRef.current.play().catch((err) => console.error("[v0] Play error:", err))
     }
@@ -111,7 +123,9 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
         setTimeRemaining((prev) => {
           if (prev <= 1) {
             if (stage === "preparing") {
-              startRecording()
+              // prep 倒计时结束 → UI 进入 response 阶段，但 MediaRecorder 不重启，
+              // 整段 prep + response 是一次连续录制
+              transitionToResponse()
             } else if (stage === "recording") {
               stopRecording()
             }
@@ -125,15 +139,9 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
     return () => clearInterval(interval)
   }, [stage])
 
-  const startPreparation = () => {
-    console.log("[v0] Starting preparation")
-    setStage("preparing")
-    setTimeRemaining(prompt.preparationTime)
-  }
-
-  const startRecording = async () => {
+  const startPreparation = async () => {
     try {
-      console.log("[v0] Starting recording for question", promptNumber)
+      console.log("[v0] Starting preparation (recording prep + response continuously)")
 
       if (!streamRef.current) {
         console.error("[v0] No stream available")
@@ -142,19 +150,19 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       }
 
       if (videoRef.current) {
-        console.log("[v0] Setting up video element for recording")
         videoRef.current.srcObject = streamRef.current
         videoRef.current.muted = true
-        await videoRef.current.play()
-        console.log("[v0] Video element ready")
+        await videoRef.current.play().catch(() => {})
       }
 
+      // 一开始就启动录像，覆盖整段 prep + response
       const mediaRecorder = new MediaRecorder(streamRef.current)
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
+      prepDurationRef.current = prompt.preparationTime
 
       const currentChunks: Blob[] = []
-      
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           currentChunks.push(event.data)
@@ -164,26 +172,28 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
 
       mediaRecorder.onstop = async () => {
         console.log("[v0] Recording stopped, creating blob")
-        
-        // 检查是否应该处理这次上传
+
         if (!shouldProcessUploadRef.current) {
           console.log("[v0] Component unmounting, ignoring onstop event")
           return
         }
-        
-        // 检查是否有有效的录制数据
+
         if (currentChunks.length === 0) {
           console.log("[v0] No chunks recorded, ignoring onstop event")
           return
         }
-        
+
         const blob = new Blob(currentChunks, { type: "video/webm" })
-        console.log("[v0] Blob created, size:", blob.size, "bytes")
+        console.log(
+          "[v0] Blob created, size:",
+          blob.size,
+          "bytes (includes prep + response)",
+        )
         setRecordedBlob(blob)
-        
+
         try {
           console.log("[v0] Calling onComplete to upload video")
-          await onComplete(prompt.id, blob)
+          await onComplete(prompt.id, blob, prepDurationRef.current)
           console.log("[v0] onComplete finished successfully")
         } catch (error) {
           console.error("[v0] Error in onComplete:", error)
@@ -192,13 +202,21 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       }
 
       mediaRecorder.start()
-      console.log("[v0] MediaRecorder started")
-      setStage("recording")
-      setTimeRemaining(prompt.responseTime)
+      console.log("[v0] MediaRecorder started for prep phase")
+
+      setStage("preparing")
+      setTimeRemaining(prompt.preparationTime)
     } catch (err) {
       console.error("[v0] Recording error:", err)
       alert("Unable to start recording. Please check your camera and microphone permissions.")
     }
+  }
+
+  // prep -> response 仅切换 UI；MediaRecorder 持续运行
+  const transitionToResponse = () => {
+    console.log("[v0] Transition: preparing -> recording (recorder keeps running)")
+    setStage("recording")
+    setTimeRemaining(prompt.responseTime)
   }
 
   const stopRecording = () => {
@@ -249,35 +267,52 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
               <div className="bg-[#0071e3]/5 border border-blue-200 rounded-lg p-4 space-y-2">
                 <p className="text-sm font-medium text-blue-900">What to expect:</p>
                 <ul className="text-sm text-[#0071e3] space-y-1 list-disc list-inside">
-                  <li>Preparation time: {prompt.preparationTime} seconds</li>
+                  <li>Preparation time: {prompt.preparationTime} seconds (recorded)</li>
                   <li>Recording time: {prompt.responseTime} seconds</li>
                 </ul>
+                <p className="text-xs text-blue-900/80 pt-1">
+                  Recording starts as soon as you click below. Both your preparation and your response
+                  are saved and shared with the school.
+                </p>
               </div>
               <Button onClick={startPreparation} className="w-full" size="lg">
-                Start Preparation
+                Start Preparation (recording begins)
               </Button>
             </div>
           )}
 
-          {/* Preparing Stage */}
+          {/* Preparing Stage — recorder is running, show camera preview */}
           {stage === "preparing" && (
             <div className="space-y-4">
               <div className="bg-[#0071e3]/5 border border-blue-200 rounded-lg p-4 space-y-2 mb-4">
-                <p className="text-sm font-medium text-blue-900">Preparation Phase</p>
+                <p className="text-sm font-medium text-blue-900">Preparation Phase (recording)</p>
                 <ul className="text-sm text-[#0071e3] space-y-1 list-disc list-inside">
                   <li>Use this time to think about your response</li>
-                  <li>Recording will start automatically when time is up</li>
+                  <li>You are being recorded — the school will see this preparation segment</li>
+                  <li>Response phase will start automatically when prep time is up</li>
                   <li>You'll have {prompt.responseTime} seconds to respond</li>
                 </ul>
               </div>
-              <div className="text-center py-6 sm:py-8">
-                <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-[#0071e3]/10 mb-4">
-                  <span className="text-4xl sm:text-5xl font-bold text-[#0071e3]">{timeRemaining}</span>
+              <div className="relative rounded-lg overflow-hidden border-2 border-amber-500 bg-[#1d1d1f]">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-auto min-h-[250px] sm:min-h-[400px] bg-[#1d1d1f]"
+                />
+                <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex items-center gap-1 sm:gap-2 bg-amber-600 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                  <Circle className="h-2 w-2 sm:h-3 sm:w-3 fill-current animate-pulse" />
+                  <span className="font-medium">Recording (Preparation)</span>
                 </div>
-                <p className="text-lg sm:text-xl font-medium">Preparation Time</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">Get ready to record your response</p>
+                <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black/75 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full">
+                  <span className="text-lg sm:text-2xl font-bold">{formatTime(timeRemaining)}</span>
+                </div>
               </div>
               <Progress value={getProgressPercentage()} className="h-2" />
+              <p className="text-xs text-center text-muted-foreground">
+                Preparation time remaining — response phase starts automatically
+              </p>
             </div>
           )}
 
@@ -288,7 +323,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto min-h-[250px] sm:min-h-[400px] bg-[#1d1d1f]" />
                 <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex items-center gap-1 sm:gap-2 bg-red-600 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm">
                   <Circle className="h-2 w-2 sm:h-3 sm:w-3 fill-current animate-pulse" />
-                  <span className="font-medium">Recording</span>
+                  <span className="font-medium">Recording (Response)</span>
                 </div>
                 <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black/75 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full">
                   <span className="text-lg sm:text-2xl font-bold">{formatTime(timeRemaining)}</span>
@@ -297,7 +332,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
               <Progress value={getProgressPercentage()} className="h-2" />
               <Button onClick={stopRecording} variant="destructive" className="w-full" size="lg">
                 <Square className="h-4 w-4 mr-2 fill-current" />
-                Stop Recording
+                Done — Next Question
               </Button>
             </div>
           )}

@@ -20,6 +20,7 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
   const streamRef = useRef<MediaStream | null>(null)
 
   const [errorMessage, setErrorMessage] = useState<string>("")
+  const [recordingConsent, setRecordingConsent] = useState<boolean>(false)
 
   const testDevices = async () => {
     setIsTestingCamera(true)
@@ -71,7 +72,7 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
     }
   }, [])
 
-  const canProceed = cameraPermission && micPermission
+  const canProceed = cameraPermission && micPermission && recordingConsent
 
   return (
     <div className="space-y-6">
@@ -137,9 +138,43 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
             </Button>
           )}
 
+          {/* Recording disclosure + consent — shown once devices are confirmed working */}
+          {cameraPermission && micPermission && (
+            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">
+                Important: Both preparation and response will be recorded
+              </p>
+              <p className="text-sm text-amber-900">
+                For each question your camera and microphone are recorded continuously from the start of
+                the preparation timer until the end of your response. The school will receive a video
+                of your responses, and they may also choose to view a separate video that includes your
+                preparation time.
+              </p>
+              <label className="flex items-start gap-2 text-sm text-amber-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={recordingConsent}
+                  onChange={(e) => setRecordingConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-amber-400 text-[#0071e3] focus:ring-[#0071e3]"
+                />
+                <span>
+                  I understand that both my preparation time and my response will be recorded and may
+                  be shared with the school.
+                </span>
+              </label>
+            </div>
+          )}
+
           {/* Proceed Button */}
-          {canProceed && (
-            <Button onClick={onComplete} className="w-full" size="lg" variant="default">
+          {cameraPermission && micPermission && (
+            <Button
+              onClick={onComplete}
+              className="w-full"
+              size="lg"
+              variant="default"
+              disabled={!canProceed}
+              title={!recordingConsent ? "Please confirm the recording notice above" : undefined}
+            >
               Start Interview
             </Button>
           )}
@@ -271,9 +306,10 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
               1
             </div>
             <div>
-              <p className="font-medium">Read the prompt carefully</p>
+              <p className="font-medium">Read the prompt and prepare</p>
               <p className="text-sm text-muted-foreground">
-                You'll have <strong>{preparationTime} seconds</strong> to prepare your response after reading each prompt
+                You'll have <strong>{preparationTime} seconds</strong> to prepare after reading each prompt.
+                The camera and microphone are recording during preparation as well — the school may view this segment.
               </p>
             </div>
           </div>

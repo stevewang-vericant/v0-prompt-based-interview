@@ -24,6 +24,7 @@ export async function uploadVideoToB2AndSave(
   promptText?: string,
   promptCategory?: string,
   promptResponseTime?: number,
+  promptPrepDuration?: number,
 ) {
   try {
     console.log("[v0] ===== Starting video upload (Prisma) =====")
@@ -38,9 +39,15 @@ export async function uploadVideoToB2AndSave(
     const buffer = Buffer.from(arrayBuffer)
     
     const timestamp = Date.now()
-    const filename = responseOrder === 0 
-      ? `interviews/${interviewId}/complete-interview-${timestamp}.mp4`
-      : `interviews/${interviewId}/response-${responseOrder}-${timestamp}.webm`
+    // 新流程：每个分段同时包含 prep + response，命名为 prep-response-N。
+    // 旧的 response-N-* 文件继续可读，无需迁移。
+    // responseOrder === 0 是历史上的"完整面试视频"特殊路径，保持兼容。
+    const filename =
+      responseOrder === 0
+        ? `interviews/${interviewId}/complete-interview-${timestamp}.mp4`
+        : promptPrepDuration && promptPrepDuration > 0
+          ? `interviews/${interviewId}/prep-response-${responseOrder}-${timestamp}.webm`
+          : `interviews/${interviewId}/response-${responseOrder}-${timestamp}.webm`
     
     const contentType = filename.endsWith('.mp4') ? 'video/mp4' : 'video/webm'
     
@@ -163,7 +170,11 @@ export async function uploadVideoToB2AndSave(
         prompt_id: prompt.id,
         sequence_number: responseOrder,
         video_url: videoUrl,
-        video_duration: 90
+        video_duration: 90,
+        prep_duration:
+          typeof promptPrepDuration === 'number' && promptPrepDuration >= 0
+            ? promptPrepDuration
+            : null,
       }
     })
 

@@ -36,6 +36,7 @@ export interface InterviewRecord {
   student_city: string | null
   student_financial_aid: boolean | null
   video_url: string | null
+  video_with_prep_url: string | null
   subtitle_url: string | null
   total_duration: number | null
   status: string | null

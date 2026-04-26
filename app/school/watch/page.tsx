@@ -6,7 +6,7 @@ import { VideoPlayerWithSubtitles } from '@/components/video-player-with-subtitl
 import { TranscriptionDisplay } from '@/components/transcription/transcription-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, FileText } from 'lucide-react'
+import { ArrowLeft, FileText, ExternalLink } from 'lucide-react'
 
 function SchoolWatchPageContent() {
   const searchParams = useSearchParams()
@@ -23,6 +23,9 @@ function SchoolWatchPageContent() {
   const finalScoreParam = searchParams.get('finalScore')
   const scoreDetailReady = searchParams.get('scoreDetailReady') === 'true'
   const debugMode = searchParams.get('debug') === 'true'
+  // 仅当本次面试用了"prep+response 连续录制"流程时存在；
+  // 老面试不会带这个参数，下面的链接面板就不会渲染。
+  const videoWithPrepUrl = searchParams.get('videoWithPrepUrl')
   const finalScore = finalScoreParam && !Number.isNaN(Number(finalScoreParam)) ? Number(finalScoreParam) : null
 
   if (!videoUrl) {
@@ -156,12 +159,36 @@ function SchoolWatchPageContent() {
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Video Player - 2/3 width */}
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 space-y-4">
                 <VideoPlayerWithSubtitles 
                   videoUrl={videoUrl} 
                   subtitleUrl={subtitleUrl || undefined}
                   debug={debugMode}
                 />
+
+                {/* Optional: link to the version that includes preparation time.
+                    Only rendered for interviews recorded with the new continuous flow. */}
+                {videoWithPrepUrl && (
+                  <Card className="border-amber-200 bg-amber-50">
+                    <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-900">Includes preparation time</p>
+                        <p className="text-xs text-amber-900/80 mt-0.5">
+                          Watch a separate video that shows each question's preparation segment in addition to the response.
+                        </p>
+                      </div>
+                      <a
+                        href={videoWithPrepUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-900 shadow-sm hover:bg-amber-100"
+                      >
+                        Open prep + response video
+                        <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                      </a>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               {/* Transcription Panel - 1/3 width */}

@@ -184,6 +184,25 @@ async function processVideoMergeTaskInner(taskId: string) {
     }
     console.log(`[Task ${taskId}] Segments count:`, segments.length)
 
+    // 每段是否包含 prep（由学生端在新流程中传入 prepDuration > 0）。
+    // 如果所有分段都没有 prepDuration（旧客户端 / 中途升级时），完全走老路径，
+    // 不生成"包含 prep"的视频，行为与升级前一致。
+    const segmentPrepDurations: number[] = segments.map((seg) => {
+      const v = Number((seg && seg.prepDuration) ?? 0)
+      return Number.isFinite(v) && v > 0 ? Math.round(v) : 0
+    })
+    const hasPrepData = segmentPrepDurations.some((d) => d > 0)
+    if (hasPrepData) {
+      console.log(
+        `[Task ${taskId}] Continuous-recording detected (prep+response). prepDurations=`,
+        segmentPrepDurations,
+      )
+    } else {
+      console.log(
+        `[Task ${taskId}] Legacy segments (response-only). Will skip with-prep video.`,
+      )
+    }
+
     // Load prompts text for better subtitles
     // UUID regex pattern to filter out non-UUID promptIds like "free-speech"
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -274,45 +293,116 @@ async function processVideoMergeTaskInner(taskId: string) {
     }
     
     // 使用FFmpeg合并视频
-    const inputFiles: string[] = []
+    //
+    // 新流程总览：
+    //  Pass A — 把每个原始 webm 单独转码为 MP4（确保浏览器兼容、且关键帧可控）。
+    //  分支 1 (response-only)：每段从 prepDuration 处用 -c copy 快速截掉前段，再 concat。
+    //  分支 2 (with-prep)：直接对所有 Pass A 输出做 -c copy concat，不二次编码。
+    //
+    // 旧流程兼容：当 hasPrepData=false 时，Pass A 输出本身就是"完整应答"，仅做 concat 得到
+    // 与原版一致的 merged-interview.mp4，并跳过 with-prep 视频。
+    //
+    // 全程 -threads 1 / preset veryfast，仍由外层 runSerialized 排队，单时只有一个 ffmpeg
+    // 在跑，2GB RAM 安全。
     let mergedBuffer: Buffer
+    let mergedWithPrepBuffer: Buffer | null = null
     let totalDuration: number
-    
+    // 真正用于"response-only"视频的每段时长（webm 全长 - prep）
+    const responseSegmentDurations: number[] = []
+
     try {
+      // Pass A: 每个原始 webm -> 中间 MP4
+      const intermediateMp4s: string[] = []
       for (let i = 0; i < videoBuffers.length; i++) {
-        const tempFile = join(tempDir, `segment_${i + 1}_${Date.now()}.webm`)
-        writeFileSync(tempFile, videoBuffers[i] as any)
-        inputFiles.push(tempFile)
-        tempFiles.push(tempFile)
+        const inputWebm = join(tempDir, `seg_in_${i + 1}_${Date.now()}.webm`)
+        const outputMp4 = join(tempDir, `seg_mp4_${i + 1}_${Date.now()}.mp4`)
+        writeFileSync(inputWebm, videoBuffers[i] as any)
+        tempFiles.push(inputWebm, outputMp4)
+        intermediateMp4s.push(outputMp4)
+
+        const cmd = `ffmpeg -loglevel error -i "${inputWebm}" -c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -threads 1 -c:a aac -b:a 128k -movflags +faststart "${outputMp4}" -y`
+        const { stderr } = await execAsync(cmd, { maxBuffer: 100 * 1024 * 1024 })
+        if (stderr) console.log(`[Task ${taskId}] FFmpeg passA seg ${i + 1} stderr:`, stderr)
+        if (!existsSync(outputMp4)) {
+          throw new Error(`FFmpeg failed to produce intermediate MP4 for segment ${i + 1}`)
+        }
       }
-      
-      const concatFile = join(tempDir, `concat_${Date.now()}.txt`)
-      const concatContent = inputFiles.map(file => `file '${file}'`).join('\n')
-      writeFileSync(concatFile, concatContent)
-      tempFiles.push(concatFile)
-      
-      const tempMergedFile = join(tempDir, `temp_merged_${Date.now()}.mp4`)
-      tempFiles.push(tempMergedFile)
-      
-      console.log(`[Task ${taskId}] Merging videos and converting to MP4 format...`)
-      
-      // 使用重新编码方式合并为MP4，确保浏览器兼容性
-      // preset 用 veryfast：生产机器只有 2GB RAM / 单核，medium 会让任务跑 8+ 分钟且容易 OOM。
-      // -loglevel error：只输出真正的错误，避免大量进度日志撑爆 execAsync 默认 1MB stdout 缓冲。
-      const mergeCommand = `ffmpeg -loglevel error -f concat -safe 0 -i "${concatFile}" -c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -threads 1 -c:a aac -b:a 128k -movflags +faststart "${tempMergedFile}" -y`
-      
-      const { stdout: mergeStdout, stderr: mergeStderr } = await execAsync(mergeCommand, { maxBuffer: 100 * 1024 * 1024 })
-      if (mergeStderr) console.log(`[Task ${taskId}] FFmpeg merge stderr:`, mergeStderr)
-      
-      if (!existsSync(tempMergedFile)) {
-        throw new Error('FFmpeg failed to create merged file')
+
+      // 准备 response-only 分段（必要时按 prepDuration 裁剪头部）
+      const responseOnlyMp4s: string[] = []
+      for (let i = 0; i < intermediateMp4s.length; i++) {
+        const prep = segmentPrepDurations[i] || 0
+        if (prep > 0) {
+          const trimmed = join(tempDir, `seg_resp_${i + 1}_${Date.now()}.mp4`)
+          tempFiles.push(trimmed)
+          // 把 -ss 放在 -i 之后才会精确按 PTS 裁剪到 prep 秒；MP4 已带可靠的关键帧分布，
+          // 用 -c copy 几乎瞬间完成，不再二次编码。
+          const trimCmd = `ffmpeg -loglevel error -i "${intermediateMp4s[i]}" -ss ${prep} -c copy -movflags +faststart "${trimmed}" -y`
+          const { stderr } = await execAsync(trimCmd, { maxBuffer: 100 * 1024 * 1024 })
+          if (stderr) console.log(`[Task ${taskId}] FFmpeg trim seg ${i + 1} stderr:`, stderr)
+          if (!existsSync(trimmed)) {
+            // 极端情况下 -ss + -c copy 可能产出空文件；回退到带重编码裁剪。
+            console.warn(`[Task ${taskId}] -c copy trim produced no file; retrying with re-encode`)
+            const reTrimCmd = `ffmpeg -loglevel error -ss ${prep} -i "${intermediateMp4s[i]}" -c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -threads 1 -c:a aac -b:a 128k -movflags +faststart "${trimmed}" -y`
+            const { stderr: re } = await execAsync(reTrimCmd, { maxBuffer: 100 * 1024 * 1024 })
+            if (re) console.log(`[Task ${taskId}] FFmpeg trim-reencode seg ${i + 1} stderr:`, re)
+            if (!existsSync(trimmed)) {
+              throw new Error(`Failed to trim prep from segment ${i + 1}`)
+            }
+          }
+          responseOnlyMp4s.push(trimmed)
+          // 修正字幕时间使用的"应答时长"
+          const trimmedDuration = Math.max(1, segmentDurations[i] - prep)
+          responseSegmentDurations.push(trimmedDuration)
+        } else {
+          // 没有 prep（旧分段或 prepDuration=0）
+          responseOnlyMp4s.push(intermediateMp4s[i])
+          responseSegmentDurations.push(segmentDurations[i])
+        }
       }
-      
-      console.log(`[Task ${taskId}] ✓ Video merge completed (MP4 format)`)
-      
-      mergedBuffer = require('fs').readFileSync(tempMergedFile)
-      totalDuration = segmentDurations.reduce((sum, dur) => sum + dur, 0)
-      
+
+      // 分支 1: response-only concat -> mergedBuffer（继续写入 Interview.video_url）
+      const respConcatFile = join(tempDir, `concat_resp_${Date.now()}.txt`)
+      writeFileSync(
+        respConcatFile,
+        responseOnlyMp4s.map((file) => `file '${file}'`).join('\n'),
+      )
+      tempFiles.push(respConcatFile)
+
+      const respMergedFile = join(tempDir, `merged_resp_${Date.now()}.mp4`)
+      tempFiles.push(respMergedFile)
+      const respConcatCmd = `ffmpeg -loglevel error -f concat -safe 0 -i "${respConcatFile}" -c copy -movflags +faststart "${respMergedFile}" -y`
+      const { stderr: respStderr } = await execAsync(respConcatCmd, { maxBuffer: 100 * 1024 * 1024 })
+      if (respStderr) console.log(`[Task ${taskId}] FFmpeg response concat stderr:`, respStderr)
+      if (!existsSync(respMergedFile)) {
+        throw new Error('FFmpeg failed to produce response-only merged file')
+      }
+      console.log(`[Task ${taskId}] ✓ Response-only video produced`)
+      mergedBuffer = require('fs').readFileSync(respMergedFile)
+
+      // 分支 2: with-prep concat -> mergedWithPrepBuffer（仅当本次面试包含 prep 数据）
+      if (hasPrepData) {
+        const prepConcatFile = join(tempDir, `concat_prep_${Date.now()}.txt`)
+        writeFileSync(
+          prepConcatFile,
+          intermediateMp4s.map((file) => `file '${file}'`).join('\n'),
+        )
+        tempFiles.push(prepConcatFile)
+
+        const prepMergedFile = join(tempDir, `merged_prep_${Date.now()}.mp4`)
+        tempFiles.push(prepMergedFile)
+        const prepConcatCmd = `ffmpeg -loglevel error -f concat -safe 0 -i "${prepConcatFile}" -c copy -movflags +faststart "${prepMergedFile}" -y`
+        const { stderr: prepStderr } = await execAsync(prepConcatCmd, { maxBuffer: 100 * 1024 * 1024 })
+        if (prepStderr) console.log(`[Task ${taskId}] FFmpeg with-prep concat stderr:`, prepStderr)
+        if (!existsSync(prepMergedFile)) {
+          throw new Error('FFmpeg failed to produce with-prep merged file')
+        }
+        console.log(`[Task ${taskId}] ✓ With-prep video produced`)
+        mergedWithPrepBuffer = require('fs').readFileSync(prepMergedFile)
+      }
+
+      totalDuration = responseSegmentDurations.reduce((sum, dur) => sum + dur, 0)
+
       tempFiles.forEach(file => {
         try { if (existsSync(file)) unlinkSync(file) } catch (e) {}
       })
@@ -342,6 +432,21 @@ async function processVideoMergeTaskInner(taskId: string) {
     
     const mergedVideoUrl = `https://f001.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${mergedKey}`
     console.log(`[Task ${taskId}] ✓ Merged video uploaded:`, mergedVideoUrl)
+
+    // 仅当本次面试包含 prep 数据时上传 with-prep 版本
+    let mergedWithPrepUrl: string | null = null
+    if (mergedWithPrepBuffer) {
+      const withPrepKey = `interviews/${interviewId}/merged-with-prep-${timestamp}.mp4`
+      const putWithPrepCommand = new PutObjectCommand({
+        Bucket: process.env.B2_BUCKET_NAME!,
+        Key: withPrepKey,
+        Body: mergedWithPrepBuffer,
+        ContentType: 'video/mp4',
+      })
+      await s3Client.send(putWithPrepCommand)
+      mergedWithPrepUrl = `https://f001.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${withPrepKey}`
+      console.log(`[Task ${taskId}] ✓ With-prep video uploaded:`, mergedWithPrepUrl)
+    }
     
     // 获取合并后视频的实际时长
     let actualDuration = totalDuration
@@ -361,9 +466,11 @@ async function processVideoMergeTaskInner(taskId: string) {
     }
     
     // 生成字幕元数据
+    // 注意：字幕是基于"response-only"合并视频（写入 Interview.video_url）的时间轴，
+    // 因此分段时长必须使用裁掉 prep 后的 responseSegmentDurations。
     console.log(`[Task ${taskId}] Generating subtitle metadata...`)
-    const totalEstimatedDuration = segmentDurations.reduce((sum, dur) => sum + dur, 0)
-    const scaleFactor = actualDuration / totalEstimatedDuration
+    const totalEstimatedDuration = responseSegmentDurations.reduce((sum, dur) => sum + dur, 0)
+    const scaleFactor = totalEstimatedDuration > 0 ? actualDuration / totalEstimatedDuration : 1
     let cumulativeTime = 0
     const subtitleMetadata = {
       interviewId,
@@ -371,7 +478,7 @@ async function processVideoMergeTaskInner(taskId: string) {
       createdAt: new Date().toISOString(),
       mergedVideoUrl: mergedVideoUrl,
       questions: segments.map((seg: any, index: number) => {
-        const scaledDuration = Math.round(segmentDurations[index] * scaleFactor)
+        const scaledDuration = Math.round(responseSegmentDurations[index] * scaleFactor)
         const promptInfo = promptMap.get(seg.promptId)
         const questionText =
           promptInfo?.prompt_text || seg.questionText || `Question ${index + 1}`
@@ -434,6 +541,10 @@ async function processVideoMergeTaskInner(taskId: string) {
                 where: { id: interview.id },
                 data: {
                     video_url: mergedVideoUrl,
+                    // 仅当本次产生了 with-prep 视频时写入；老面试保持 null
+                    ...(mergedWithPrepUrl
+                      ? { video_with_prep_url: mergedWithPrepUrl }
+                      : {}),
                     subtitle_url: subtitleUrl,
                     total_duration: actualDuration,
                     status: 'completed',
@@ -448,6 +559,9 @@ async function processVideoMergeTaskInner(taskId: string) {
                         actualDuration: actualDuration,
                         estimatedDuration: totalDuration,
                         subtitleMetadata: subtitleMetadata,
+                        ...(mergedWithPrepUrl
+                          ? { mergedWithPrepVideoUrl: mergedWithPrepUrl }
+                          : {}),
                         status: 'completed'
                     }
                 }

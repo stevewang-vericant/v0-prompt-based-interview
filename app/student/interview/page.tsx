@@ -334,15 +334,26 @@ function InterviewPageContent() {
     setStage("interview")
   }
 
-  const handlePromptComplete = async (promptId: string, videoBlob: Blob) => {
+  const handlePromptComplete = async (
+    promptId: string,
+    videoBlob: Blob,
+    prepDurationSec: number,
+  ) => {
     // 防止重复上传：如果面试已完成，忽略后续录制
     if (interviewCompleted) {
       console.log("[v0] Interview already completed, ignoring duplicate upload")
       return
     }
 
-    console.log("[v0] Prompt completed:", promptId, "Blob size:", videoBlob.size)
-    
+    console.log(
+      "[v0] Prompt completed:",
+      promptId,
+      "Blob size:",
+      videoBlob.size,
+      "prepDuration:",
+      prepDurationSec,
+    )
+
     // 立即保存到 IndexedDB（持久化存储）
     try {
       const prompt = prompts.find(p => p.id === promptId)
@@ -354,7 +365,8 @@ function InterviewPageContent() {
           videoBlob,
           prompt.text,
           prompt.category,
-          prompt.responseTime
+          prompt.responseTime,
+          prepDurationSec,
         )
         console.log(`[v0] ✓ Saved segment to IndexedDB: ${promptId}`)
       }
@@ -392,8 +404,15 @@ function InterviewPageContent() {
       // 优先从 IndexedDB 读取（如果存在），否则使用内存中的数据
       console.log("[v0] Checking IndexedDB for stored segments...")
       const storedSegments = await getPendingSegments(interviewId)
-      
-      let segments: Array<{ prompt: Prompt; blob: Blob; index: number }>
+
+      // prepDuration: 优先用 IndexedDB 里记录的实际值；缺失时回退到 prompt 配置的 preparationTime
+      // （客户端录制时使用的就是 prompt.preparationTime，所以这是合理的兜底）。
+      let segments: Array<{
+        prompt: Prompt
+        blob: Blob
+        index: number
+        prepDuration: number
+      }>
       
       if (storedSegments.length > 0) {
         // 使用 IndexedDB 中的数据
@@ -408,7 +427,9 @@ function InterviewPageContent() {
             return {
               prompt,
               blob: seg.blob,
-              index: seg.sequenceNumber - 1
+              index: seg.sequenceNumber - 1,
+              prepDuration:
+                typeof seg.prepDuration === 'number' ? seg.prepDuration : prompt.preparationTime,
             }
           })
       } else {
@@ -418,7 +439,8 @@ function InterviewPageContent() {
           .map((prompt, index) => ({
             prompt,
             blob: allResponses[prompt.id],
-            index
+            index,
+            prepDuration: prompt.preparationTime,
           }))
           .filter(seg => seg.blob !== undefined)
       }
@@ -437,6 +459,7 @@ function InterviewPageContent() {
         videoUrl: string
         sequenceNumber: number
         duration: number
+        prepDuration: number
         questionText: string
         category: string
       }> = []
@@ -445,7 +468,7 @@ function InterviewPageContent() {
       
       // 分别上传每个分段视频（小文件，无需合并，避免 413 错误）
       for (let i = 0; i < segments.length; i++) {
-        const { prompt, blob, index } = segments[i]
+        const { prompt, blob, index, prepDuration } = segments[i]
         const progressBase = (i / segments.length) * 70 // 0-70% 用于上传
         setUploadProgress(Math.floor(progressBase))
         setUploadStatus(`Uploading segment ${i + 1}/${segments.length}...`)
@@ -465,7 +488,8 @@ function InterviewPageContent() {
           // 传入文本和分类，便于服务端解析真实 prompts UUID
           prompt.text,
           prompt.category,
-          prompt.responseTime
+          prompt.responseTime,
+          prepDuration,
         )
         
         if (!result.success) {
@@ -489,6 +513,7 @@ function InterviewPageContent() {
           videoUrl: result.videoUrl!,
           sequenceNumber: i + 1,
           duration: actualDuration, // 使用实际估算时长
+          prepDuration,
           questionText: prompt.text,
           category: prompt.category
         })
@@ -527,7 +552,8 @@ function InterviewPageContent() {
               category: seg.category,
               sequenceNumber: seg.sequenceNumber,
               videoUrl: seg.videoUrl,
-              duration: seg.duration
+              duration: seg.duration,
+              prepDuration: seg.prepDuration,
             })),
             submittedAt: new Date().toISOString()
           }
@@ -558,6 +584,7 @@ function InterviewPageContent() {
             url: seg.videoUrl,
             sequenceNumber: seg.sequenceNumber,
             duration: seg.duration,
+            prepDuration: seg.prepDuration,
             promptId: seg.promptId,
             questionText: seg.questionText,
             category: seg.category

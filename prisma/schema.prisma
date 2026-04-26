@@ -134,6 +134,7 @@ model Interview {
   school_id              String              @db.Uuid
   status                 String?             @default("not_started") @db.VarChar(50)
   video_url              String?             @db.VarChar(500)
+  video_with_prep_url    String?             @db.VarChar(500)
   subtitle_url           String?             @db.VarChar(500)
   total_duration         Int?
   metadata               Json?
@@ -174,6 +175,7 @@ model InterviewResponse {
   sequence_number Int
   video_url       String?   @db.VarChar(500)
   video_duration  Int?
+  prep_duration   Int?
   transcript      String?
   response_score  Decimal?  @db.Decimal(5, 2)
   recorded_at     DateTime? @db.Timestamptz(6)
