@@ -304,7 +304,7 @@ export async function getCurrentUser(): Promise<{
       // 如果没有 admin_id，说明是旧账号（School，向后兼容）
       const school = await prisma.school.findUnique({
         where: { id: schoolId },
-        select: { id: true, name: true, code: true, email: true, is_super_admin: true }
+        select: { id: true, name: true, code: true, email: true, is_super_admin: true, is_rater: true }
       })
 
       if (!school || !school.email) {
@@ -315,7 +315,7 @@ export async function getCurrentUser(): Promise<{
         success: true,
         user: {
           email: school.email,
-          is_rater: false,
+          is_rater: school.is_rater,
           school: {
             id: school.id,
             name: school.name,

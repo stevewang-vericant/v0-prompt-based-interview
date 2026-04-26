@@ -73,6 +73,7 @@ export async function listUsers(): Promise<{
         code: true,
         active: true,
         is_super_admin: true,
+        is_rater: true,
         contact_person: true,
         created_at: true,
         updated_at: true
@@ -105,7 +106,7 @@ export async function listUsers(): Promise<{
       code: school.code || '',
       active: school.active,
       is_super_admin: school.is_super_admin,
-      is_rater: false,
+      is_rater: school.is_rater,
       contact_person: school.contact_person,
       created_at: school.created_at,
       updated_at: school.updated_at,
@@ -490,7 +491,7 @@ export async function resetUserPassword(userId: string, newPassword: string, use
 }
 
 /**
- * Toggle rater role for a SchoolAdmin user (super admin only)
+ * Toggle rater role for any user (SchoolAdmin or legacy School), super admin only
  */
 export async function toggleRaterRole(userId: string, isRater: boolean): Promise<{
   success: boolean
@@ -499,20 +500,27 @@ export async function toggleRaterRole(userId: string, isRater: boolean): Promise
   try {
     await ensureSuperAdmin()
 
-    const admin = await prisma.schoolAdmin.findUnique({
-      where: { id: userId }
-    })
-
-    if (!admin) {
-      return { success: false, error: "User not found or not a SchoolAdmin" }
+    // Try SchoolAdmin first
+    const admin = await prisma.schoolAdmin.findUnique({ where: { id: userId } })
+    if (admin) {
+      await prisma.schoolAdmin.update({
+        where: { id: userId },
+        data: { is_rater: isRater }
+      })
+      return { success: true }
     }
 
-    await prisma.schoolAdmin.update({
-      where: { id: userId },
-      data: { is_rater: isRater }
-    })
+    // Fall back to legacy School account
+    const school = await prisma.school.findUnique({ where: { id: userId } })
+    if (school) {
+      await prisma.school.update({
+        where: { id: userId },
+        data: { is_rater: isRater }
+      })
+      return { success: true }
+    }
 
-    return { success: true }
+    return { success: false, error: "User not found" }
   } catch (error) {
     return {
       success: false,

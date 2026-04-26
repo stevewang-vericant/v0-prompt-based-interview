@@ -460,20 +460,18 @@ export default function UsersPage() {
                             Activate
                           </Button>
                         )}
-                        {user.type === 'school_admin' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleRater(user.id, user.is_rater)}
-                            disabled={actionLoading === user.id}
-                            className={user.is_rater ? "border-blue-200 text-blue-700 hover:bg-blue-50" : ""}
-                          >
-                            {actionLoading === user.id ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : null}
-                            {user.is_rater ? "Remove Rater" : "Set Rater"}
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleRater(user.id, user.is_rater)}
+                          disabled={actionLoading === user.id}
+                          className={user.is_rater ? "border-blue-200 text-blue-700 hover:bg-blue-50" : ""}
+                        >
+                          {actionLoading === user.id ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : null}
+                          {user.is_rater ? "Remove Rater" : "Set Rater"}
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
