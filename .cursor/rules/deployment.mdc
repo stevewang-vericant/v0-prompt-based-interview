@@ -10,7 +10,7 @@ alwaysApply: true
 
 ## Server Details
 
-- SSH Host: `linode-Athena` (configured in ~/.ssh/config)
+- SSH Host: `linode-Athena-sg` (configured in ~/.ssh/config — this is the Singapore node serving demo.vcnt.co)
 - User: `root` (SSH as root, then switch to v0-interview user)
 - Project Path: `/home/v0-interview/apps/v0-interview`
 - Deployment Script: `deploy-linode.sh`
@@ -28,7 +28,7 @@ alwaysApply: true
 
 3. **SSH to server and deploy**:
    ```bash
-   ssh linode-Athena
+   ssh linode-Athena-sg
    su - v0-interview
    cd /home/v0-interview/apps/v0-interview
    ./deploy-linode.sh
