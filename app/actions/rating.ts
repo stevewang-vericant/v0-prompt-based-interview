@@ -273,6 +273,7 @@ export interface OverrideScores {
   vocabulary_score: number | null
   grammar_score: number | null
   pronunciation_score: number | null
+  vericant_lite_scores?: Record<string, number>
 }
 
 /**
@@ -290,11 +291,25 @@ export async function approveWithOverride(
 
     const interview = await prisma.interview.findUnique({
       where: { interview_id: interviewId },
-      select: { id: true },
+      select: { id: true, metadata: true },
     })
 
     if (!interview) {
       return { success: false, error: "Interview not found" }
+    }
+
+    const existingMetadata = (interview.metadata as Record<string, any> | null) || {}
+    const existingCathoven = (existingMetadata.cathoven as Record<string, any> | undefined) || {}
+    const mergedMetadata = {
+      ...existingMetadata,
+      cathoven: {
+        ...existingCathoven,
+        manual_override: {
+          vericant_lite_scores: scores.vericant_lite_scores || {},
+          updated_at: new Date().toISOString(),
+          updated_by: user.email,
+        },
+      },
     }
 
     await prisma.interview.update({
@@ -309,6 +324,7 @@ export async function approveWithOverride(
         rater_vocabulary_score: scores.vocabulary_score,
         rater_grammar_score: scores.grammar_score,
         rater_pronunciation_score: scores.pronunciation_score,
+        metadata: mergedMetadata,
       },
     })
 

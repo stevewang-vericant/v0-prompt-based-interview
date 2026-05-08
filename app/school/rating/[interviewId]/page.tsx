@@ -55,11 +55,7 @@ export default function RatingDetailPage() {
   const [useOverride, setUseOverride] = useState(false)
   const [overrideScores, setOverrideScores] = useState({
     total_score: "",
-    fluency_score: "",
-    coherence_score: "",
-    vocabulary_score: "",
-    grammar_score: "",
-    pronunciation_score: "",
+    vericant_lite_scores: {} as Record<string, string>,
   })
 
   const loadData = async () => {
@@ -82,15 +78,21 @@ export default function RatingDetailPage() {
       const result = await getInterviewForRating(decodeURIComponent(interviewId))
       if (result.success && result.interview) {
         setInterview(result.interview)
+        const metadata = (result.interview.metadata as Record<string, any> | null) || {}
+        const cathoven = (metadata.cathoven as Record<string, any> | undefined) || {}
+        const manualOverride = (cathoven.manual_override as Record<string, any> | undefined) || {}
+        const savedVericantLiteScores =
+          (manualOverride.vericant_lite_scores as Record<string, any> | undefined) || {}
         if (result.interview.rater_total_score !== null) {
           setUseOverride(true)
           setOverrideScores({
             total_score: result.interview.rater_total_score?.toString() || "",
-            fluency_score: result.interview.rater_fluency_score?.toString() || "",
-            coherence_score: result.interview.rater_coherence_score?.toString() || "",
-            vocabulary_score: result.interview.rater_vocabulary_score?.toString() || "",
-            grammar_score: result.interview.rater_grammar_score?.toString() || "",
-            pronunciation_score: result.interview.rater_pronunciation_score?.toString() || "",
+            vericant_lite_scores: Object.fromEntries(
+              Object.entries(savedVericantLiteScores).map(([key, value]) => [
+                key,
+                typeof value === "number" ? String(value) : "",
+              ])
+            ),
           })
         }
       } else {
@@ -146,21 +148,28 @@ export default function RatingDetailPage() {
     setError(null)
     setSuccess(null)
 
-    const parseOptional = (val: string) => {
-      const trimmed = val.trim()
-      if (!trimmed) return null
-      const n = Number(trimmed)
-      return isNaN(n) ? null : n
-    }
+    const parsedVericantLiteScores = Object.entries(overrideScores.vericant_lite_scores).reduce(
+      (acc, [key, rawValue]) => {
+        const trimmed = rawValue.trim()
+        if (!trimmed) return acc
+        const numericValue = Number(trimmed)
+        if (!isNaN(numericValue)) {
+          acc[key] = numericValue
+        }
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
     try {
       const result = await approveWithOverride(interview.interview_id, {
         total_score: totalNum,
-        fluency_score: parseOptional(overrideScores.fluency_score),
-        coherence_score: parseOptional(overrideScores.coherence_score),
-        vocabulary_score: parseOptional(overrideScores.vocabulary_score),
-        grammar_score: parseOptional(overrideScores.grammar_score),
-        pronunciation_score: parseOptional(overrideScores.pronunciation_score),
+        fluency_score: null,
+        coherence_score: null,
+        vocabulary_score: null,
+        grammar_score: null,
+        pronunciation_score: null,
+        vericant_lite_scores: parsedVericantLiteScores,
       })
       if (result.success) {
         setSuccess("Score approved with manual override")
@@ -188,11 +197,7 @@ export default function RatingDetailPage() {
         setUseOverride(false)
         setOverrideScores({
           total_score: "",
-          fluency_score: "",
-          coherence_score: "",
-          vocabulary_score: "",
-          grammar_score: "",
-          pronunciation_score: "",
+          vericant_lite_scores: {},
         })
         await loadData()
       } else {
@@ -238,6 +243,12 @@ export default function RatingDetailPage() {
   const breakdownItems = Object.entries(breakdown)
   const vericantLite = (responseJson?.vericant_lite as Record<string, any> | undefined) || {}
   const vericantLiteItems = Object.entries(vericantLite)
+  const manualOverride = (cathoven.manual_override as Record<string, any> | undefined) || {}
+  const savedVericantLiteScores =
+    (manualOverride.vericant_lite_scores as Record<string, any> | undefined) || {}
+  const manualInputMetricKeys = Array.from(
+    new Set([...Object.keys(vericantLite), ...Object.keys(savedVericantLiteScores)])
+  )
 
   // Map short breakdown keys to readable names and score fields
   const BREAKDOWN_NAMES: Record<string, string> = {
@@ -370,21 +381,12 @@ export default function RatingDetailPage() {
                         <p className="text-xs text-emerald-700 font-medium">Manual Override Scores:</p>
                         <div className="grid grid-cols-2 gap-1 mt-1 text-xs text-emerald-700">
                           <span>Final: {interview.rater_total_score.toFixed(2)}</span>
-                          {interview.rater_fluency_score !== null && (
-                            <span>Fluency: {interview.rater_fluency_score.toFixed(2)}</span>
-                          )}
-                          {interview.rater_coherence_score !== null && (
-                            <span>Coherence: {interview.rater_coherence_score.toFixed(2)}</span>
-                          )}
-                          {interview.rater_grammar_score !== null && (
-                            <span>Grammar: {interview.rater_grammar_score.toFixed(2)}</span>
-                          )}
-                          {interview.rater_pronunciation_score !== null && (
-                            <span>Pronunciation: {interview.rater_pronunciation_score.toFixed(2)}</span>
-                          )}
-                          {interview.rater_vocabulary_score !== null && (
-                            <span>Lexical: {interview.rater_vocabulary_score.toFixed(2)}</span>
-                          )}
+                          {Object.entries(savedVericantLiteScores).map(([key, value]) => (
+                            <span key={key}>
+                              {toTitleCase(key)}:{" "}
+                              {typeof value === "number" ? value.toFixed(2) : formatNumber(value)}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -456,73 +458,40 @@ export default function RatingDetailPage() {
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="fluency" className="text-xs">Fluency & Coherence</Label>
-                          <Input
-                            id="fluency"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            placeholder="0-100"
-                            value={overrideScores.fluency_score}
-                            onChange={(e) =>
-                              setOverrideScores((s) => ({ ...s, fluency_score: e.target.value }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="grammar" className="text-xs">Grammar Range & Accuracy</Label>
-                          <Input
-                            id="grammar"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            placeholder="0-100"
-                            value={overrideScores.grammar_score}
-                            onChange={(e) =>
-                              setOverrideScores((s) => ({ ...s, grammar_score: e.target.value }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="pronunciation" className="text-xs">Pronunciation</Label>
-                          <Input
-                            id="pronunciation"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            placeholder="0-100"
-                            value={overrideScores.pronunciation_score}
-                            onChange={(e) =>
-                              setOverrideScores((s) => ({
-                                ...s,
-                                pronunciation_score: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="vocabulary" className="text-xs">Lexical Resource</Label>
-                          <Input
-                            id="vocabulary"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            placeholder="0-100"
-                            value={overrideScores.vocabulary_score}
-                            onChange={(e) =>
-                              setOverrideScores((s) => ({
-                                ...s,
-                                vocabulary_score: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
+                        {manualInputMetricKeys.map((metricKey) => (
+                          <div key={metricKey} className="space-y-1.5">
+                            <Label htmlFor={`metric-${metricKey}`} className="text-xs">
+                              {toTitleCase(metricKey)}
+                            </Label>
+                            <Input
+                              id={`metric-${metricKey}`}
+                              type="number"
+                              step="0.01"
+                              placeholder="e.g. 2.5"
+                              value={
+                                overrideScores.vericant_lite_scores[metricKey] ??
+                                (typeof savedVericantLiteScores[metricKey] === "number"
+                                  ? String(savedVericantLiteScores[metricKey])
+                                  : "")
+                              }
+                              onChange={(e) =>
+                                setOverrideScores((s) => ({
+                                  ...s,
+                                  vericant_lite_scores: {
+                                    ...s.vericant_lite_scores,
+                                    [metricKey]: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                        ))}
                       </div>
+                      {manualInputMetricKeys.length === 0 && (
+                        <div className="rounded bg-amber-50 border border-amber-200 p-2 text-xs text-amber-700">
+                          No vericant_lite metrics found in JSON for manual input.
+                        </div>
+                      )}
 
                       <Button
                         className="w-full"
@@ -544,43 +513,65 @@ export default function RatingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Cathoven Score Summary */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Cathoven AI Score</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="text-3xl font-bold text-[#1d1d1f]">
-                {displayTotal != null ? (typeof displayTotal === "number" ? displayTotal : Number(displayTotal)) : "N/A"}
-              </div>
-              <div className="text-sm text-[rgba(0,0,0,0.56)]">
-                CEFR: {responseJson?.cefr || "N/A"}
-              </div>
-              {!responseJson && (
-                <div className="rounded bg-amber-50 border border-amber-200 p-2 text-xs text-amber-700">
-                  Cathoven has not been called for this interview yet.
+          {useOverride ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Vericant SEE Lite Metrics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {vericantLiteItems.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    {vericantLiteItems.map(([mk, mv]) => (
+                      <div key={mk} className="rounded bg-[#f5f5f7] p-1.5">
+                        {toTitleCase(mk)}: {formatNumber(mv)}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-[rgba(0,0,0,0.56)]">
+                    No vericant_lite section in response.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Cathoven AI Score</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-3xl font-bold text-[#1d1d1f]">
+                  {displayTotal != null ? (typeof displayTotal === "number" ? displayTotal : Number(displayTotal)) : "N/A"}
                 </div>
-              )}
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded bg-[#f5f5f7] p-2 col-span-2">
-                  <div className="text-xs text-[rgba(0,0,0,0.48)]">Fluency & Coherence</div>
-                  <div className="font-medium">{displayFluency != null ? displayFluency : "N/A"}</div>
+                <div className="text-sm text-[rgba(0,0,0,0.56)]">
+                  CEFR: {responseJson?.cefr || "N/A"}
                 </div>
-                <div className="rounded bg-[#f5f5f7] p-2 col-span-2">
-                  <div className="text-xs text-[rgba(0,0,0,0.48)]">Grammatical Range & Accuracy</div>
-                  <div className="font-medium">{displayGrammar != null ? displayGrammar : "N/A"}</div>
+                {!responseJson && (
+                  <div className="rounded bg-amber-50 border border-amber-200 p-2 text-xs text-amber-700">
+                    Cathoven has not been called for this interview yet.
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded bg-[#f5f5f7] p-2 col-span-2">
+                    <div className="text-xs text-[rgba(0,0,0,0.48)]">Fluency & Coherence</div>
+                    <div className="font-medium">{displayFluency != null ? displayFluency : "N/A"}</div>
+                  </div>
+                  <div className="rounded bg-[#f5f5f7] p-2 col-span-2">
+                    <div className="text-xs text-[rgba(0,0,0,0.48)]">Grammatical Range & Accuracy</div>
+                    <div className="font-medium">{displayGrammar != null ? displayGrammar : "N/A"}</div>
+                  </div>
+                  <div className="rounded bg-[#f5f5f7] p-2 col-span-2">
+                    <div className="text-xs text-[rgba(0,0,0,0.48)]">Pronunciation</div>
+                    <div className="font-medium">{displayPronunciation != null ? displayPronunciation : "N/A"}</div>
+                  </div>
+                  <div className="rounded bg-[#f5f5f7] p-2 col-span-2">
+                    <div className="text-xs text-[rgba(0,0,0,0.48)]">Lexical Resource</div>
+                    <div className="font-medium">{displayVocabulary != null ? displayVocabulary : "N/A"}</div>
+                  </div>
                 </div>
-                <div className="rounded bg-[#f5f5f7] p-2 col-span-2">
-                  <div className="text-xs text-[rgba(0,0,0,0.48)]">Pronunciation</div>
-                  <div className="font-medium">{displayPronunciation != null ? displayPronunciation : "N/A"}</div>
-                </div>
-                <div className="rounded bg-[#f5f5f7] p-2 col-span-2">
-                  <div className="text-xs text-[rgba(0,0,0,0.48)]">Lexical Resource</div>
-                  <div className="font-medium">{displayVocabulary != null ? displayVocabulary : "N/A"}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Breakdown */}
           {breakdownItems.length > 0 && (
@@ -618,10 +609,10 @@ export default function RatingDetailPage() {
           )}
 
           {/* Vericant Lite */}
-          {vericantLiteItems.length > 0 && (
+          {!useOverride && vericantLiteItems.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Vericant Lite Metrics</CardTitle>
+                <CardTitle className="text-base">Vericant SEE Lite Metrics</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-1.5 text-xs">
