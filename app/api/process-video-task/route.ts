@@ -3,6 +3,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3
 import { prisma } from '@/lib/prisma'
 import { transcribeVideo } from '@/app/actions/transcription-simple'
 import { evaluateInterviewWithCathoven } from '@/lib/cathoven'
+import { sendInterviewCompletionEmail } from '@/lib/email'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
@@ -532,7 +533,17 @@ async function processVideoMergeTaskInner(taskId: string) {
     try {
         // 使用 external ID 查找 Interview
         const interview = await prisma.interview.findUnique({
-            where: { interview_id: interviewId }
+            where: { interview_id: interviewId },
+            select: {
+              id: true,
+              metadata: true,
+              student: {
+                select: {
+                  email: true,
+                  name: true,
+                }
+              }
+            }
         })
         
         if (interview) {
@@ -567,6 +578,27 @@ async function processVideoMergeTaskInner(taskId: string) {
                 }
             })
             console.log(`[Task ${taskId}] ✓ Database updated successfully`)
+
+            // 发送面试完成通知（最佳努力，不阻塞主流程）
+            if (interview.student?.email) {
+              try {
+                await sendInterviewCompletionEmail(
+                  interview.student.email,
+                  interview.student.name,
+                  mergedVideoUrl,
+                )
+                console.log(`[Task ${taskId}] ✓ Interview completion email sent to student`)
+              } catch (emailError) {
+                console.error(
+                  `[Task ${taskId}] ⚠️ Failed to send interview completion email:`,
+                  emailError,
+                )
+              }
+            } else {
+              console.warn(
+                `[Task ${taskId}] ⚠️ Skip interview completion email: student email not found`,
+              )
+            }
         } else {
              console.warn(`[Task ${taskId}] ⚠️ Update returned no rows - interview_id '${interviewId}' may not exist in database`)
         }
