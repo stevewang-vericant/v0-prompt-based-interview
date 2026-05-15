@@ -11,6 +11,13 @@ import { AlertCircle, Search, RefreshCw, CheckCircle2, Clock, PenLine } from "lu
 import { format } from "date-fns"
 
 type FilterStatus = "all" | "pending" | "approved"
+type SchoolFilter = "all" | "vericant" | "exclude_vericant"
+
+const SCHOOL_FILTER_OPTIONS: { value: SchoolFilter; label: string }[] = [
+  { value: "all", label: "All Schools" },
+  { value: "vericant", label: "Vericant" },
+  { value: "exclude_vericant", label: "Exclude Vericant" },
+]
 
 export default function RatingPage() {
   const [interviews, setInterviews] = useState<RatingInterviewRecord[]>([])
@@ -19,6 +26,7 @@ export default function RatingPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all")
+  const [schoolFilter, setSchoolFilter] = useState<SchoolFilter>("all")
   const [authorized, setAuthorized] = useState(false)
 
   const loadData = async () => {
@@ -85,10 +93,20 @@ export default function RatingPage() {
     }
   }
 
+  const isVericantSchool = (interview: RatingInterviewRecord) => {
+    const name = (interview.school_name || "").toLowerCase()
+    const code = (interview.school_code || "").toLowerCase()
+    return name.includes("vericant") || code.includes("vericant")
+  }
+
   const filteredInterviews = interviews.filter((interview) => {
     // Status filter
     if (filterStatus === "pending" && interview.score_approved) return false
     if (filterStatus === "approved" && !interview.score_approved) return false
+
+    // School filter
+    if (schoolFilter === "vericant" && !isVericantSchool(interview)) return false
+    if (schoolFilter === "exclude_vericant" && isVericantSchool(interview)) return false
 
     // Search filter
     if (!searchQuery.trim()) return true
@@ -177,7 +195,7 @@ export default function RatingPage() {
             </Button>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {(["all", "pending", "approved"] as FilterStatus[]).map((status) => (
             <Button
               key={status}
@@ -189,6 +207,18 @@ export default function RatingPage() {
               {status}
             </Button>
           ))}
+          <div className="w-px h-6 bg-black/[0.12]" />
+          {SCHOOL_FILTER_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              variant={schoolFilter === option.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSchoolFilter(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+          <div className="w-px h-6 bg-black/[0.12]" />
           <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline" size="sm">
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
@@ -200,7 +230,7 @@ export default function RatingPage() {
       {filteredInterviews.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-[rgba(0,0,0,0.56)]">
-            {searchQuery || filterStatus !== "all"
+            {searchQuery || filterStatus !== "all" || schoolFilter !== "all"
               ? "No interviews match your filters"
               : "No interviews found"}
           </p>
