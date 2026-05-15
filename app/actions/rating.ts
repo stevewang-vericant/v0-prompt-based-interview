@@ -108,14 +108,14 @@ export async function getRatingInterviews(
     return {
       success: true,
       interviews: interviews.map((i) => {
-        // Derive total score: DB field first, then from metadata.cathoven.response.band
+        // Derive total score: DB field first, then from metadata.cathoven.response.vericant_lite.overall
         const meta = (i.metadata as Record<string, any> | null) || {}
-        const cathovenBand = meta?.cathoven?.response?.band
+        const vericantLiteOverall = meta?.cathoven?.response?.vericant_lite?.overall
         const derivedScore =
           i.total_score != null
             ? Number(i.total_score)
-            : typeof cathovenBand === "number"
-            ? cathovenBand
+            : typeof vericantLiteOverall === "number"
+            ? vericantLiteOverall
             : null
 
         return {

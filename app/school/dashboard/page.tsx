@@ -282,7 +282,7 @@ function SchoolDashboardContent() {
     }
     const metadata = interview.metadata as Record<string, any> | null
     const response = metadata?.cathoven?.response
-    const metaScore = response?.band ?? response?.final_score ?? response?.finalScore ?? null
+    const metaScore = response?.vericant_lite?.overall ?? null
     return typeof metaScore === 'number' ? metaScore : null
   }
 

@@ -119,9 +119,10 @@ export default async function InterviewReportPage({
           </section>
 
           <section className="rounded border border-black/[0.08] bg-white p-4">
-            <h2 className="text-lg font-semibold mb-3">Final Score</h2>
+            <h2 className="text-lg font-semibold mb-3">BASE score</h2>
             <div className="text-3xl font-bold text-[#1d1d1f]">
-              {responseJson?.band ?? (interview.total_score ? Number(interview.total_score).toFixed(2) : "N/A")}
+              {responseJson?.vericant_lite?.overall ??
+                (interview.total_score ? Number(interview.total_score).toFixed(2) : "N/A")}
             </div>
             <div className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">CEFR: {responseJson?.cefr || "N/A"}</div>
           </section>
@@ -183,7 +184,7 @@ export default async function InterviewReportPage({
           </section>
 
           <section className="rounded border border-black/[0.08] bg-white p-4">
-            <h2 className="text-lg font-semibold mb-3">Vericant Lite Metrics</h2>
+            <h2 className="text-lg font-semibold mb-3">BASE metrics</h2>
             {vericantLiteItems.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                 {vericantLiteItems.map(([metricKey, metricValue]) => (
@@ -193,7 +194,7 @@ export default async function InterviewReportPage({
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-[rgba(0,0,0,0.56)]">No vericant_lite section in response.</div>
+              <div className="text-sm text-[rgba(0,0,0,0.56)]">No BASE metrics found in API response.</div>
             )}
           </section>
 

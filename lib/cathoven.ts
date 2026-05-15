@@ -57,38 +57,31 @@ function safeJsonStringify(value: unknown): string {
   }
 }
 
-function findNumericScore(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value
+function readFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function extractVericantLiteOverall(value: unknown): number | null {
   if (!value || typeof value !== "object") return null
-
   const obj = value as Record<string, unknown>
-  const preferredKeys = [
-    "final_score",
-    "finalScore",
-    "overall_score",
-    "overallScore",
-    "total_score",
-    "totalScore",
-    "score",
-  ]
 
-  for (const key of preferredKeys) {
-    const candidate = obj[key]
-    if (typeof candidate === "number" && Number.isFinite(candidate)) {
-      return candidate
+  // Current Cathoven payload shape: response.vericant_lite.overall
+  const topLevelOverall = readFiniteNumber(
+    (obj.vericant_lite as Record<string, unknown> | undefined)?.overall
+  )
+  if (topLevelOverall !== null) return topLevelOverall
+
+  // Fallback for potential wrapped payload shapes.
+  const data = obj.data
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      if (!item || typeof item !== "object") continue
+      const overall = readFiniteNumber(
+        ((item as Record<string, unknown>).vericant_lite as Record<string, unknown> | undefined)
+          ?.overall
+      )
+      if (overall !== null) return overall
     }
-  }
-
-  for (const [key, child] of Object.entries(obj)) {
-    if (key.toLowerCase().includes("score")) {
-      const nested = findNumericScore(child)
-      if (nested !== null) return nested
-    }
-  }
-
-  for (const child of Object.values(obj)) {
-    const nested = findNumericScore(child)
-    if (nested !== null) return nested
   }
 
   return null
@@ -230,7 +223,7 @@ export async function evaluateInterviewWithCathoven(
       responseBody = { raw: text }
     }
 
-    const finalScore = findNumericScore(responseBody)
+    const finalScore = extractVericantLiteOverall(responseBody)
     const durationMs = Date.now() - started
 
     await createApiLog({

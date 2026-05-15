@@ -135,12 +135,12 @@ export default function RatingDetailPage() {
 
     const totalStr = overrideScores.total_score.trim()
     if (!totalStr) {
-      setError("Final Score is required for manual override")
+      setError("BASE score is required for manual override")
       return
     }
     const totalNum = Number(totalStr)
     if (isNaN(totalNum) || totalNum < 0 || totalNum > 100) {
-      setError("Final Score must be a number between 0 and 100")
+      setError("BASE score must be a number between 0 and 100")
       return
     }
 
@@ -268,7 +268,7 @@ export default function RatingDetailPage() {
   const displayGrammar = interview.grammar_score ?? (typeof grBand === "number" ? grBand : null)
   const displayVocabulary = interview.vocabulary_score ?? (typeof lrBand === "number" ? lrBand : null)
   const displayPronunciation = interview.pronunciation_score ?? (typeof prBand === "number" ? prBand : null)
-  const displayTotal = responseJson?.band ?? interview.total_score
+  const displayTotal = responseJson?.vericant_lite?.overall ?? interview.total_score
 
   const videoProxyUrl = interview.video_url
     ? `/api/proxy-video?url=${encodeURIComponent(interview.video_url)}`
@@ -442,7 +442,7 @@ export default function RatingDetailPage() {
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="total" className="text-xs">
-                          Final Score <span className="text-red-500">*</span>
+                          BASE score <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           id="total"
@@ -489,7 +489,7 @@ export default function RatingDetailPage() {
                       </div>
                       {manualInputMetricKeys.length === 0 && (
                         <div className="rounded bg-amber-50 border border-amber-200 p-2 text-xs text-amber-700">
-                          No vericant_lite metrics found in JSON for manual input.
+                          No BASE metrics found in API response for manual input.
                         </div>
                       )}
 
@@ -516,7 +516,7 @@ export default function RatingDetailPage() {
           {useOverride ? (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Vericant SEE Lite Metrics</CardTitle>
+                <CardTitle className="text-base">BASE metrics</CardTitle>
               </CardHeader>
               <CardContent>
                 {vericantLiteItems.length > 0 ? (
@@ -529,7 +529,7 @@ export default function RatingDetailPage() {
                   </div>
                 ) : (
                   <div className="text-sm text-[rgba(0,0,0,0.56)]">
-                    No vericant_lite section in response.
+                    No BASE metrics found in API response.
                   </div>
                 )}
               </CardContent>
@@ -612,7 +612,7 @@ export default function RatingDetailPage() {
           {!useOverride && vericantLiteItems.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Vericant SEE Lite Metrics</CardTitle>
+                <CardTitle className="text-base">BASE metrics</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-1.5 text-xs">

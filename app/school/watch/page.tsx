@@ -127,7 +127,7 @@ function SchoolWatchPageContent() {
                 )}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="px-2 py-0.5 text-xs rounded bg-emerald-100 text-emerald-800">
-                    Final Score: {finalScore !== null ? finalScore.toFixed(2) : 'N/A'}
+                    BASE score: {finalScore !== null ? finalScore.toFixed(2) : 'N/A'}
                   </span>
                   <Button
                     size="sm"
