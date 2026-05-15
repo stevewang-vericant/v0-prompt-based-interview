@@ -108,14 +108,20 @@ export async function getRatingInterviews(
     return {
       success: true,
       interviews: interviews.map((i) => {
-        // Derive total score: DB field first, then from metadata.cathoven.response.vericant_lite.overall
+        // Derive total score: BASE metrics first, DB field as fallback for legacy rows.
         const meta = (i.metadata as Record<string, any> | null) || {}
-        const vericantLiteOverall = meta?.cathoven?.response?.vericant_lite?.overall
+        const baseOverallRaw = meta?.cathoven?.response?.vericant_lite?.overall
+        const baseOverall =
+          typeof baseOverallRaw === "number"
+            ? baseOverallRaw
+            : Number.isFinite(Number(baseOverallRaw))
+            ? Number(baseOverallRaw)
+            : null
         const derivedScore =
-          i.total_score != null
+          baseOverall !== null
+            ? baseOverall
+            : i.total_score != null
             ? Number(i.total_score)
-            : typeof vericantLiteOverall === "number"
-            ? vericantLiteOverall
             : null
 
         return {

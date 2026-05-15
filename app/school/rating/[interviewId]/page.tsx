@@ -535,6 +535,27 @@ export default function RatingDetailPage() {
               </CardContent>
             </Card>
           ) : (
+            <>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">BASE metrics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {vericantLiteItems.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    {vericantLiteItems.map(([mk, mv]) => (
+                      <div key={mk} className="rounded bg-[#f5f5f7] p-1.5">
+                        {toTitleCase(mk)}: {formatNumber(mv)}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-[rgba(0,0,0,0.56)]">
+                    No BASE metrics found in API response.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Cathoven AI Score</CardTitle>
@@ -571,6 +592,7 @@ export default function RatingDetailPage() {
                 </div>
               </CardContent>
             </Card>
+            </>
           )}
 
           {/* Breakdown */}
@@ -604,24 +626,6 @@ export default function RatingDetailPage() {
                     </div>
                   )
                 })}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Vericant Lite */}
-          {!useOverride && vericantLiteItems.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">BASE metrics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-1.5 text-xs">
-                  {vericantLiteItems.map(([mk, mv]) => (
-                    <div key={mk} className="rounded bg-[#f5f5f7] p-1.5">
-                      {toTitleCase(mk)}: {formatNumber(mv)}
-                    </div>
-                  ))}
-                </div>
               </CardContent>
             </Card>
           )}
