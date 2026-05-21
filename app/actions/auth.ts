@@ -171,6 +171,11 @@ export async function signIn(
         return { success: false, error: "Invalid email or password" }
       }
 
+      await prisma.schoolAdmin.update({
+        where: { id: admin.id },
+        data: { last_login_at: new Date() },
+      })
+
       // 创建 Session（包含 admin_id，表示新账号）
       const token = await new SignJWT({ 
         sub: admin.school_id, 
@@ -210,6 +215,11 @@ export async function signIn(
       if (!isValid) {
         return { success: false, error: "Invalid email or password" }
       }
+
+      await prisma.school.update({
+        where: { id: school.id },
+        data: { last_login_at: new Date() },
+      })
 
       // 创建 Session（不包含 admin_id，表示旧账号）
       const token = await new SignJWT({ 

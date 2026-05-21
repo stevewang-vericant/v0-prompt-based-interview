@@ -58,7 +58,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
           href: "/school/dashboard",
           icon: Video,
         },
-        ...(currentUser?.is_rater
+        ...(currentUser?.is_rater || schoolInfo.is_super_admin
           ? [
               {
                 name: "Rating",

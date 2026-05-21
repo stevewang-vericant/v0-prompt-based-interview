@@ -339,6 +339,8 @@ export default function UsersPage() {
                     )}
                     <p className="text-xs text-[rgba(0,0,0,0.48)]">
                       Registered {user.created_at ? format(new Date(user.created_at), "MMM dd, yyyy HH:mm") : "—"}
+                      {" · "}
+                      Last login {user.last_login_at ? format(new Date(user.last_login_at), "MMM dd, yyyy HH:mm") : "Never"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -426,6 +428,8 @@ export default function UsersPage() {
                     )}
                     <p className="text-xs text-[rgba(0,0,0,0.48)]">
                       Created {user.created_at ? format(new Date(user.created_at), "MMM dd, yyyy") : "—"}
+                      {" · "}
+                      Last login {user.last_login_at ? format(new Date(user.last_login_at), "MMM dd, yyyy HH:mm") : "Never"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

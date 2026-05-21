@@ -15,6 +15,7 @@ export interface ManagedUser {
   contact_person: string | null
   created_at: Date | null
   updated_at: Date | null
+  last_login_at: Date | null
   type: 'school_admin' | 'school'
   school_id?: string
 }
@@ -76,7 +77,8 @@ export async function listUsers(): Promise<{
         is_rater: true,
         contact_person: true,
         created_at: true,
-        updated_at: true
+        updated_at: true,
+        last_login_at: true
       },
       orderBy: {
         created_at: 'desc'
@@ -95,6 +97,7 @@ export async function listUsers(): Promise<{
       contact_person: admin.name,
       created_at: admin.created_at,
       updated_at: admin.updated_at,
+      last_login_at: admin.last_login_at,
       type: 'school_admin' as const,
       school_id: admin.school_id
     }))
@@ -110,6 +113,7 @@ export async function listUsers(): Promise<{
       contact_person: school.contact_person,
       created_at: school.created_at,
       updated_at: school.updated_at,
+      last_login_at: school.last_login_at,
       type: 'school' as const
     }))
 
