@@ -8,6 +8,7 @@ export interface ManagedUser {
   id: string
   email: string
   name: string
+  school_name: string | null
   code: string | null
   active: boolean
   is_super_admin: boolean
@@ -90,6 +91,7 @@ export async function listUsers(): Promise<{
       id: admin.id,
       email: admin.email,
       name: admin.name || '',
+      school_name: admin.school.name || null,
       code: admin.school.code || '',
       active: admin.active,
       is_super_admin: admin.is_super_admin,
@@ -106,6 +108,7 @@ export async function listUsers(): Promise<{
       id: school.id,
       email: school.email!,
       name: school.name,
+      school_name: school.name,
       code: school.code || '',
       active: school.active,
       is_super_admin: school.is_super_admin,

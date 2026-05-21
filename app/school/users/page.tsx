@@ -15,7 +15,7 @@ import {
   toggleRaterRole,
   type ManagedUser 
 } from "@/app/actions/users"
-import { AlertCircle, CheckCircle2, Trash2, UserCheck, UserX, KeyRound, Loader2 } from "lucide-react"
+import { AlertCircle, CheckCircle2, Trash2, UserCheck, UserX, KeyRound, Loader2, Search } from "lucide-react"
 import { format } from "date-fns"
 import {
   AlertDialog,
@@ -48,6 +48,17 @@ export default function UsersPage() {
   const [newPassword, setNewPassword] = useState("")
   const [resettingPassword, setResettingPassword] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const matchesSearch = (user: ManagedUser) => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      user.name.toLowerCase().includes(query) ||
+      (user.school_name || "").toLowerCase().includes(query) ||
+      (user.code || "").toLowerCase().includes(query)
+    )
+  }
 
   const loadUserAndUsers = async () => {
     try {
@@ -279,8 +290,9 @@ export default function UsersPage() {
     )
   }
 
-  const inactiveUsers = users.filter(u => !u.active)
-  const activeUsers = users.filter(u => u.active)
+  const filteredUsers = users.filter(matchesSearch)
+  const inactiveUsers = filteredUsers.filter(u => !u.active)
+  const activeUsers = filteredUsers.filter(u => u.active)
 
   return (
     <div className="space-y-6">
@@ -305,6 +317,31 @@ export default function UsersPage() {
           <CheckCircle2 className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800">{success}</AlertDescription>
         </Alert>
+      )}
+
+      {/* Search */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 sm:max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[rgba(0,0,0,0.36)]" />
+          <Input
+            type="text"
+            placeholder="Search by name or school..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {searchQuery && (
+          <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>
+            Clear
+          </Button>
+        )}
+      </div>
+
+      {searchQuery && (
+        <p className="text-sm text-[rgba(0,0,0,0.56)]">
+          Found <strong>{filteredUsers.length}</strong> user{filteredUsers.length !== 1 ? "s" : ""} matching &quot;{searchQuery}&quot;
+        </p>
       )}
 
       {/* Pending Approvals */}
@@ -386,7 +423,9 @@ export default function UsersPage() {
           <CardDescription>
             {loading 
               ? "Loading users..." 
-              : `${users.length} user${users.length !== 1 ? 's' : ''} total (${activeUsers.length} active, ${inactiveUsers.length} inactive)`}
+              : searchQuery
+                ? `${filteredUsers.length} matching user${filteredUsers.length !== 1 ? "s" : ""} (${activeUsers.length} active, ${inactiveUsers.length} inactive)`
+                : `${users.length} user${users.length !== 1 ? "s" : ""} total (${activeUsers.length} active, ${inactiveUsers.length} inactive)`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -395,11 +434,13 @@ export default function UsersPage() {
               <div className="h-4 w-4 border-b-2 border-purple-600 rounded-full animate-spin" />
               Loading users...
             </div>
-          ) : users.length === 0 ? (
-            <p className="text-sm text-[rgba(0,0,0,0.56)] py-8 text-center">No users found.</p>
+          ) : filteredUsers.length === 0 ? (
+            <p className="text-sm text-[rgba(0,0,0,0.56)] py-8 text-center">
+              {searchQuery ? "No users match your search." : "No users found."}
+            </p>
           ) : (
             <div className="space-y-3">
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <div
                   key={user.id}
                   className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border rounded-lg hover:bg-black/[0.04]"
