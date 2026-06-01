@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { evaluateInterviewWithCathoven } from "@/lib/cathoven"
+import { notifyRatersAfterScoring } from "@/lib/rater-notifications"
 
 function extractQuestionsFromMetadata(metadata: Record<string, any> | null): string[] {
   if (!metadata) return []
@@ -125,6 +126,15 @@ export async function POST(request: NextRequest) {
             : undefined,
       },
     })
+
+    if (cathovenResult.success && cathovenResult.finalScore !== null) {
+      await notifyRatersAfterScoring({
+        interviewDbId: interview.id,
+        interviewId,
+        finalScore: cathovenResult.finalScore,
+        logPrefix: `[CathovenRetry ${interviewId}]`,
+      })
+    }
 
     return NextResponse.json({
       success: cathovenResult.success,
