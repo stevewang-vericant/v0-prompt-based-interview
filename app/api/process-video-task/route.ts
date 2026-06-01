@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { transcribeVideo } from '@/app/actions/transcription-simple'
 import { evaluateInterviewWithCathoven } from '@/lib/cathoven'
 import { sendInterviewCompletionEmail } from '@/lib/email'
+import { notifyRatersAfterScoring } from '@/lib/rater-notifications'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
@@ -92,8 +93,16 @@ async function runPostMergeProcessing(params: {
       },
     })
 
-    if (cathovenResult.success) {
+    if (cathovenResult.success && cathovenResult.finalScore !== null) {
       console.log(`[Task ${taskId}] ✓ Cathoven scoring completed`)
+      await notifyRatersAfterScoring({
+        interviewDbId,
+        interviewId,
+        finalScore: cathovenResult.finalScore,
+        logPrefix: `[Task ${taskId}]`,
+      })
+    } else if (cathovenResult.success) {
+      console.log(`[Task ${taskId}] ✓ Cathoven scoring completed (no final score)`)
     } else {
       console.error(`[Task ${taskId}] ✗ Cathoven scoring failed:`, cathovenResult.error)
     }
