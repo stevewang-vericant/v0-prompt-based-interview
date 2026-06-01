@@ -35,6 +35,8 @@ export interface InterviewRecord {
   student_grade: string | null
   student_city: string | null
   student_financial_aid: boolean | null
+  student_uses_cbo: boolean | null
+  student_cbo_organization: string | null
   video_url: string | null
   video_with_prep_url: string | null
   subtitle_url: string | null
@@ -80,6 +82,8 @@ function mapInterviewToRecord(interview: any): InterviewRecord {
     student_grade: interview.student?.current_grade || null,
     student_city: interview.student?.residency_city || null,
     student_financial_aid: interview.student?.need_financial_aid || null,
+    student_uses_cbo: interview.student?.uses_cbo ?? null,
+    student_cbo_organization: interview.student?.cbo_organization || null,
     school_code: interview.school?.code || null,
     responseCount: interview._count?.responses ?? 0,
     metadata: interview.metadata as Record<string, any> || {},

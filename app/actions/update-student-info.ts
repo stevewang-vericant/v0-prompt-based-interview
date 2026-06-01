@@ -8,6 +8,8 @@ interface AdditionalStudentInfo {
   residencyCity?: string | null
   residenceCountry?: string | null
   needFinancialAid?: boolean | null
+  usesCbo?: boolean
+  cboOrganization?: string | null
 }
 
 export async function updateStudentInfo(
@@ -27,6 +29,21 @@ export async function updateStudentInfo(
       return { success: false, error: 'Student not found' }
     }
 
+    const cboOrganization = additionalInfo.cboOrganization?.trim() || ''
+    const hasCboInput =
+      additionalInfo.usesCbo !== undefined ||
+      additionalInfo.cboOrganization !== undefined
+    const usesCbo =
+      additionalInfo.usesCbo === true ||
+      (additionalInfo.usesCbo === undefined && !!cboOrganization)
+
+    if (usesCbo && !cboOrganization) {
+      return {
+        success: false,
+        error: 'CBO organization is required when using a CBO'
+      }
+    }
+
     // Update student with additional information
     // Explicitly set fields to null if they are null/undefined to clear old data
     await prisma.student.update({
@@ -36,7 +53,9 @@ export async function updateStudentInfo(
         current_grade: additionalInfo.currentGrade === undefined ? undefined : (additionalInfo.currentGrade || null),
         residency_city: additionalInfo.residencyCity === undefined ? undefined : (additionalInfo.residencyCity || null),
         residence_country: additionalInfo.residenceCountry === undefined ? undefined : (additionalInfo.residenceCountry || null),
-        need_financial_aid: additionalInfo.needFinancialAid === undefined ? undefined : (additionalInfo.needFinancialAid === null ? null : additionalInfo.needFinancialAid)
+        need_financial_aid: additionalInfo.needFinancialAid === undefined ? undefined : (additionalInfo.needFinancialAid === null ? null : additionalInfo.needFinancialAid),
+        uses_cbo: hasCboInput ? usesCbo : undefined,
+        cbo_organization: hasCboInput ? (usesCbo ? cboOrganization : null) : undefined
       }
     })
 
@@ -50,4 +69,3 @@ export async function updateStudentInfo(
     }
   }
 }
-

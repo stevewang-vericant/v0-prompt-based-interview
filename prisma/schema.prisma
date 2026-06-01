@@ -105,6 +105,8 @@ model Student {
   current_grade          String?     @db.VarChar(50)
   gender                 String?     @db.VarChar(50)
   need_financial_aid     Boolean?
+  uses_cbo               Boolean?
+  cbo_organization       String?     @db.VarChar(255)
   residency_city         String?     @db.VarChar(255)
   residence_country      String?     @db.VarChar(255)
   interviews             Interview[]

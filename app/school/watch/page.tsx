@@ -20,6 +20,8 @@ function SchoolWatchPageContent() {
   const studentGrade = searchParams.get('studentGrade')
   const studentCity = searchParams.get('studentCity')
   const studentFinancialAid = searchParams.get('studentFinancialAid')
+  const studentUsesCbo = searchParams.get('studentUsesCbo')
+  const studentCboOrganization = searchParams.get('studentCboOrganization')
   const finalScoreParam = searchParams.get('finalScore')
   const scoreDetailReady = searchParams.get('scoreDetailReady') === 'true'
   const debugMode = searchParams.get('debug') === 'true'
@@ -82,7 +84,7 @@ function SchoolWatchPageContent() {
                 </div>
                 
                 {/* Additional student info */}
-                {(studentGender || studentGrade || studentCity || studentFinancialAid) && (
+                {(studentGender || studentGrade || studentCity || studentFinancialAid || studentUsesCbo || studentCboOrganization) && (
                   <div className="flex flex-wrap items-center gap-2">
                     {studentGender && (
                       <span className="px-2 py-0.5 text-xs rounded bg-[#f5f5f7] text-[#1d1d1f]">
@@ -102,6 +104,11 @@ function SchoolWatchPageContent() {
                     {studentFinancialAid === 'true' && (
                       <span className="px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-700">
                         💰 Financial Aid
+                      </span>
+                    )}
+                    {(studentCboOrganization || studentUsesCbo) && (
+                      <span className="px-2 py-0.5 text-xs rounded bg-teal-100 text-teal-700">
+                        CBO: {studentCboOrganization || (studentUsesCbo === 'false' ? 'No' : 'Yes')}
                       </span>
                     )}
                   </div>
@@ -230,4 +237,3 @@ export default function SchoolWatchPage() {
     </Suspense>
   )
 }
-

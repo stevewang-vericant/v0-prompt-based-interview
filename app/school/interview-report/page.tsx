@@ -52,6 +52,8 @@ export default async function InterviewReportPage({
         select: {
           name: true,
           email: true,
+          uses_cbo: true,
+          cbo_organization: true,
         },
       },
       created_at: true,
@@ -112,6 +114,9 @@ export default async function InterviewReportPage({
             <div className="font-mono text-sm">{interview.interview_id}</div>
             <div className="text-sm text-[rgba(0,0,0,0.56)]">
               Student: {interview.student?.name || "Unknown"} ({interview.student?.email || "N/A"})
+            </div>
+            <div className="text-sm text-[rgba(0,0,0,0.56)]">
+              CBO: {interview.student?.cbo_organization || (interview.student?.uses_cbo === false ? "No" : interview.student?.uses_cbo === true ? "Yes" : "N/A")}
             </div>
             <div className="text-sm text-[rgba(0,0,0,0.56)]">
               Created: {new Date(interview.created_at).toLocaleString()}

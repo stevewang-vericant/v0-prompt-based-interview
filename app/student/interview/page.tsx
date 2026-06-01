@@ -64,6 +64,8 @@ function InterviewPageContent() {
     residencyCity?: string | null
     residenceCountry: string
     needFinancialAid?: boolean | null
+    usesCbo: boolean
+    cboOrganization?: string | null
   } | null>(null)
 
   useEffect(() => {
@@ -181,7 +183,9 @@ function InterviewPageContent() {
                 currentGrade: iv.student_grade,
                 residencyCity: iv.student_city,
                 residenceCountry: 'Unknown',
-                needFinancialAid: iv.student_financial_aid
+                needFinancialAid: iv.student_financial_aid,
+                usesCbo: iv.student_uses_cbo || false,
+                cboOrganization: iv.student_cbo_organization
               })
               console.log('[v0] Restored student info from database')
               return true
@@ -319,6 +323,8 @@ function InterviewPageContent() {
     residencyCity?: string | null
     residenceCountry: string
     needFinancialAid?: boolean | null
+    usesCbo: boolean
+    cboOrganization?: string | null
   }) => {
     console.log('[v0] Student info collected:', info)
     setStudentInfo(info)
@@ -677,7 +683,9 @@ function InterviewPageContent() {
       currentGrade: studentInfo.currentGrade,
       residencyCity: studentInfo.residencyCity,
       residenceCountry: studentInfo.residenceCountry,
-      needFinancialAid: studentInfo.needFinancialAid
+      needFinancialAid: studentInfo.needFinancialAid,
+      usesCbo: studentInfo.usesCbo,
+      cboOrganization: studentInfo.cboOrganization
     })
     
     // 根据结果跳转到完成页面

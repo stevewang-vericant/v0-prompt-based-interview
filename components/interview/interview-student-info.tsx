@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Mail, User, MapPin } from "lucide-react"
 import { COUNTRIES, searchCountries } from "@/lib/countries"
+import { CBO_ORGANIZATIONS } from "@/lib/cbo-organizations"
 
 interface StudentInfo {
   email: string
@@ -18,6 +19,8 @@ interface StudentInfo {
   residencyCity?: string | null
   residenceCountry: string
   needFinancialAid?: boolean | null
+  usesCbo: boolean
+  cboOrganization?: string | null
 }
 
 interface InterviewStudentInfoProps {
@@ -37,8 +40,12 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
   const [residenceCountry, setResidenceCountry] = useState("")
   const [residenceCountryError, setResidenceCountryError] = useState("")
   const [needFinancialAid, setNeedFinancialAid] = useState<string>("")
+  const [usesCbo, setUsesCbo] = useState("")
+  const [cboOrganization, setCboOrganization] = useState("")
   const [cityError, setCityError] = useState("")
   const [gradeError, setGradeError] = useState("")
+  const [usesCboError, setUsesCboError] = useState("")
+  const [cboOrganizationError, setCboOrganizationError] = useState("")
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
   
   // Country search dropdown state
@@ -65,6 +72,13 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
       }
     }
   }, [countrySearchQuery, residenceCountry])
+
+  useEffect(() => {
+    if (usesCbo !== "yes") {
+      setCboOrganization("")
+      setCboOrganizationError("")
+    }
+  }, [usesCbo])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -144,6 +158,20 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
       setGradeError("")
     }
 
+    if (!usesCbo) {
+      setUsesCboError("Please select whether you are using a CBO")
+      hasError = true
+    } else {
+      setUsesCboError("")
+    }
+
+    if (usesCbo === "yes" && !cboOrganization.trim()) {
+      setCboOrganizationError("Please select your CBO")
+      hasError = true
+    } else {
+      setCboOrganizationError("")
+    }
+
     if (hasError) {
       return
     }
@@ -156,7 +184,9 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
       currentGrade: currentGrade || null,
       residencyCity: residencyCity.trim() || null,
       residenceCountry: residenceCountry.trim(),
-      needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : null
+      needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : null,
+      usesCbo: usesCbo === "yes",
+      cboOrganization: usesCbo === "yes" ? cboOrganization.trim() : null
     }
 
     onSubmit(studentInfo)
@@ -367,6 +397,63 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
               </div>
             </RadioGroup>
           </div>
+
+          <div className="space-y-2">
+            <Label>
+              Are you using a CBO? <span className="text-red-500">*</span>
+            </Label>
+            <RadioGroup
+              value={usesCbo}
+              onValueChange={(value) => {
+                setUsesCbo(value)
+                setUsesCboError("")
+              }}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="yes" id="cbo-yes" />
+                <Label htmlFor="cbo-yes" className="font-normal cursor-pointer">Yes</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="no" id="cbo-no" />
+                <Label htmlFor="cbo-no" className="font-normal cursor-pointer">No</Label>
+              </div>
+            </RadioGroup>
+            {usesCboError && (
+              <p className="text-sm text-red-600">{usesCboError}</p>
+            )}
+          </div>
+
+          {usesCbo === "yes" && (
+            <div className="space-y-2">
+              <Label htmlFor="cboOrganization">
+                CBO <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={cboOrganization}
+                onValueChange={(value) => {
+                  setCboOrganization(value)
+                  setCboOrganizationError("")
+                }}
+              >
+                <SelectTrigger
+                  id="cboOrganization"
+                  className={cboOrganizationError ? "border-red-500" : ""}
+                >
+                  <SelectValue placeholder="Select CBO" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CBO_ORGANIZATIONS.map((organization) => (
+                    <SelectItem key={organization} value={organization}>
+                      {organization}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {cboOrganizationError && (
+                <p className="text-sm text-red-600">{cboOrganizationError}</p>
+              )}
+            </div>
+          )}
 
           <Button 
             onClick={handleSubmit} 

@@ -244,6 +244,14 @@ function SchoolDashboardContent() {
       params.append('studentFinancialAid', interview.student_financial_aid.toString())
     }
 
+    if (interview.student_uses_cbo !== null) {
+      params.append('studentUsesCbo', interview.student_uses_cbo.toString())
+    }
+
+    if (interview.student_cbo_organization) {
+      params.append('studentCboOrganization', interview.student_cbo_organization)
+    }
+
     if (finalScore !== null) {
       params.append('finalScore', finalScore.toFixed(2))
     }
@@ -447,6 +455,7 @@ function SchoolDashboardContent() {
     const gender = (interview.student_gender || '').toLowerCase()
     const grade = (interview.student_grade || '').toLowerCase()
     const city = (interview.student_city || '').toLowerCase()
+    const cboOrganization = (interview.student_cbo_organization || '').toLowerCase()
     
     return email.includes(query) || 
            name.includes(query) ||
@@ -454,7 +463,8 @@ function SchoolDashboardContent() {
            schoolCode.includes(query) ||
            gender.includes(query) ||
            grade.includes(query) ||
-           city.includes(query)
+           city.includes(query) ||
+           cboOrganization.includes(query)
   })
 
   // 如果认证失败，显示错误
@@ -776,7 +786,7 @@ function SchoolDashboardContent() {
                             )}
                           </div>
 
-                          {(interview.student_gender || interview.student_grade || interview.student_city || interview.student_financial_aid !== null) && (
+                          {(interview.student_gender || interview.student_grade || interview.student_city || interview.student_financial_aid !== null || interview.student_cbo_organization) && (
                             <div className="flex flex-wrap items-center gap-1.5 text-xs">
                               {interview.student_gender && (
                                 <span className="rounded-md bg-black/[0.03] px-2 py-0.5 text-[#1d1d1f]">
@@ -802,6 +812,11 @@ function SchoolDashboardContent() {
                                   }`}
                                 >
                                   {interview.student_financial_aid ? "Financial Aid" : "No Financial Aid"}
+                                </span>
+                              )}
+                              {interview.student_cbo_organization && (
+                                <span className="rounded-md bg-teal-100 px-2 py-0.5 text-teal-700">
+                                  CBO: {interview.student_cbo_organization}
                                 </span>
                               )}
                             </div>
