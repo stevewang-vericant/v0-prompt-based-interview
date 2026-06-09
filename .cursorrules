@@ -72,15 +72,23 @@ npm run dev
 
 ## Production Deployment
 
-### Linode-Athena Server Deployment
-**IMPORTANT**: Production is deployed on Linode-Athena server via SSH, NOT Vercel.
+### Linode Singapore Deployment (Staging & Production)
+**IMPORTANT**: This project is deployed on Linode Singapore servers via SSH, NOT Vercel.
+There are two fully isolated environments — always deploy to **staging** first, verify, then **production**.
 
-**Server Details**:
-- SSH Host: `linode-Athena` (configured in ~/.ssh/config)
+**Environments**:
+| Environment | Domain | SSH Host | IP |
+|---|---|---|---|
+| Production | `https://guided.vericant.com` | `guided-prod` | 192.46.229.162 |
+| Staging | `https://staging.guided.vericant.com` | `guided-staging` | 139.162.49.54 |
+
+**Server Details** (same for both):
 - User: `root` (SSH as root, then switch to v0-interview user)
 - Project Path: `/home/v0-interview/apps/v0-interview`
 - Deployment Script: `deploy-linode.sh`
 - Docker Compose File: `docker-compose.linode.yml`
+- Each server has its own `.env.production`; `APP_URL` and `NEXT_PUBLIC_APP_URL` must match that server's own domain
+  (`NEXT_PUBLIC_APP_URL` is a build-time arg → changing it needs a rebuild; `APP_URL` is runtime → only needs container recreate)
 
 **Deployment Workflow**:
 1. **Local Development & Testing**:
@@ -91,8 +99,8 @@ npm run dev
 2. **Code is merged to `main` branch** (after local testing passes)
 3. **SSH to server and deploy**:
    ```bash
-   # SSH to Linode-Athena server
-   ssh linode-Athena
+   # SSH to the target server: staging first (guided-staging), then production (guided-prod)
+   ssh guided-staging   # for production deploy, use: ssh guided-prod
    
    # Switch to application user
    su - v0-interview
@@ -131,6 +139,8 @@ curl http://localhost:3001
 ```
 
 **Important Notes**:
+- Two isolated environments: **staging** (`guided-staging` → https://staging.guided.vericant.com) and **production** (`guided-prod` → https://guided.vericant.com). ALWAYS deploy to staging first, verify, then production.
+- `guided-prod` was cloned from `guided-staging`; both currently share the same Backblaze B2 bucket for video storage (keys namespaced by interview UUID so they don't collide).
 - Always deploy from `main` branch after testing on feature branch
 - The deployment script handles code pulling automatically
 - Database migrations are run automatically via Prisma

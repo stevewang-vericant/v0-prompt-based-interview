@@ -1,20 +1,42 @@
 ---
-description: Production deployment instructions for Linode-Athena server
+description: Staging and Production deployment instructions (Linode SG servers, via SSH)
 globs: 
 alwaysApply: true
 ---
 
-# Production Deployment
+# Deployment (Staging & Production)
 
-**IMPORTANT**: Production is deployed on Linode-Athena server via SSH, NOT Vercel.
+**IMPORTANT**: This project is deployed on Linode Singapore servers via SSH, NOT Vercel.
+There are two separate, fully isolated environments (each with its own app container + Postgres container + B2 config).
 
-## Server Details
+## Environments
 
-- SSH Host: `linode-Athena-sg` (configured in ~/.ssh/config — this is the Singapore node serving demo.vcnt.co)
-- User: `root` (SSH as root, then switch to v0-interview user)
-- Project Path: `/home/v0-interview/apps/v0-interview`
+| Environment | Domain | SSH Host | IP | Role |
+|---|---|---|---|---|
+| **Production** | `https://guided.vericant.com` | `guided-prod` | 192.46.229.162 | Live, customer-facing. Only deploy tested code. |
+| **Staging** | `https://staging.guided.vericant.com` | `guided-staging` | 139.162.49.54 | Test/verify before production. |
+
+- Both are SG (Singapore) Linode nodes. `guided-prod` was cloned from `guided-staging`.
+- SSH user: `root` (SSH as root, then switch to `v0-interview` user).
+- Project Path (both): `/home/v0-interview/apps/v0-interview`
 - Deployment Script: `deploy-linode.sh`
 - Docker Compose File: `docker-compose.linode.yml`
+- App runs on port 3001 (mapped from container port 3000); Postgres on 5433.
+
+## Per-environment configuration (do NOT mix up)
+
+Each server has its own `.env.production`. The URL variables MUST match that server's domain:
+
+- **Production** (`guided-prod`): `APP_URL` and `NEXT_PUBLIC_APP_URL` = `https://guided.vericant.com`
+- **Staging** (`guided-staging`): `APP_URL` and `NEXT_PUBLIC_APP_URL` = `https://staging.guided.vericant.com`
+
+Notes:
+- `NEXT_PUBLIC_APP_URL` is baked at **build time** (Docker build arg) — changing it requires a rebuild
+  (`export NEXT_PUBLIC_APP_URL=... && docker compose -f docker-compose.linode.yml up -d --build`).
+- `APP_URL` is read at **runtime** (used for email links: password reset, rater notifications) — changing it
+  only requires recreating the app container (`docker compose -f docker-compose.linode.yml up -d`).
+- Video/JSON files are stored on Backblaze B2; both environments currently share the same bucket
+  (`New-Product-Test`). Object keys are namespaced by interview UUID so they do not collide.
 
 ## Deployment Workflow
 
@@ -22,17 +44,26 @@ alwaysApply: true
    - Implement feature on a feature branch
    - Run `npm run dev` locally to test
    - Verify functionality works correctly
-   - Only proceed to deployment after local verification passes
 
-2. **Code is merged to `main` branch** (after local testing passes)
-
-3. **SSH to server and deploy**:
+2. **Deploy to STAGING first** and verify:
    ```bash
-   ssh linode-Athena-sg
+   ssh guided-staging
    su - v0-interview
    cd /home/v0-interview/apps/v0-interview
    ./deploy-linode.sh
    ```
+   Verify on `https://staging.guided.vericant.com`.
+
+3. **Merge to `main`** (after staging verification passes).
+
+4. **Deploy to PRODUCTION**:
+   ```bash
+   ssh guided-prod
+   su - v0-interview
+   cd /home/v0-interview/apps/v0-interview
+   ./deploy-linode.sh
+   ```
+   Verify on `https://guided.vericant.com`.
 
 ## Deployment Script Actions
 
@@ -58,14 +89,16 @@ docker compose -f docker-compose.linode.yml ps
 # View application logs
 docker compose -f docker-compose.linode.yml logs -f interview-app
 
-# Test application
-curl http://localhost:3001
+# Health check (public)
+curl https://guided.vericant.com/api/health          # production
+curl https://staging.guided.vericant.com/api/health  # staging
 ```
 
 ## Important Notes
 
-- Always deploy from `main` branch after testing on feature branch
-- The deployment script handles code pulling automatically
-- Database migrations are run automatically via Prisma
-- If Prisma version conflicts occur, use `npx prisma@6.19.0` explicitly
-- Application runs on port 3001 (mapped from container port 3000)
+- **Never deploy untested code directly to production** — always go through `guided-staging` first.
+- Always deploy from `main` branch to production after testing on staging.
+- Database migrations are run automatically via Prisma.
+- If Prisma version conflicts occur, use `npx prisma@6.19.0` explicitly.
+- TLS certificates are managed by Certbot (Let's Encrypt) with auto-renewal on each server.
+- DNS for `*.vericant.com` is hosted on Linode DNS Manager (Networking → Domains → vericant.com).
