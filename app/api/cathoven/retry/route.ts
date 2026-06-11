@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const interview = await prisma.interview.findUnique({
       where: { interview_id: interviewId },
       include: {
+        school: { select: { level: true } },
         responses: {
           orderBy: { sequence_number: "asc" },
           include: { prompt: { select: { prompt_text: true } } },
@@ -51,6 +52,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Interview not found" },
         { status: 404 }
+      )
+    }
+
+    // Rating gate: K-12 schools never get AI scoring, so block manual retries too.
+    if (interview.school?.level !== "undergraduate") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Scoring is not available for K-12 schools",
+        },
+        { status: 400 }
       )
     }
 

@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getCurrentUser } from "@/app/actions/auth"
-import { listSchools, createSchool, deleteSchool, type ManagedSchool } from "@/app/actions/schools"
+import { listSchools, createSchool, deleteSchool, updateSchoolLevel, type ManagedSchool } from "@/app/actions/schools"
 import { AlertCircle, PlusCircle, Trash2 } from "lucide-react"
 import { format } from "date-fns"
 
@@ -21,8 +22,10 @@ export default function SchoolsPage() {
   const [schoolActionError, setSchoolActionError] = useState<string | null>(null)
   const [newSchoolName, setNewSchoolName] = useState("")
   const [newSchoolCode, setNewSchoolCode] = useState("")
+  const [newSchoolLevel, setNewSchoolLevel] = useState("k12")
   const [isCreatingSchool, setIsCreatingSchool] = useState(false)
   const [deletingSchoolId, setDeletingSchoolId] = useState<string | null>(null)
+  const [updatingLevelId, setUpdatingLevelId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const loadUserAndSchool = async () => {
@@ -84,17 +87,37 @@ export default function SchoolsPage() {
     const result = await createSchool({
       name: newSchoolName,
       code: newSchoolCode,
+      level: newSchoolLevel,
     })
 
     if (result.success) {
       setNewSchoolName("")
       setNewSchoolCode("")
+      setNewSchoolLevel("k12")
       await fetchManagedSchools()
     } else {
       setSchoolActionError(result.error || "Failed to create school")
     }
 
     setIsCreatingSchool(false)
+  }
+
+  const handleChangeLevel = async (schoolId: string, level: string) => {
+    setUpdatingLevelId(schoolId)
+    setSchoolActionError(null)
+    try {
+      const result = await updateSchoolLevel(schoolId, level)
+      if (result.success) {
+        await fetchManagedSchools()
+      } else {
+        setSchoolActionError(result.error || "Failed to update school level")
+      }
+    } catch (error) {
+      console.error("[Schools] Error updating school level:", error)
+      setSchoolActionError(error instanceof Error ? error.message : "Failed to update school level")
+    } finally {
+      setUpdatingLevelId(null)
+    }
   }
 
   const handleDeleteSchool = async (schoolId: string, schoolName: string) => {
@@ -190,7 +213,7 @@ export default function SchoolsPage() {
             </Alert>
           )}
 
-          <form onSubmit={handleCreateSchool} className="grid gap-3 md:grid-cols-3">
+          <form onSubmit={handleCreateSchool} className="grid gap-3 md:grid-cols-4">
             <Input
               placeholder="School Name (e.g. MIT)"
               value={newSchoolName}
@@ -203,12 +226,24 @@ export default function SchoolsPage() {
               onChange={(e) => setNewSchoolCode(e.target.value)}
               required
             />
+            <Select value={newSchoolLevel} onValueChange={setNewSchoolLevel}>
+              <SelectTrigger>
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="k12">K-12</SelectItem>
+                <SelectItem value="undergraduate">Undergraduate</SelectItem>
+              </SelectContent>
+            </Select>
             <Button type="submit" disabled={isCreatingSchool}>
               {isCreatingSchool ? "Adding..." : "Add School"}
             </Button>
           </form>
           <p className="text-xs text-[rgba(0,0,0,0.48)]">
             School codes must be lowercase letters, numbers, or hyphen. Example: harvard, mit, the-governors-academy.
+          </p>
+          <p className="text-xs text-[rgba(0,0,0,0.48)]">
+            Level controls rating: <strong>Undergraduate</strong> interviews are AI-scored and rated; <strong>K-12</strong> interviews are not scored.
           </p>
         </CardContent>
       </Card>
@@ -248,6 +283,19 @@ export default function SchoolsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Select
+                      value={school.level}
+                      onValueChange={(value) => handleChangeLevel(school.id, value)}
+                      disabled={updatingLevelId === school.id}
+                    >
+                      <SelectTrigger className="h-9 w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="k12">K-12</SelectItem>
+                        <SelectItem value="undergraduate">Undergraduate</SelectItem>
+                      </SelectContent>
+                    </Select>
                     {!school.active && (
                       <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">Inactive</span>
                     )}

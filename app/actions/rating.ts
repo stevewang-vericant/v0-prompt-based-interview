@@ -87,6 +87,7 @@ export async function getRatingInterviews(
         take: limit,
         where: {
           video_url: { not: null },
+          school: { level: "undergraduate" },
         },
         select: {
           id: true,
@@ -102,7 +103,12 @@ export async function getRatingInterviews(
           school: { select: { code: true, name: true } },
         },
       }),
-      prisma.interview.count({ where: { video_url: { not: null } } }),
+      prisma.interview.count({
+        where: {
+          video_url: { not: null },
+          school: { level: "undergraduate" },
+        },
+      }),
     ])
 
     return {

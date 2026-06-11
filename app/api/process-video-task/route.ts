@@ -47,6 +47,62 @@ async function runPostMergeProcessing(params: {
 }) {
   const { taskId, interviewId, interviewDbId, mergedVideoBuffer, questionTexts, mergedVideoUrl } = params
 
+  // Rating gate: only undergraduate schools get AI scoring + rater review.
+  // K-12 schools skip Cathoven scoring entirely (no score, no rater notification).
+  try {
+    const gateInfo = await prisma.interview.findUnique({
+      where: { id: interviewDbId },
+      select: { school: { select: { level: true } } },
+    })
+    const schoolLevel = gateInfo?.school?.level || 'k12'
+
+    if (schoolLevel !== 'undergraduate') {
+      console.log(`[Task ${taskId}] Skipping Cathoven scoring: school level is "${schoolLevel}" (K-12, no rating)`)
+
+      const existingInterview = await prisma.interview.findUnique({
+        where: { id: interviewDbId },
+        select: { metadata: true },
+      })
+      const existingMetadata =
+        existingInterview?.metadata && typeof existingInterview.metadata === 'object'
+          ? (existingInterview.metadata as Record<string, any>)
+          : {}
+
+      await prisma.interview.update({
+        where: { id: interviewDbId },
+        data: {
+          metadata: {
+            ...existingMetadata,
+            cathoven: {
+              status: 'skipped',
+              reason: 'k12',
+              evaluatedAt: new Date().toISOString(),
+            },
+          },
+        },
+      })
+
+      // Transcription is still useful for K-12 schools (subtitles, search).
+      try {
+        console.log(`[Task ${taskId}] Starting transcription (K-12)...`)
+        const transcriptionResult = await transcribeVideo(interviewId, mergedVideoUrl)
+        if (transcriptionResult.success) {
+          console.log(`[Task ${taskId}] ✓ Transcription completed`)
+        } else {
+          console.error(`[Task ${taskId}] ✗ Transcription failed:`, transcriptionResult.error)
+        }
+      } catch (error) {
+        console.error(`[Task ${taskId}] ✗ Transcription exception:`, error)
+      }
+
+      return
+    }
+  } catch (error) {
+    // If the gate lookup fails, fall through to the default (scored) path to avoid
+    // silently dropping scoring for undergraduate interviews.
+    console.error(`[Task ${taskId}] ⚠️ School level lookup failed; proceeding with scoring:`, error)
+  }
+
   // Cathoven scoring should never block video availability.
   try {
     console.log(`[Task ${taskId}] Calling Cathoven IELTS Speaking API...`)

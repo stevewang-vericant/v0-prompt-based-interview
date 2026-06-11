@@ -11,6 +11,7 @@ model School {
   id                  String              @id @default(uuid()) @db.Uuid
   code                String?             @unique @db.VarChar(50)
   name                String              @db.VarChar(255)
+  level               String              @default("k12") @db.VarChar(20) // "k12" | "undergraduate"; controls rating gate
   email               String?             @unique @db.VarChar(255) // Deprecated: kept for backward compatibility, use SchoolAdmin instead
   password_hash       String?             @db.VarChar(255) // Deprecated: kept for backward compatibility, use SchoolAdmin instead
   contact_person      String?             @db.VarChar(255)

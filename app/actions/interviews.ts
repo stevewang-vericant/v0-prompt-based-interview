@@ -28,6 +28,7 @@ export interface InterviewRecord {
   student_id: string | null
   school_id: string | null
   school_code: string | null
+  school_level: string | null
   student_email: string | null
   student_name: string | null
   // 新增学生额外信息字段
@@ -85,6 +86,7 @@ function mapInterviewToRecord(interview: any): InterviewRecord {
     student_uses_cbo: interview.student?.uses_cbo ?? null,
     student_cbo_organization: interview.student?.cbo_organization || null,
     school_code: interview.school?.code || null,
+    school_level: interview.school?.level || null,
     responseCount: interview._count?.responses ?? 0,
     metadata: interview.metadata as Record<string, any> || {},
     total_score: interview.total_score ? Number(interview.total_score) : null,

@@ -4,10 +4,15 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "./auth"
 import { hashPassword } from "@/lib/auth-utils"
 
+type SchoolLevel = "k12" | "undergraduate"
+
+const SCHOOL_LEVELS: SchoolLevel[] = ["k12", "undergraduate"]
+
 export interface ManagedSchool {
   id: string
   code: string
   name: string
+  level: string
   active: boolean
   created_at: Date | null
   updated_at: Date | null
@@ -48,6 +53,7 @@ export async function listSchools(): Promise<{
         id: true,
         code: true,
         name: true,
+        level: true,
         active: true,
         created_at: true,
         updated_at: true
@@ -77,9 +83,11 @@ export async function listSchools(): Promise<{
 export async function createSchool({
   name,
   code,
+  level = "k12",
 }: {
   name: string
   code: string
+  level?: string
 }): Promise<{
   success: boolean
   school?: ManagedSchool
@@ -96,6 +104,10 @@ export async function createSchool({
 
     if (!trimmedName) {
       return { success: false, error: "School name is required" }
+    }
+
+    if (!SCHOOL_LEVELS.includes(level as SchoolLevel)) {
+      return { success: false, error: "School level must be k12 or undergraduate" }
     }
 
     if (!normalizedCode || !/^[a-z0-9-]+$/.test(normalizedCode)) {
@@ -142,6 +154,7 @@ export async function createSchool({
       data: {
         name: trimmedName,
         code: normalizedCode,
+        level: level,
         email: email,
         password_hash: hashedPassword,
         active: true,
@@ -151,6 +164,7 @@ export async function createSchool({
         id: true,
         code: true,
         name: true,
+        level: true,
         active: true,
         created_at: true,
         updated_at: true
@@ -168,6 +182,63 @@ export async function createSchool({
     }
   } catch (error) {
     console.error("Create school error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    }
+  }
+}
+
+export async function updateSchoolLevel(
+  schoolId: string,
+  level: string
+): Promise<{
+  success: boolean
+  school?: ManagedSchool
+  error?: string
+}> {
+  try {
+    await ensureSuperAdmin()
+
+    if (!SCHOOL_LEVELS.includes(level as SchoolLevel)) {
+      return { success: false, error: "School level must be k12 or undergraduate" }
+    }
+
+    const existing = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { id: true, code: true },
+    })
+
+    if (!existing) {
+      return { success: false, error: "School not found" }
+    }
+
+    if (existing.code === "_system") {
+      return { success: false, error: "System school level cannot be changed" }
+    }
+
+    const school = await prisma.school.update({
+      where: { id: schoolId },
+      data: { level },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        level: true,
+        active: true,
+        created_at: true,
+        updated_at: true,
+      },
+    })
+
+    return {
+      success: true,
+      school: {
+        ...school,
+        code: school.code || "",
+      },
+    }
+  } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

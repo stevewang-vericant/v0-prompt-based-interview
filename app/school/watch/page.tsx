@@ -24,6 +24,9 @@ function SchoolWatchPageContent() {
   const studentCboOrganization = searchParams.get('studentCboOrganization')
   const finalScoreParam = searchParams.get('finalScore')
   const scoreDetailReady = searchParams.get('scoreDetailReady') === 'true'
+  const schoolLevel = searchParams.get('schoolLevel')
+  // K-12 interviews are not rated: hide score badge and detail report.
+  const isK12 = schoolLevel === 'k12'
   const debugMode = searchParams.get('debug') === 'true'
   // 仅当本次面试用了"prep+response 连续录制"流程时存在；
   // 老面试不会带这个参数，下面的链接面板就不会渲染。
@@ -132,25 +135,27 @@ function SchoolWatchPageContent() {
                     </a>
                   </div>
                 )}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="px-2 py-0.5 text-xs rounded bg-emerald-100 text-emerald-800">
-                    BASE score: {finalScore !== null ? finalScore.toFixed(2) : 'N/A'}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    disabled={!interviewId || !scoreDetailReady}
-                    title={!scoreDetailReady ? 'Score detail not ready yet' : 'Open score detail report'}
-                    onClick={() => {
-                      if (!interviewId || !scoreDetailReady) return
-                      window.open(`/school/interview-report?interviewId=${encodeURIComponent(interviewId)}`, '_blank', 'noopener,noreferrer')
-                    }}
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    Detail Report
-                  </Button>
-                </div>
+                {!isK12 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="px-2 py-0.5 text-xs rounded bg-emerald-100 text-emerald-800">
+                      BASE score: {finalScore !== null ? finalScore.toFixed(2) : 'N/A'}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      disabled={!interviewId || !scoreDetailReady}
+                      title={!scoreDetailReady ? 'Score detail not ready yet' : 'Open score detail report'}
+                      onClick={() => {
+                        if (!interviewId || !scoreDetailReady) return
+                        window.open(`/school/interview-report?interviewId=${encodeURIComponent(interviewId)}`, '_blank', 'noopener,noreferrer')
+                      }}
+                    >
+                      <FileText className="h-3 w-3 mr-1" />
+                      Detail Report
+                    </Button>
+                  </div>
+                )}
               </div>
               {debugMode && (
                 <p className="text-xs text-amber-600 font-mono mt-2">

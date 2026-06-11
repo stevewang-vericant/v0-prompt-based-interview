@@ -205,6 +205,10 @@ function SchoolDashboardContent() {
       interviewId: interview.interview_id || ''
     })
 
+    if (interview.school_level) {
+      params.append('schoolLevel', interview.school_level)
+    }
+
     if (interview.video_url) {
       params.append('b2VideoUrl', interview.video_url)
     }
@@ -274,7 +278,16 @@ function SchoolDashboardContent() {
   // Raters review unapproved scores via the Rating page, not here.
   const isPrivilegedUser = schoolInfo?.is_super_admin
 
+  // K-12 schools are never AI-scored or rated.
+  const isK12 = (interview: InterviewRecord): boolean => {
+    return interview.school_level === "k12"
+  }
+
   const getFinalScore = (interview: InterviewRecord): number | null => {
+    // K-12 interviews have no score.
+    if (isK12(interview)) {
+      return null
+    }
     // Only show scores that have been approved (super admins always see them)
     if (!isPrivilegedUser && !interview.score_approved) {
       return null
@@ -318,6 +331,7 @@ function SchoolDashboardContent() {
   }
 
   const canRetryCathoven = (interview: InterviewRecord): boolean => {
+    if (isK12(interview)) return false
     return Boolean(interview.video_url && interview.interview_id)
   }
 
@@ -349,6 +363,11 @@ function SchoolDashboardContent() {
 
   const getCathovenBadge = (interview: InterviewRecord): { label: string; className: string } | null => {
     if (!interview.video_url) return null
+
+    // K-12 interviews are not rated; no rating badge at all.
+    if (isK12(interview)) {
+      return null
+    }
 
     const cathovenStatus = getCathovenStatus(interview)
     if (cathovenStatus === "completed") {
@@ -841,7 +860,7 @@ function SchoolDashboardContent() {
                           )}
                         </div>
 
-                        <div className="grid w-full shrink-0 grid-cols-3 gap-1.5 rounded-xl border border-black/[0.06] bg-black/[0.02] p-1 lg:justify-self-end">
+                        <div className={`grid w-full shrink-0 ${isK12(interview) ? "grid-cols-1" : "grid-cols-3"} gap-1.5 rounded-xl border border-black/[0.06] bg-black/[0.02] p-1 lg:justify-self-end`}>
                           <Button
                             onClick={() => handleWatchInterview(interview)}
                             size="sm"
@@ -856,36 +875,40 @@ function SchoolDashboardContent() {
                                 ? "Processing"
                                 : "Pending"}
                           </Button>
-                          <Button
-                            onClick={() => handleOpenScoreDetail(interview)}
-                            size="sm"
-                            variant="ghost"
-                            className="col-span-1 min-w-0 border border-black/[0.14] bg-white text-[#1d1d1f] hover:bg-black/[0.04] active:bg-black/[0.08] disabled:border-black/[0.08] disabled:bg-black/[0.02] disabled:text-[rgba(0,0,0,0.32)] disabled:opacity-100"
-                            disabled={!hasScoreDetail(interview)}
-                            title={!hasScoreDetail(interview) ? "Score detail not ready yet" : "Open score detail"}
-                          >
-                            <FileText className="mr-1.5 h-3.5 w-3.5" />
-                            Detail
-                          </Button>
-                          <Button
-                            onClick={() => handleRetryCathoven(interview)}
-                            size="sm"
-                            variant="ghost"
-                            className="col-span-1 min-w-0 border border-black/[0.14] bg-white text-[#1d1d1f] hover:bg-black/[0.04] active:bg-black/[0.08] disabled:border-black/[0.08] disabled:bg-black/[0.02] disabled:text-[rgba(0,0,0,0.32)] disabled:opacity-100"
-                            disabled={!canRetryCathoven(interview) || (!!interview.interview_id && rescoringInterviewIds.has(interview.interview_id))}
-                            title={!canRetryCathoven(interview) ? "Video is not ready yet" : "Call Cathoven API to get score"}
-                          >
-                            <RefreshCw
-                              className={`mr-1.5 h-3.5 w-3.5 ${
-                                interview.interview_id && rescoringInterviewIds.has(interview.interview_id)
-                                  ? "animate-spin"
-                                  : ""
-                              }`}
-                            />
-                            {interview.interview_id && rescoringInterviewIds.has(interview.interview_id)
-                              ? "Scoring"
-                              : "CAP Retry"}
-                          </Button>
+                          {!isK12(interview) && (
+                            <>
+                              <Button
+                                onClick={() => handleOpenScoreDetail(interview)}
+                                size="sm"
+                                variant="ghost"
+                                className="col-span-1 min-w-0 border border-black/[0.14] bg-white text-[#1d1d1f] hover:bg-black/[0.04] active:bg-black/[0.08] disabled:border-black/[0.08] disabled:bg-black/[0.02] disabled:text-[rgba(0,0,0,0.32)] disabled:opacity-100"
+                                disabled={!hasScoreDetail(interview)}
+                                title={!hasScoreDetail(interview) ? "Score detail not ready yet" : "Open score detail"}
+                              >
+                                <FileText className="mr-1.5 h-3.5 w-3.5" />
+                                Detail
+                              </Button>
+                              <Button
+                                onClick={() => handleRetryCathoven(interview)}
+                                size="sm"
+                                variant="ghost"
+                                className="col-span-1 min-w-0 border border-black/[0.14] bg-white text-[#1d1d1f] hover:bg-black/[0.04] active:bg-black/[0.08] disabled:border-black/[0.08] disabled:bg-black/[0.02] disabled:text-[rgba(0,0,0,0.32)] disabled:opacity-100"
+                                disabled={!canRetryCathoven(interview) || (!!interview.interview_id && rescoringInterviewIds.has(interview.interview_id))}
+                                title={!canRetryCathoven(interview) ? "Video is not ready yet" : "Call Cathoven API to get score"}
+                              >
+                                <RefreshCw
+                                  className={`mr-1.5 h-3.5 w-3.5 ${
+                                    interview.interview_id && rescoringInterviewIds.has(interview.interview_id)
+                                      ? "animate-spin"
+                                      : ""
+                                  }`}
+                                />
+                                {interview.interview_id && rescoringInterviewIds.has(interview.interview_id)
+                                  ? "Scoring"
+                                  : "CAP Retry"}
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
