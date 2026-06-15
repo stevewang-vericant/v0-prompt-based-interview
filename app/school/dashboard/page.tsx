@@ -336,6 +336,10 @@ function SchoolDashboardContent() {
   }
 
   const getProgressBadge = (interview: InterviewRecord): { label: string; className: string } => {
+    if (interview.status === "failed") {
+      return { label: "Processing Failed", className: "bg-red-100 text-red-800" }
+    }
+
     if (!interview.video_url) {
       const meta = interview.metadata as Record<string, any> | null
       const isAllUploaded = meta?.status === "uploaded"
@@ -899,12 +903,20 @@ function SchoolDashboardContent() {
                             size="sm"
                             className="col-span-1 min-w-0 border border-[#0071e3]/80 bg-[#0071e3] text-white shadow-sm hover:bg-[#0067cf] active:bg-[#005bb5] disabled:border-[#0071e3]/20 disabled:bg-white disabled:text-[rgba(0,0,0,0.42)] disabled:opacity-100 disabled:shadow-none"
                             disabled={!interview.video_url}
-                            title={!interview.video_url ? "Video is still processing..." : "Watch interview"}
+                            title={
+                              interview.video_url
+                                ? "Watch interview"
+                                : interview.status === "failed"
+                                  ? "Video processing failed"
+                                  : "Video is still processing..."
+                            }
                           >
                             <Video className="mr-1.5 h-3.5 w-3.5" />
                             {interview.video_url
                               ? "Watch"
-                              : (interview.metadata as Record<string, any> | null)?.status === "uploaded"
+                              : interview.status === "failed"
+                                ? "Failed"
+                                : (interview.metadata as Record<string, any> | null)?.status === "uploaded"
                                 ? "Processing"
                                 : "Pending"}
                           </Button>
