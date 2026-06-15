@@ -307,68 +307,90 @@ export default function SchoolsPage() {
               {managedSchools.map((school) => (
                 <div
                   key={school.id}
-                  className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border rounded-lg hover:bg-black/[0.04]"
+                  className="space-y-4 p-4 border rounded-lg hover:bg-black/[0.04]"
                 >
-                  <div>
-                    <p className="font-semibold text-[#1d1d1f]">
-                      {school.name}{" "}
-                      <span className="text-sm font-normal text-[rgba(0,0,0,0.48)]">({school.code})</span>
-                    </p>
-                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
-                      Added {school.created_at ? format(new Date(school.created_at), "MMM dd, yyyy") : "—"}
-                    </p>
-                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
-                      Credits: <span className="font-semibold text-[#1d1d1f]">{school.credits_balance}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      step="1"
-                      placeholder="+/- credits"
-                      value={creditAdjustments[school.id] ?? ""}
-                      onChange={(e) =>
-                        setCreditAdjustments((prev) => ({
-                          ...prev,
-                          [school.id]: e.target.value,
-                        }))
-                      }
-                      className="h-9 w-[120px]"
-                      disabled={updatingCreditsId === school.id}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAdjustCredits(school.id)}
-                      disabled={updatingCreditsId === school.id}
-                    >
-                      {updatingCreditsId === school.id ? "Updating..." : "Adjust"}
-                    </Button>
-                    <Select
-                      value={school.level}
-                      onValueChange={(value) => handleChangeLevel(school.id, value)}
-                      disabled={updatingLevelId === school.id}
-                    >
-                      <SelectTrigger className="h-9 w-[150px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="k12">K-12</SelectItem>
-                        <SelectItem value="undergraduate">Undergraduate</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-[#1d1d1f]">
+                        {school.name}{" "}
+                        <span className="text-sm font-normal text-[rgba(0,0,0,0.48)]">({school.code})</span>
+                      </p>
+                      <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                        Added {school.created_at ? format(new Date(school.created_at), "MMM dd, yyyy") : "—"}
+                      </p>
+                    </div>
                     {!school.active && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">Inactive</span>
+                      <span className="self-start px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">
+                        Inactive
+                      </span>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteSchool(school.id, school.name)}
-                      disabled={deletingSchoolId === school.id}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      {deletingSchoolId === school.id ? "Deleting..." : "Delete"}
-                    </Button>
+                  </div>
+
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(190px,0.9fr)_minmax(150px,0.7fr)]">
+                    <div className="rounded-md border bg-white p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[rgba(0,0,0,0.48)]">Credits</p>
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <div className="min-w-[90px]">
+                          <p className="text-2xl font-semibold text-[#1d1d1f]">{school.credits_balance}</p>
+                          <p className="text-xs text-[rgba(0,0,0,0.48)]">available</p>
+                        </div>
+                        <div className="flex flex-1 items-center gap-2">
+                          <Input
+                            type="number"
+                            step="1"
+                            placeholder="+/- amount"
+                            value={creditAdjustments[school.id] ?? ""}
+                            onChange={(e) =>
+                              setCreditAdjustments((prev) => ({
+                                ...prev,
+                                [school.id]: e.target.value,
+                              }))
+                            }
+                            className="h-9 min-w-0"
+                            disabled={updatingCreditsId === school.id}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAdjustCredits(school.id)}
+                            disabled={updatingCreditsId === school.id}
+                          >
+                            {updatingCreditsId === school.id ? "Updating..." : "Apply"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border bg-white p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[rgba(0,0,0,0.48)]">Level</p>
+                      <Select
+                        value={school.level}
+                        onValueChange={(value) => handleChangeLevel(school.id, value)}
+                        disabled={updatingLevelId === school.id}
+                      >
+                        <SelectTrigger className="mt-2 h-9 w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="k12">K-12</SelectItem>
+                          <SelectItem value="undergraduate">Undergraduate</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="rounded-md border border-red-100 bg-red-50/40 p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-red-700">Danger zone</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteSchool(school.id, school.name)}
+                        disabled={deletingSchoolId === school.id}
+                        className="mt-2 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {deletingSchoolId === school.id ? "Deleting..." : "Delete"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
