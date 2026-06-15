@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { hashPassword } from "@/lib/auth-utils"
 import { getCurrentUser } from "./auth"
+import { sendSignupApprovedEmail } from "@/lib/email"
 
 export interface ManagedUser {
   id: string
@@ -33,6 +34,29 @@ async function ensureSuperAdmin() {
   }
 
   return { email: user.email }
+}
+
+async function notifySignupApprovedUser(params: {
+  email?: string | null
+  name?: string | null
+  schoolName: string
+}) {
+  if (!params.email) {
+    console.log("[Users] Signup approved email skipped: no user email")
+    return
+  }
+
+  const appUrl = process.env.APP_URL || "http://localhost:3000"
+
+  try {
+    await sendSignupApprovedEmail(params.email, {
+      name: params.name,
+      schoolName: params.schoolName,
+      loginUrl: `${appUrl}/school/login`,
+    })
+  } catch (error) {
+    console.error("[Users] Failed to send signup approved email:", error)
+  }
 }
 
 /**
@@ -164,7 +188,14 @@ export async function activateUser(userId: string, userType?: 'school_admin' | '
 
     if (userType === 'school_admin') {
       const admin = await prisma.schoolAdmin.findUnique({
-        where: { id: userId }
+        where: { id: userId },
+        include: {
+          school: {
+            select: {
+              name: true
+            }
+          }
+        }
       })
 
       if (!admin) {
@@ -179,6 +210,14 @@ export async function activateUser(userId: string, userType?: 'school_admin' | '
         where: { id: userId },
         data: { active: true }
       })
+
+      if (!admin.active) {
+        await notifySignupApprovedUser({
+          email: admin.email,
+          name: admin.name,
+          schoolName: admin.school.name,
+        })
+      }
     } else {
       const user = await prisma.school.findUnique({
         where: { id: userId }
@@ -196,6 +235,14 @@ export async function activateUser(userId: string, userType?: 'school_admin' | '
         where: { id: userId },
         data: { active: true }
       })
+
+      if (!user.active) {
+        await notifySignupApprovedUser({
+          email: user.email,
+          name: user.contact_person || user.name,
+          schoolName: user.name,
+        })
+      }
     }
 
     return { success: true }

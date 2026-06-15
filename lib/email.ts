@@ -241,6 +241,81 @@ ${approvalUrl}
   }
 }
 
+export interface SignupApprovedEmailParams {
+  name?: string | null
+  schoolName: string
+  loginUrl?: string
+}
+
+/**
+ * Notify a school user that their signup request has been approved.
+ */
+export async function sendSignupApprovedEmail(
+  to: string,
+  params: SignupApprovedEmailParams
+): Promise<void> {
+  const appUrl = process.env.APP_URL || 'http://localhost:3000'
+  const loginUrl = params.loginUrl
+    ? params.loginUrl
+    : `${appUrl}/school/login`
+  const safeName = escapeHtml(params.name?.trim() || 'there')
+  const safeSchoolName = escapeHtml(params.schoolName)
+
+  const mailOptions = {
+    from: process.env.GMAIL_USER,
+    to,
+    subject: 'Your School Account Has Been Approved',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #1a1a1a; margin-bottom: 20px;">Welcome to Guided Interview</h2>
+
+          <p>Hello ${safeName},</p>
+          <p>Your signup request for <strong>${safeSchoolName}</strong> has been approved.</p>
+          <p>You can now log in to your school account using the email and password you used during signup.</p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}"
+               style="background-color: #0070f3; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">
+              Log In
+            </a>
+          </div>
+
+          <p style="color: #666; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="background-color: #e9ecef; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 13px;">
+            ${loginUrl}
+          </p>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+Welcome to Guided Interview
+
+Hello ${params.name?.trim() || 'there'},
+
+Your signup request for ${params.schoolName} has been approved.
+
+You can now log in to your school account using the email and password you used during signup:
+${loginUrl}
+    `.trim(),
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    console.log('[Email] Signup approved email sent to:', to)
+  } catch (error) {
+    console.error('[Email] Failed to send signup approved email:', error)
+    throw new Error('Failed to send signup approved email')
+  }
+}
+
 export interface RaterReviewNotificationParams {
   raterName?: string | null
   studentName?: string | null

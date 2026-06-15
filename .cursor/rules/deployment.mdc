@@ -45,12 +45,21 @@ Notes:
    - Run `npm run dev` locally to test
    - Verify functionality works correctly
 
-2. **Deploy to STAGING first** and verify:
+2. **Deploy the feature/fix branch to STAGING first** and verify:
+   - Commit the tested local changes on the feature/fix branch.
+   - Push the branch to `origin`.
+   - On `guided-staging`, temporarily checkout that branch and deploy it for QA.
+   - Do not merge unverified changes into `main` just to make staging pick them up.
    ```bash
    ssh guided-staging
    su - v0-interview
    cd /home/v0-interview/apps/v0-interview
-   ./deploy-linode.sh
+   git fetch origin
+   git checkout feature/description
+   git pull origin feature/description
+   docker compose -f docker-compose.linode.yml down
+   docker compose -f docker-compose.linode.yml up -d --build
+   docker compose -f docker-compose.linode.yml exec -T interview-app sh -c 'npx prisma@6.19.0 db push'
    ```
    Verify on `https://staging.guided.vericant.com`.
 
@@ -97,6 +106,7 @@ curl https://staging.guided.vericant.com/api/health  # staging
 ## Important Notes
 
 - **Never deploy untested code directly to production** — always go through `guided-staging` first.
+- For staging QA of new work, prefer deploying the pushed feature/fix branch directly on `guided-staging`; the existing `deploy-linode.sh` pulls `main`, so do not use it when staging needs unmerged branch code.
 - Always deploy from `main` branch to production after testing on staging.
 - Database migrations are run automatically via Prisma.
 - If Prisma version conflicts occur, use `npx prisma@6.19.0` explicitly.

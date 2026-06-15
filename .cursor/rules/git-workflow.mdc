@@ -22,10 +22,12 @@ alwaysApply: true
 
 1. Create branch: `git checkout -b fix/description`
 2. Make changes and commit
-3. Test thoroughly on the branch
-4. Only merge to `main` after testing passes
-5. Deploy from `main` branch
+3. Push the feature/fix branch to `origin`
+4. Deploy that branch to staging for QA before merging
+5. Only merge to `main` after staging testing passes
+6. Deploy production from `main` branch
 
 ## Deployment
 
-- Always deploy from `main` branch after merge
+- For staging QA, deploy the pushed feature/fix branch directly on `guided-staging`; do not merge untested changes into `main` just so staging can pull them.
+- Always deploy production from `main` after merge.
