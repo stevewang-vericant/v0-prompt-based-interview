@@ -812,11 +812,6 @@ function InterviewPageContent() {
               <p className="text-sm text-[rgba(0,0,0,0.56)]">
                 Please contact your school administrator for help. Once credits are added, you can reopen this same link to start your interview.
               </p>
-              {schoolCode && (
-                <p className="pt-2 text-xs text-[rgba(0,0,0,0.42)]">
-                  School code: <span className="font-medium">{schoolCode}</span>
-                </p>
-              )}
             </CardContent>
           </Card>
         )}
