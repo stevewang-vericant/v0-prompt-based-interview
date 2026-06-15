@@ -6,7 +6,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { SignJWT, jwtVerify } from "jose"
 import crypto from "crypto"
-import { sendPasswordResetEmail } from "@/lib/email"
+import { sendPasswordResetEmail, sendSignupApprovalNotificationEmail } from "@/lib/email"
 
 // 简单的 Session 管理，使用 JWT 存储在 HttpOnly Cookie 中
 const SECRET_KEY = new TextEncoder().encode(process.env.AUTH_SECRET || "default_secret_key_change_me")
@@ -15,13 +15,52 @@ const ALG = "HS256"
 // Password reset token expiration time (1 hour)
 const RESET_TOKEN_EXPIRATION_HOURS = 1
 
+function getSignupApprovalNotificationRecipients(): string[] {
+  const rawRecipients = process.env.SIGNUP_APPROVAL_NOTIFICATION_RECIPIENTS || ""
+
+  return Array.from(
+    new Set(
+      rawRecipients
+        .split(/[;,]/)
+        .map((email) => email.trim())
+        .filter(Boolean)
+    )
+  )
+}
+
+async function notifySignupApprovalRecipients(params: {
+  requesterName?: string | null
+  requesterEmail: string
+  schoolName: string
+}) {
+  const recipients = getSignupApprovalNotificationRecipients()
+
+  if (recipients.length === 0) {
+    console.log("[Auth] Signup approval notification skipped: no recipients configured")
+    return
+  }
+
+  const appUrl = process.env.APP_URL || "http://localhost:3000"
+
+  try {
+    await sendSignupApprovalNotificationEmail(recipients, {
+      requesterName: params.requesterName,
+      requesterEmail: params.requesterEmail,
+      schoolName: params.schoolName,
+      approvalUrl: `${appUrl}/school/users`,
+    })
+  } catch (error) {
+    console.error("[Auth] Failed to send signup approval notification:", error)
+  }
+}
+
 /**
  * 学校列表类型
  */
 export interface School {
   id: string
   name: string
-  email: string // Added email as it's in the schema
+  email: string | null // Deprecated legacy login email; nullable in the schema
 }
 
 /**
@@ -127,6 +166,12 @@ export async function registerSchoolAdmin(
     })
     
     console.log("[Auth] School admin registered successfully:", { email, adminId: newAdmin.id, school: school.name })
+    await notifySignupApprovalRecipients({
+      requesterName: newAdmin.name,
+      requesterEmail: newAdmin.email,
+      schoolName: school.name,
+    })
+
     return { success: true }
   } catch (error) {
     console.error("[Auth] Unexpected error during registration:", error)

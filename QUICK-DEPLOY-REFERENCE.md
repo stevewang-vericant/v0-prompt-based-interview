@@ -47,10 +47,13 @@ B2_APPLICATION_KEY=your_secret
 B2_BUCKET_NAME=your_bucket
 B2_BUCKET_REGION=us-west-004
 OPENAI_API_KEY=sk-your-key
+SIGNUP_APPROVAL_NOTIFICATION_RECIPIENTS=steve.wang@vericant.com
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=STRONG_PASSWORD
 POSTGRES_DB=v0_interview
 ```
+
+For signup approval notifications, use `steve.wang@vericant.com` in local/staging. On production, set `SIGNUP_APPROVAL_NOTIFICATION_RECIPIENTS=brandon.woods@vericant.com,steve.wang@vericant.com`.
 
 ## 四、常用命令
 

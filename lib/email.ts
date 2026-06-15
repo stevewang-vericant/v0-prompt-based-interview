@@ -9,6 +9,15 @@ const transporter = nodemailer.createTransport({
   },
 })
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 /**
  * Send password reset email
  * @param to - Recipient email address
@@ -146,6 +155,89 @@ ${videoUrl}
   } catch (error) {
     console.error('[Email] Failed to send interview completion email:', error)
     throw new Error('Failed to send interview completion email')
+  }
+}
+
+export interface SignupApprovalNotificationParams {
+  requesterName?: string | null
+  requesterEmail: string
+  schoolName: string
+  approvalUrl?: string
+}
+
+/**
+ * Notify configured admins that a newly registered school user is waiting for approval.
+ */
+export async function sendSignupApprovalNotificationEmail(
+  to: string[],
+  params: SignupApprovalNotificationParams
+): Promise<void> {
+  const appUrl = process.env.APP_URL || 'http://localhost:3000'
+  const approvalUrl = params.approvalUrl
+    ? params.approvalUrl
+    : `${appUrl}/school/users`
+  const safeRequesterName = escapeHtml(params.requesterName?.trim() || 'Unknown user')
+  const safeRequesterEmail = escapeHtml(params.requesterEmail)
+  const safeSchoolName = escapeHtml(params.schoolName)
+
+  const mailOptions = {
+    from: process.env.GMAIL_USER,
+    to,
+    subject: 'New School User Waiting for Approval',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #1a1a1a; margin-bottom: 20px;">New User Approval Required</h2>
+
+          <p>A new school user has signed up and is waiting for approval.</p>
+
+          <ul style="padding-left: 20px; margin: 20px 0;">
+            <li><strong>Name:</strong> ${safeRequesterName}</li>
+            <li><strong>Email:</strong> ${safeRequesterEmail}</li>
+            <li><strong>School:</strong> ${safeSchoolName}</li>
+          </ul>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${approvalUrl}"
+               style="background-color: #0070f3; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">
+              Review Pending Approvals
+            </a>
+          </div>
+
+          <p style="color: #666; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="background-color: #e9ecef; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 13px;">
+            ${approvalUrl}
+          </p>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+New User Approval Required
+
+A new school user has signed up and is waiting for approval.
+
+Name: ${params.requesterName?.trim() || 'Unknown user'}
+Email: ${params.requesterEmail}
+School: ${params.schoolName}
+
+Review pending approvals:
+${approvalUrl}
+    `.trim(),
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    console.log('[Email] Signup approval notification sent to:', to.join(', '))
+  } catch (error) {
+    console.error('[Email] Failed to send signup approval notification:', error)
+    throw new Error('Failed to send signup approval notification email')
   }
 }
 
