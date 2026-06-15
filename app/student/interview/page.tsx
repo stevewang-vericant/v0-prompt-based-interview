@@ -4,6 +4,7 @@ import { useState, Suspense, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { InterviewSetup } from "@/components/interview/interview-setup"
 import { InterviewStudentInfo } from "@/components/interview/interview-student-info"
 import { InterviewPrompt } from "@/components/interview/interview-prompt"
@@ -14,7 +15,7 @@ import { saveInterview } from "@/app/actions/interviews"
 import { startTranscription } from '@/app/actions/transcription'
 import { getVideoDuration } from '@/lib/video-utils'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, CreditCard } from "lucide-react"
 import { 
   saveVideoSegment, 
   getPendingSegments,
@@ -709,6 +710,10 @@ function InterviewPageContent() {
     }, result.success ? 1000 : 500)
   }
 
+  const isOutOfCredits =
+    promptsError?.toLowerCase().includes("no interview credits") ||
+    promptsError?.toLowerCase().includes("no interview credits remaining")
+
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       {/* Header */}
@@ -792,7 +797,31 @@ function InterviewPageContent() {
           </div>
         )}
 
-        {promptsError && (
+        {promptsError && isOutOfCredits && (
+          <Card className="mx-auto max-w-2xl border-blue-200 bg-white shadow-sm">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-[#0071e3]">
+                <CreditCard className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-xl text-[#1d1d1f]">Interview Temporarily Unavailable</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-center">
+              <p className="text-sm text-[rgba(0,0,0,0.68)]">
+                This school has used all available interview credits, so new interviews are paused for now.
+              </p>
+              <p className="text-sm text-[rgba(0,0,0,0.56)]">
+                Please contact your school administrator for help. Once credits are added, you can reopen this same link to start your interview.
+              </p>
+              {schoolCode && (
+                <p className="pt-2 text-xs text-[rgba(0,0,0,0.42)]">
+                  School code: <span className="font-medium">{schoolCode}</span>
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {promptsError && !isOutOfCredits && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error Loading Questions</AlertTitle>

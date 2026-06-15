@@ -74,6 +74,7 @@ export interface CurrentUser {
     name: string
     code: string | null
     is_super_admin: boolean
+    credits_balance: number
   }
 }
 
@@ -350,7 +351,8 @@ export async function getCurrentUser(): Promise<{
               id: admin.school.id,
               name: admin.school.name,
               code: admin.school.code,
-              is_super_admin: admin.is_super_admin
+              is_super_admin: admin.is_super_admin,
+              credits_balance: admin.school.credits_balance
             }
           }
         }
@@ -359,7 +361,15 @@ export async function getCurrentUser(): Promise<{
       // 如果没有 admin_id，说明是旧账号（School，向后兼容）
       const school = await prisma.school.findUnique({
         where: { id: schoolId },
-        select: { id: true, name: true, code: true, email: true, is_super_admin: true, is_rater: true }
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          email: true,
+          is_super_admin: true,
+          is_rater: true,
+          credits_balance: true,
+        }
       })
 
       if (!school || !school.email) {
@@ -375,7 +385,8 @@ export async function getCurrentUser(): Promise<{
             id: school.id,
             name: school.name,
             code: school.code,
-            is_super_admin: school.is_super_admin
+            is_super_admin: school.is_super_admin,
+            credits_balance: school.credits_balance
           }
         }
       }

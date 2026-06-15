@@ -11,7 +11,7 @@ import {
   InterviewRecord 
 } from "@/app/actions/interviews"
 import { getCurrentUser } from "@/app/actions/auth"
-import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Copy, Search, Link as LinkIcon, CheckCircle, Trash2, FileText } from "lucide-react"
+import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Copy, Search, Link as LinkIcon, CheckCircle, Trash2, FileText, CreditCard } from "lucide-react"
 import { format } from "date-fns"
 
 function SchoolDashboardContent() {
@@ -23,6 +23,7 @@ function SchoolDashboardContent() {
     code: string
     name: string
     is_super_admin: boolean
+    credits_balance: number
   } | null>(null)
   const [currentUser, setCurrentUser] = useState<{
     email: string
@@ -50,12 +51,14 @@ function SchoolDashboardContent() {
           setSchoolInfo({
             code: result.user.school.code,
             name: result.user.school.name,
-            is_super_admin: result.user.school.is_super_admin
+            is_super_admin: result.user.school.is_super_admin,
+            credits_balance: result.user.school.credits_balance
           })
           return {
             code: result.user.school.code,
             name: result.user.school.name,
-            is_super_admin: result.user.school.is_super_admin
+            is_super_admin: result.user.school.is_super_admin,
+            credits_balance: result.user.school.credits_balance
           }
         } else {
           setAuthError("School code is missing")
@@ -82,14 +85,11 @@ function SchoolDashboardContent() {
       setLoading(true)
       setError(null)
       
-      // 先加载用户和学校信息
-      let school = schoolInfo
+      // Refresh the school info each time so credit balance stays current.
+      const school = await loadUserAndSchool()
       if (!school) {
-        school = await loadUserAndSchool()
-        if (!school) {
-          setLoading(false)
-          return
-        }
+        setLoading(false)
+        return
       }
       
       console.log("[School] Loading interviews for school:", school.code, "super admin:", school.is_super_admin)
@@ -556,6 +556,39 @@ function SchoolDashboardContent() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
+              <div className={`rounded-lg border px-4 py-3 ${
+                (schoolInfo?.credits_balance ?? 0) > 0
+                  ? "bg-white border-blue-200"
+                  : "bg-amber-50 border-amber-200"
+              }`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`rounded-full p-2 ${
+                      (schoolInfo?.credits_balance ?? 0) > 0
+                        ? "bg-blue-100 text-[#0071e3]"
+                        : "bg-amber-100 text-amber-700"
+                    }`}>
+                      <CreditCard className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[#1d1d1f]">Interview credits remaining</p>
+                      <p className="text-xs text-[rgba(0,0,0,0.56)]">
+                        One credit is used when a student interview finishes processing.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <p className="text-2xl font-semibold text-[#1d1d1f]">{schoolInfo?.credits_balance ?? 0}</p>
+                    <p className="text-xs text-[rgba(0,0,0,0.48)]">available</p>
+                  </div>
+                </div>
+                {(schoolInfo?.credits_balance ?? 0) <= 0 && (
+                  <p className="mt-3 text-xs text-amber-800">
+                    Students cannot start a new interview until more credits are added by a super administrator.
+                  </p>
+                )}
+              </div>
+
               {/* Link display - separate line for better visibility */}
               <input
                 type="text"
