@@ -34,6 +34,34 @@ export async function uploadVideoToB2AndSave(
     if (!process.env.B2_BUCKET_NAME) throw new Error("B2_BUCKET_NAME not configured")
     // ... (其他检查保持不变)
 
+    if (schoolCode) {
+      const existingInterview = await prisma.interview.findUnique({
+        where: { interview_id: interviewId },
+        select: { id: true },
+      })
+
+      if (!existingInterview) {
+        const school = await prisma.school.findFirst({
+          where: { code: schoolCode },
+          select: {
+            id: true,
+            credits_balance: true,
+          },
+        })
+
+        if (!school) {
+          return { success: false, error: 'School not found' }
+        }
+
+        if (school.credits_balance <= 0) {
+          return {
+            success: false,
+            error: 'This school has no interview credits remaining. Please contact the school administrator.',
+          }
+        }
+      }
+    }
+
     console.log("[v0] Converting blob to buffer...")
     const arrayBuffer = await videoBlob.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)

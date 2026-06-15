@@ -305,11 +305,21 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
 
     const school = await prisma.school.findUnique({
       where: { code: schoolCode },
-      select: { selected_prompt_ids: true }
+      select: {
+        selected_prompt_ids: true,
+        credits_balance: true,
+      }
     })
 
     if (!school) {
       return { success: false, error: 'School not found' }
+    }
+
+    if (school.credits_balance <= 0) {
+      return {
+        success: false,
+        error: 'This school has no interview credits remaining. Please contact the school administrator.'
+      }
     }
 
     let promptIds = school.selected_prompt_ids || []

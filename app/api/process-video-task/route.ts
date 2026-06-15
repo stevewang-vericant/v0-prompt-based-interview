@@ -601,6 +601,7 @@ async function processVideoMergeTaskInner(taskId: string) {
             where: { interview_id: interviewId },
             select: {
               id: true,
+              school_id: true,
               metadata: true,
               student: {
                 select: {
@@ -613,33 +614,68 @@ async function processVideoMergeTaskInner(taskId: string) {
         
         if (interview) {
             interviewDbId = interview.id
-            await prisma.interview.update({
-                where: { id: interview.id },
-                data: {
-                    video_url: mergedVideoUrl,
-                    // 仅当本次产生了 with-prep 视频时写入；老面试保持 null
-                    ...(mergedWithPrepUrl
-                      ? { video_with_prep_url: mergedWithPrepUrl }
-                      : {}),
-                    subtitle_url: subtitleUrl,
-                    total_duration: actualDuration,
-                    status: 'completed',
-                    completed_at: new Date(),
-                    metadata: {
-                        ...(interview.metadata as object),
-                        taskId: taskId,
-                        merged: true,
-                        mergedAt: new Date().toISOString(),
-                        segmentCount: segments.length,
-                        totalDuration: actualDuration,
-                        actualDuration: actualDuration,
-                        estimatedDuration: totalDuration,
-                        subtitleMetadata: subtitleMetadata,
+            const existingMetadata =
+              interview.metadata && typeof interview.metadata === 'object' && !Array.isArray(interview.metadata)
+                ? (interview.metadata as Record<string, unknown>)
+                : {}
+            const creditAlreadyDeducted = existingMetadata.creditDeducted === true
+            const mergedAt = new Date().toISOString()
+            const creditDeductedAt =
+              creditAlreadyDeducted && typeof existingMetadata.creditDeductedAt === 'string'
+                ? existingMetadata.creditDeductedAt
+                : mergedAt
+
+            await prisma.$transaction(async (tx) => {
+                await tx.interview.update({
+                    where: { id: interview.id },
+                    data: {
+                        video_url: mergedVideoUrl,
+                        // 仅当本次产生了 with-prep 视频时写入；老面试保持 null
                         ...(mergedWithPrepUrl
-                          ? { mergedWithPrepVideoUrl: mergedWithPrepUrl }
+                          ? { video_with_prep_url: mergedWithPrepUrl }
                           : {}),
-                        status: 'completed'
+                        subtitle_url: subtitleUrl,
+                        total_duration: actualDuration,
+                        status: 'completed',
+                        completed_at: new Date(),
+                        metadata: {
+                            ...existingMetadata,
+                            taskId: taskId,
+                            merged: true,
+                            mergedAt,
+                            segmentCount: segments.length,
+                            totalDuration: actualDuration,
+                            actualDuration: actualDuration,
+                            estimatedDuration: totalDuration,
+                            subtitleMetadata: subtitleMetadata,
+                            ...(mergedWithPrepUrl
+                              ? { mergedWithPrepVideoUrl: mergedWithPrepUrl }
+                              : {}),
+                            status: 'completed',
+                            creditDeducted: true,
+                            creditDeductedAt,
+                        }
                     }
+                })
+
+                if (!creditAlreadyDeducted) {
+                    await tx.school.update({
+                        where: { id: interview.school_id },
+                        data: {
+                            credits_balance: {
+                                decrement: 1,
+                            },
+                        },
+                    })
+
+                    await tx.creditTransaction.create({
+                        data: {
+                            school_id: interview.school_id,
+                            amount: -1,
+                            transaction_type: 'usage',
+                            payment_status: 'completed',
+                        },
+                    })
                 }
             })
             console.log(`[Task ${taskId}] ✓ Database updated successfully`)

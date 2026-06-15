@@ -7,7 +7,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getCurrentUser } from "@/app/actions/auth"
-import { listSchools, createSchool, deleteSchool, updateSchoolLevel, type ManagedSchool } from "@/app/actions/schools"
+import {
+  listSchools,
+  createSchool,
+  deleteSchool,
+  updateSchoolLevel,
+  adjustSchoolCredits,
+  type ManagedSchool,
+} from "@/app/actions/schools"
 import { AlertCircle, PlusCircle, Trash2 } from "lucide-react"
 import { format } from "date-fns"
 
@@ -26,6 +33,8 @@ export default function SchoolsPage() {
   const [isCreatingSchool, setIsCreatingSchool] = useState(false)
   const [deletingSchoolId, setDeletingSchoolId] = useState<string | null>(null)
   const [updatingLevelId, setUpdatingLevelId] = useState<string | null>(null)
+  const [updatingCreditsId, setUpdatingCreditsId] = useState<string | null>(null)
+  const [creditAdjustments, setCreditAdjustments] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
   const loadUserAndSchool = async () => {
@@ -117,6 +126,33 @@ export default function SchoolsPage() {
       setSchoolActionError(error instanceof Error ? error.message : "Failed to update school level")
     } finally {
       setUpdatingLevelId(null)
+    }
+  }
+
+  const handleAdjustCredits = async (schoolId: string) => {
+    const rawAmount = creditAdjustments[schoolId]
+    const amount = Number(rawAmount)
+
+    if (!Number.isInteger(amount) || amount === 0) {
+      setSchoolActionError("Enter a non-zero whole number of credits")
+      return
+    }
+
+    setUpdatingCreditsId(schoolId)
+    setSchoolActionError(null)
+    try {
+      const result = await adjustSchoolCredits(schoolId, amount)
+      if (result.success) {
+        setCreditAdjustments((prev) => ({ ...prev, [schoolId]: "" }))
+        await fetchManagedSchools()
+      } else {
+        setSchoolActionError(result.error || "Failed to adjust credits")
+      }
+    } catch (error) {
+      console.error("[Schools] Error adjusting credits:", error)
+      setSchoolActionError(error instanceof Error ? error.message : "Failed to adjust credits")
+    } finally {
+      setUpdatingCreditsId(null)
     }
   }
 
@@ -281,8 +317,33 @@ export default function SchoolsPage() {
                     <p className="text-xs text-[rgba(0,0,0,0.48)]">
                       Added {school.created_at ? format(new Date(school.created_at), "MMM dd, yyyy") : "—"}
                     </p>
+                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                      Credits: <span className="font-semibold text-[#1d1d1f]">{school.credits_balance}</span>
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      step="1"
+                      placeholder="+/- credits"
+                      value={creditAdjustments[school.id] ?? ""}
+                      onChange={(e) =>
+                        setCreditAdjustments((prev) => ({
+                          ...prev,
+                          [school.id]: e.target.value,
+                        }))
+                      }
+                      className="h-9 w-[120px]"
+                      disabled={updatingCreditsId === school.id}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAdjustCredits(school.id)}
+                      disabled={updatingCreditsId === school.id}
+                    >
+                      {updatingCreditsId === school.id ? "Updating..." : "Adjust"}
+                    </Button>
                     <Select
                       value={school.level}
                       onValueChange={(value) => handleChangeLevel(school.id, value)}
