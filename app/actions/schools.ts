@@ -250,9 +250,9 @@ export async function updateSchoolLevel(
   }
 }
 
-export async function adjustSchoolCredits(
+export async function setSchoolCredits(
   schoolId: string,
-  amount: number
+  creditsBalance: number
 ): Promise<{
   success: boolean
   school?: ManagedSchool
@@ -261,67 +261,33 @@ export async function adjustSchoolCredits(
   try {
     await ensureSuperAdmin()
 
-    if (!Number.isInteger(amount) || amount === 0) {
-      return { success: false, error: "Credit adjustment must be a non-zero whole number" }
-    }
-
-    const existing = await prisma.school.findUnique({
-      where: { id: schoolId },
-      select: {
-        id: true,
-        code: true,
-      },
-    })
-
-    if (!existing) {
-      return { success: false, error: "School not found" }
-    }
-
-    if (existing.code === "_system") {
-      return { success: false, error: "System school credits cannot be changed" }
+    if (!Number.isInteger(creditsBalance) || creditsBalance < 0) {
+      return { success: false, error: "Credit balance must be a non-negative whole number" }
     }
 
     const school = await prisma.$transaction(async (tx) => {
-      if (amount < 0) {
-        const updateResult = await tx.school.updateMany({
-          where: {
-            id: schoolId,
-            credits_balance: {
-              gte: Math.abs(amount),
-            },
-          },
-          data: {
-            credits_balance: {
-              increment: amount,
-            },
-          },
-        })
-
-        if (updateResult.count === 0) {
-          throw new Error("Credit balance cannot be negative")
-        }
-      } else {
-        await tx.school.update({
-          where: { id: schoolId },
-          data: {
-            credits_balance: {
-              increment: amount,
-            },
-          },
-        })
-      }
-
-      await tx.creditTransaction.create({
-        data: {
-          school_id: schoolId,
-          amount,
-          transaction_type: "admin_adjustment",
-          payment_status: "completed",
+      const existing = await tx.school.findUnique({
+        where: { id: schoolId },
+        select: {
+          id: true,
+          code: true,
+          credits_balance: true,
         },
       })
 
-      const updatedSchool = await tx.school.findUnique({
+      if (!existing) {
+        throw new Error("School not found")
+      }
+
+      if (existing.code === "_system") {
+        throw new Error("System school credits cannot be changed")
+      }
+
+      const amount = creditsBalance - existing.credits_balance
+
+      const updatedSchool = await tx.school.update({
         where: { id: schoolId },
+        data: { credits_balance: creditsBalance },
         select: {
           id: true,
           code: true,
@@ -334,8 +300,15 @@ export async function adjustSchoolCredits(
         },
       })
 
-      if (!updatedSchool) {
-        throw new Error("School not found")
+      if (amount !== 0) {
+        await tx.creditTransaction.create({
+          data: {
+            school_id: schoolId,
+            amount,
+            transaction_type: "admin_adjustment",
+            payment_status: "completed",
+          },
+        })
       }
 
       return updatedSchool

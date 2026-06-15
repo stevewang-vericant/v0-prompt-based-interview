@@ -12,7 +12,7 @@ import {
   createSchool,
   deleteSchool,
   updateSchoolLevel,
-  adjustSchoolCredits,
+  setSchoolCredits,
   type ManagedSchool,
 } from "@/app/actions/schools"
 import { AlertCircle, PlusCircle, Trash2 } from "lucide-react"
@@ -34,7 +34,7 @@ export default function SchoolsPage() {
   const [deletingSchoolId, setDeletingSchoolId] = useState<string | null>(null)
   const [updatingLevelId, setUpdatingLevelId] = useState<string | null>(null)
   const [updatingCreditsId, setUpdatingCreditsId] = useState<string | null>(null)
-  const [creditAdjustments, setCreditAdjustments] = useState<Record<string, string>>({})
+  const [creditTargets, setCreditTargets] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
   const loadUserAndSchool = async () => {
@@ -129,28 +129,28 @@ export default function SchoolsPage() {
     }
   }
 
-  const handleAdjustCredits = async (schoolId: string) => {
-    const rawAmount = creditAdjustments[schoolId]
-    const amount = Number(rawAmount)
+  const handleSetCredits = async (schoolId: string) => {
+    const rawTarget = creditTargets[schoolId]
+    const creditsBalance = Number(rawTarget)
 
-    if (!Number.isInteger(amount) || amount === 0) {
-      setSchoolActionError("Enter a non-zero whole number of credits")
+    if (!Number.isInteger(creditsBalance) || creditsBalance < 0) {
+      setSchoolActionError("Enter a non-negative whole number of credits")
       return
     }
 
     setUpdatingCreditsId(schoolId)
     setSchoolActionError(null)
     try {
-      const result = await adjustSchoolCredits(schoolId, amount)
+      const result = await setSchoolCredits(schoolId, creditsBalance)
       if (result.success) {
-        setCreditAdjustments((prev) => ({ ...prev, [schoolId]: "" }))
+        setCreditTargets((prev) => ({ ...prev, [schoolId]: "" }))
         await fetchManagedSchools()
       } else {
-        setSchoolActionError(result.error || "Failed to adjust credits")
+        setSchoolActionError(result.error || "Failed to save credits")
       }
     } catch (error) {
-      console.error("[Schools] Error adjusting credits:", error)
-      setSchoolActionError(error instanceof Error ? error.message : "Failed to adjust credits")
+      console.error("[Schools] Error saving credits:", error)
+      setSchoolActionError(error instanceof Error ? error.message : "Failed to save credits")
     } finally {
       setUpdatingCreditsId(null)
     }
@@ -338,10 +338,11 @@ export default function SchoolsPage() {
                           <Input
                             type="number"
                             step="1"
-                            placeholder="+/- amount"
-                            value={creditAdjustments[school.id] ?? ""}
+                            min="0"
+                            placeholder="New total"
+                            value={creditTargets[school.id] ?? ""}
                             onChange={(e) =>
-                              setCreditAdjustments((prev) => ({
+                              setCreditTargets((prev) => ({
                                 ...prev,
                                 [school.id]: e.target.value,
                               }))
@@ -352,13 +353,16 @@ export default function SchoolsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleAdjustCredits(school.id)}
+                            onClick={() => handleSetCredits(school.id)}
                             disabled={updatingCreditsId === school.id}
                           >
-                            {updatingCreditsId === school.id ? "Updating..." : "Apply"}
+                            {updatingCreditsId === school.id ? "Saving..." : "Save"}
                           </Button>
                         </div>
                       </div>
+                      <p className="mt-2 text-xs text-[rgba(0,0,0,0.48)]">
+                        Set the total available credits for this school.
+                      </p>
                     </div>
 
                     <div className="rounded-md border bg-white p-3">
