@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,20 +11,72 @@ import { getSchools, registerSchoolAdmin, type School } from "@/app/actions/auth
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
 
+type SchoolLevel = "k12" | "undergraduate"
+
+const SCHOOL_LEVEL_OPTIONS: Array<{ value: SchoolLevel; label: string }> = [
+  { value: "k12", label: "K-12" },
+  { value: "undergraduate", label: "University" },
+]
+
 export default function SchoolRegisterPage() {
   const [schools, setSchools] = useState<School[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [schoolSearch, setSchoolSearch] = useState("")
+  const [isSchoolSearchFocused, setIsSchoolSearchFocused] = useState(false)
   
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     confirmPassword: "",
     name: "",
+    schoolLevel: "" as SchoolLevel | "",
     schoolId: ""
   })
+
+  const selectedSchool = useMemo(
+    () => schools.find((school) => school.id === formData.schoolId) || null,
+    [schools, formData.schoolId]
+  )
+
+  const filteredSchools = useMemo(() => {
+    const query = schoolSearch.trim().toLowerCase()
+
+    if (!formData.schoolLevel || query.length < 2) {
+      return []
+    }
+
+    return schools
+      .filter((school) => school.level === formData.schoolLevel)
+      .filter((school) => school.name.toLowerCase().includes(query))
+      .slice(0, 8)
+  }, [schools, formData.schoolLevel, schoolSearch])
+
+  const hasEnoughSchoolSearch = schoolSearch.trim().length >= 2
+  const showSchoolResults =
+    Boolean(formData.schoolLevel) &&
+    isSchoolSearchFocused &&
+    hasEnoughSchoolSearch &&
+    !formData.schoolId
+
+  const handleSchoolLevelChange = (schoolLevel: SchoolLevel) => {
+    setFormData({ ...formData, schoolLevel, schoolId: "" })
+    setSchoolSearch("")
+    setError(null)
+  }
+
+  const handleSchoolSearchChange = (value: string) => {
+    setSchoolSearch(value)
+    setFormData({ ...formData, schoolId: "" })
+  }
+
+  const handleSelectSchool = (school: School) => {
+    setFormData({ ...formData, schoolId: school.id })
+    setSchoolSearch(school.name)
+    setIsSchoolSearchFocused(false)
+  }
 
   useEffect(() => {
     async function loadSchools() {
@@ -44,7 +96,7 @@ export default function SchoolRegisterPage() {
     setError(null)
     
     // 验证
-    if (!formData.email || !formData.password || !formData.name || !formData.schoolId) {
+    if (!formData.email || !formData.password || !formData.name || !formData.schoolLevel || !formData.schoolId) {
       setError("Please fill in all required fields")
       return
     }
@@ -132,35 +184,93 @@ export default function SchoolRegisterPage() {
             )}
             
             {/* 学校选择 */}
-            <div className="space-y-2">
-              <Label htmlFor="school">
-                School <span className="text-red-500">*</span>
-              </Label>
-              {loading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-[rgba(0,0,0,0.36)]" />
-                  <span className="ml-2 text-sm text-[rgba(0,0,0,0.56)]">Loading schools...</span>
-                </div>
-              ) : (
-                <select
-                  id="school"
-                  value={formData.schoolId}
-                  onChange={(e) => setFormData({ ...formData, schoolId: e.target.value })}
-                  className="w-full px-3 py-2 border border-black/[0.08] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                  disabled={submitting}
-                >
-                  <option value="">Select your school...</option>
-                  {schools.map((school) => (
-                    <option key={school.id} value={school.id}>
-                      {school.name}
-                    </option>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>
+                  School level <span className="text-red-500">*</span>
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {SCHOOL_LEVEL_OPTIONS.map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant={formData.schoolLevel === option.value ? "default" : "outline"}
+                      className="w-full"
+                      disabled={submitting || loading}
+                      onClick={() => handleSchoolLevelChange(option.value)}
+                    >
+                      {option.label}
+                    </Button>
                   ))}
-                </select>
-              )}
-              <p className="text-xs text-[rgba(0,0,0,0.48)]">
-                Don't see your school? Contact support to add it.
-              </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="schoolSearch">
+                  School <span className="text-red-500">*</span>
+                </Label>
+                {loading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-[rgba(0,0,0,0.36)]" />
+                    <span className="ml-2 text-sm text-[rgba(0,0,0,0.56)]">Loading schools...</span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      id="schoolSearch"
+                      type="text"
+                      placeholder={
+                        formData.schoolLevel
+                          ? "Type at least 2 letters to search..."
+                          : "Choose a school level first"
+                      }
+                      value={selectedSchool ? selectedSchool.name : schoolSearch}
+                      onChange={(e) => handleSchoolSearchChange(e.target.value)}
+                      onFocus={() => setIsSchoolSearchFocused(true)}
+                      onBlur={() => {
+                        window.setTimeout(() => setIsSchoolSearchFocused(false), 150)
+                      }}
+                      disabled={submitting || !formData.schoolLevel}
+                      autoComplete="off"
+                    />
+
+                    {showSchoolResults && (
+                      <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-black/[0.08] bg-white shadow-lg">
+                        {filteredSchools.length > 0 ? (
+                          filteredSchools.map((school) => (
+                            <button
+                              key={school.id}
+                              type="button"
+                              className="block w-full px-4 py-3 text-left text-sm hover:bg-black/[0.04] focus:bg-black/[0.04] focus:outline-none"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSelectSchool(school)}
+                            >
+                              {school.name}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-[rgba(0,0,0,0.56)]">
+                            No schools found for this level.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {formData.schoolLevel && !formData.schoolId && schoolSearch && !hasEnoughSchoolSearch && (
+                  <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                    Enter at least 2 letters to search schools.
+                  </p>
+                )}
+                {selectedSchool && (
+                  <p className="text-xs text-green-700">
+                    Selected: {selectedSchool.name}
+                  </p>
+                )}
+                <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                  Don't see your school? Contact support to add it.
+                </p>
+              </div>
             </div>
 
             {/* 姓名 */}

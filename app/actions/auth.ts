@@ -60,6 +60,7 @@ async function notifySignupApprovalRecipients(params: {
 export interface School {
   id: string
   name: string
+  level: string
   email: string | null // Deprecated legacy login email; nullable in the schema
 }
 
@@ -88,9 +89,15 @@ export async function getSchools(): Promise<{
 }> {
   try {
     const schools = await prisma.school.findMany({
+      where: {
+        NOT: {
+          code: "_system"
+        }
+      },
       select: {
         id: true,
         name: true,
+        level: true,
         email: true
       },
       orderBy: {
