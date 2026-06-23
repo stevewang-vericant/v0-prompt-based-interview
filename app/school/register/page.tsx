@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,7 @@ export default function SchoolRegisterPage() {
   const [schoolSearch, setSchoolSearch] = useState("")
   const [isSchoolSearchFocused, setIsSchoolSearchFocused] = useState(false)
   const [highlightedSchoolIndex, setHighlightedSchoolIndex] = useState(-1)
+  const schoolResultRefs = useRef<Array<HTMLButtonElement | null>>([])
   
   const [formData, setFormData] = useState({
     email: "",
@@ -149,6 +150,16 @@ export default function SchoolRegisterPage() {
 
     setHighlightedSchoolIndex(-1)
   }, [filteredSchools, formData.schoolId, formData.schoolLevel, hasEnoughSchoolSearch])
+
+  useEffect(() => {
+    if (highlightedSchoolIndex < 0) {
+      return
+    }
+
+    schoolResultRefs.current[highlightedSchoolIndex]?.scrollIntoView({
+      block: "nearest",
+    })
+  }, [highlightedSchoolIndex])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -300,6 +311,9 @@ export default function SchoolRegisterPage() {
                           filteredSchools.map((school, index) => (
                             <button
                               key={school.id}
+                              ref={(element) => {
+                                schoolResultRefs.current[index] = element
+                              }}
                               type="button"
                               className={`block w-full px-4 py-3 text-left text-sm hover:bg-black/[0.04] focus:bg-black/[0.04] focus:outline-none ${
                                 index === highlightedSchoolIndex ? "bg-black/[0.04]" : ""
