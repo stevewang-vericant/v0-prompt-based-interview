@@ -365,7 +365,7 @@ export default function SchoolRegisterPage() {
                   </p>
                 )}
                 <p className="text-xs text-[rgba(0,0,0,0.48)]">
-                  Don't see your school? Contact support to add it.
+                  Don't see your school? Contact info@vericant.com to add it.
                 </p>
               </div>
             </div>
