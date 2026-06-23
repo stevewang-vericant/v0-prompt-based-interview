@@ -59,8 +59,7 @@ export default function SchoolRegisterPage() {
   const showSchoolResults =
     Boolean(formData.schoolLevel) &&
     isSchoolSearchFocused &&
-    hasEnoughSchoolSearch &&
-    !formData.schoolId
+    hasEnoughSchoolSearch
 
   const handleSchoolLevelChange = (schoolLevel: SchoolLevel) => {
     setFormData({ ...formData, schoolLevel, schoolId: "" })
@@ -72,6 +71,7 @@ export default function SchoolRegisterPage() {
   const handleSchoolSearchChange = (value: string) => {
     setSchoolSearch(value)
     setFormData({ ...formData, schoolId: "" })
+    setIsSchoolSearchFocused(true)
     setHighlightedSchoolIndex(-1)
   }
 
