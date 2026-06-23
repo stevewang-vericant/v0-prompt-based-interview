@@ -18,6 +18,11 @@ const SCHOOL_LEVEL_OPTIONS: Array<{ value: SchoolLevel; label: string }> = [
   { value: "undergraduate", label: "University" },
 ]
 
+const SCHOOL_LEVEL_SEARCH_TERMS: Record<SchoolLevel, string[]> = {
+  k12: ["k-12", "k12"],
+  undergraduate: ["university", "undergraduate", "college"],
+}
+
 export default function SchoolRegisterPage() {
   const [schools, setSchools] = useState<School[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,9 +55,19 @@ export default function SchoolRegisterPage() {
       return []
     }
 
+    const levelTerms = SCHOOL_LEVEL_SEARCH_TERMS[formData.schoolLevel] || []
+
     return schools
       .filter((school) => school.level === formData.schoolLevel)
-      .filter((school) => school.name.toLowerCase().includes(query))
+      .filter((school) => {
+        const schoolCode = school.code?.toLowerCase() || ""
+
+        return (
+          school.name.toLowerCase().includes(query) ||
+          schoolCode.includes(query) ||
+          levelTerms.some((term) => term.includes(query))
+        )
+      })
       .slice(0, 8)
   }, [schools, formData.schoolLevel, schoolSearch])
 
@@ -322,7 +337,12 @@ export default function SchoolRegisterPage() {
                               onMouseEnter={() => setHighlightedSchoolIndex(index)}
                               onClick={() => handleSelectSchool(school)}
                             >
-                              {school.name}
+                              <span className="block">{school.name}</span>
+                              {school.code && (
+                                <span className="block text-xs text-[rgba(0,0,0,0.48)]">
+                                  {school.code}
+                                </span>
+                              )}
                             </button>
                           ))
                         ) : (

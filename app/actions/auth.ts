@@ -59,6 +59,7 @@ async function notifySignupApprovalRecipients(params: {
  */
 export interface School {
   id: string
+  code: string | null
   name: string
   level: string
   email: string | null // Deprecated legacy login email; nullable in the schema
@@ -96,6 +97,7 @@ export async function getSchools(): Promise<{
       },
       select: {
         id: true,
+        code: true,
         name: true,
         level: true,
         email: true
