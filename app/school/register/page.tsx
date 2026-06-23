@@ -26,6 +26,7 @@ export default function SchoolRegisterPage() {
   const [success, setSuccess] = useState(false)
   const [schoolSearch, setSchoolSearch] = useState("")
   const [isSchoolSearchFocused, setIsSchoolSearchFocused] = useState(false)
+  const [highlightedSchoolIndex, setHighlightedSchoolIndex] = useState(-1)
   
   const [formData, setFormData] = useState({
     email: "",
@@ -64,18 +65,58 @@ export default function SchoolRegisterPage() {
   const handleSchoolLevelChange = (schoolLevel: SchoolLevel) => {
     setFormData({ ...formData, schoolLevel, schoolId: "" })
     setSchoolSearch("")
+    setHighlightedSchoolIndex(-1)
     setError(null)
   }
 
   const handleSchoolSearchChange = (value: string) => {
     setSchoolSearch(value)
     setFormData({ ...formData, schoolId: "" })
+    setHighlightedSchoolIndex(-1)
   }
 
   const handleSelectSchool = (school: School) => {
     setFormData({ ...formData, schoolId: school.id })
     setSchoolSearch(school.name)
     setIsSchoolSearchFocused(false)
+    setHighlightedSchoolIndex(-1)
+  }
+
+  const handleSchoolSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setIsSchoolSearchFocused(false)
+      setHighlightedSchoolIndex(-1)
+      return
+    }
+
+    if (!showSchoolResults || filteredSchools.length === 0) {
+      return
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setHighlightedSchoolIndex((current) =>
+        current >= filteredSchools.length - 1 ? 0 : current + 1
+      )
+      return
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setHighlightedSchoolIndex((current) =>
+        current <= 0 ? filteredSchools.length - 1 : current - 1
+      )
+      return
+    }
+
+    if (e.key === "Enter") {
+      const schoolToSelect = filteredSchools[highlightedSchoolIndex] || filteredSchools[0]
+
+      if (schoolToSelect) {
+        e.preventDefault()
+        handleSelectSchool(schoolToSelect)
+      }
+    }
   }
 
   useEffect(() => {
@@ -90,6 +131,30 @@ export default function SchoolRegisterPage() {
     }
     loadSchools()
   }, [])
+
+  useEffect(() => {
+    if (formData.schoolId) {
+      return
+    }
+
+    if (!formData.schoolLevel || !hasEnoughSchoolSearch) {
+      setHighlightedSchoolIndex(-1)
+      return
+    }
+
+    if (filteredSchools.length === 1) {
+      const [school] = filteredSchools
+      setFormData((current) =>
+        current.schoolId ? current : { ...current, schoolId: school.id }
+      )
+      setSchoolSearch(school.name)
+      setIsSchoolSearchFocused(false)
+      setHighlightedSchoolIndex(-1)
+      return
+    }
+
+    setHighlightedSchoolIndex(-1)
+  }, [filteredSchools, formData.schoolId, formData.schoolLevel, hasEnoughSchoolSearch])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -230,6 +295,7 @@ export default function SchoolRegisterPage() {
                       onBlur={() => {
                         window.setTimeout(() => setIsSchoolSearchFocused(false), 150)
                       }}
+                      onKeyDown={handleSchoolSearchKeyDown}
                       disabled={submitting || !formData.schoolLevel}
                       autoComplete="off"
                     />
@@ -237,12 +303,15 @@ export default function SchoolRegisterPage() {
                     {showSchoolResults && (
                       <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-black/[0.08] bg-white shadow-lg">
                         {filteredSchools.length > 0 ? (
-                          filteredSchools.map((school) => (
+                          filteredSchools.map((school, index) => (
                             <button
                               key={school.id}
                               type="button"
-                              className="block w-full px-4 py-3 text-left text-sm hover:bg-black/[0.04] focus:bg-black/[0.04] focus:outline-none"
+                              className={`block w-full px-4 py-3 text-left text-sm hover:bg-black/[0.04] focus:bg-black/[0.04] focus:outline-none ${
+                                index === highlightedSchoolIndex ? "bg-black/[0.04]" : ""
+                              }`}
                               onMouseDown={(e) => e.preventDefault()}
+                              onMouseEnter={() => setHighlightedSchoolIndex(index)}
                               onClick={() => handleSelectSchool(school)}
                             >
                               {school.name}
