@@ -143,13 +143,7 @@ export default function SchoolRegisterPage() {
     }
 
     if (filteredSchools.length === 1) {
-      const [school] = filteredSchools
-      setFormData((current) =>
-        current.schoolId ? current : { ...current, schoolId: school.id }
-      )
-      setSchoolSearch(school.name)
-      setIsSchoolSearchFocused(false)
-      setHighlightedSchoolIndex(-1)
+      setHighlightedSchoolIndex(0)
       return
     }
 
@@ -289,7 +283,7 @@ export default function SchoolRegisterPage() {
                           ? "Type at least 2 letters to search..."
                           : "Choose a school level first"
                       }
-                      value={selectedSchool ? selectedSchool.name : schoolSearch}
+                      value={schoolSearch}
                       onChange={(e) => handleSchoolSearchChange(e.target.value)}
                       onFocus={() => setIsSchoolSearchFocused(true)}
                       onBlur={() => {
