@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,20 @@ import {
   getGlobalTimingSettings,
   updateGlobalTimingSettings
 } from "@/app/actions/system-settings"
-import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText } from "lucide-react"
+import {
+  getSchoolBranding,
+  uploadSchoolLogo,
+  uploadSchoolIntroVideo,
+  removeSchoolBrandingAsset,
+} from "@/app/actions/school-branding"
+import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText, Image as ImageIcon, Video, Upload } from "lucide-react"
+
+// B2-hosted assets must be served same-origin because the app sends a
+// Cross-Origin-Embedder-Policy: require-corp header.
+const toProxyUrl = (url: string) => `/api/proxy-video?url=${encodeURIComponent(url)}`
+
+const MAX_LOGO_BYTES = 5 * 1024 * 1024 // 5 MB
+const MAX_INTRO_VIDEO_BYTES = 50 * 1024 * 1024 // 50 MB
 
 export default function SettingsPage() {
   const [prompts, setPrompts] = useState<PromptRecord[]>([])
@@ -58,9 +71,23 @@ export default function SettingsPage() {
   const [timingSuccess, setTimingSuccess] = useState(false)
   const [timingLoading, setTimingLoading] = useState(true)
 
+  // Branding (logo + intro video) state
+  const [branding, setBranding] = useState<{ logoUrl: string | null; introVideoUrl: string | null }>({
+    logoUrl: null,
+    introVideoUrl: null,
+  })
+  const [brandingLoading, setBrandingLoading] = useState(true)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
+  const [brandingError, setBrandingError] = useState<string | null>(null)
+  const [brandingSuccess, setBrandingSuccess] = useState<string | null>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     loadPrompts()
     loadGlobalTimingSettings()
+    loadBranding()
   }, [])
 
   const loadPrompts = async () => {
@@ -121,6 +148,119 @@ export default function SettingsPage() {
       console.error("[Settings] Error loading global timing settings:", err)
     } finally {
       setTimingLoading(false)
+    }
+  }
+
+  const loadBranding = async () => {
+    try {
+      setBrandingLoading(true)
+      const result = await getSchoolBranding()
+      if (result.success && result.branding) {
+        setBranding(result.branding)
+      }
+    } catch (err) {
+      console.error("[Settings] Error loading branding:", err)
+    } finally {
+      setBrandingLoading(false)
+    }
+  }
+
+  const showBrandingSuccess = (message: string) => {
+    setBrandingSuccess(message)
+    setTimeout(() => setBrandingSuccess(null), 3000)
+  }
+
+  const handleLogoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (logoInputRef.current) logoInputRef.current.value = ""
+    if (!file) return
+
+    setBrandingError(null)
+    setBrandingSuccess(null)
+
+    if (!file.type.startsWith("image/")) {
+      setBrandingError("Logo must be an image file (PNG, JPEG, WEBP, or SVG).")
+      return
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setBrandingError("Logo must be 5 MB or smaller.")
+      return
+    }
+
+    try {
+      setUploadingLogo(true)
+      const formData = new FormData()
+      formData.append("file", file)
+      const result = await uploadSchoolLogo(formData)
+      if (!result.success || !result.url) {
+        setBrandingError(result.error || "Failed to upload logo")
+        return
+      }
+      setBranding((prev) => ({ ...prev, logoUrl: result.url! }))
+      showBrandingSuccess("Logo uploaded successfully!")
+    } catch (err) {
+      console.error("[Settings] Error uploading logo:", err)
+      setBrandingError(err instanceof Error ? err.message : "Failed to upload logo")
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  const handleVideoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (videoInputRef.current) videoInputRef.current.value = ""
+    if (!file) return
+
+    setBrandingError(null)
+    setBrandingSuccess(null)
+
+    if (!file.type.startsWith("video/")) {
+      setBrandingError("Intro video must be a video file (MP4, WEBM, MOV, or OGG).")
+      return
+    }
+    if (file.size > MAX_INTRO_VIDEO_BYTES) {
+      setBrandingError("Intro video must be 50 MB or smaller.")
+      return
+    }
+
+    try {
+      setUploadingVideo(true)
+      const formData = new FormData()
+      formData.append("file", file)
+      const result = await uploadSchoolIntroVideo(formData)
+      if (!result.success || !result.url) {
+        setBrandingError(result.error || "Failed to upload intro video")
+        return
+      }
+      setBranding((prev) => ({ ...prev, introVideoUrl: result.url! }))
+      showBrandingSuccess("Intro video uploaded successfully!")
+    } catch (err) {
+      console.error("[Settings] Error uploading intro video:", err)
+      setBrandingError(err instanceof Error ? err.message : "Failed to upload intro video")
+    } finally {
+      setUploadingVideo(false)
+    }
+  }
+
+  const handleRemoveBranding = async (asset: "logo" | "intro_video") => {
+    const label = asset === "logo" ? "logo" : "intro video"
+    if (!confirm(`Remove the ${label}? Students will no longer see it.`)) return
+
+    setBrandingError(null)
+    setBrandingSuccess(null)
+    try {
+      const result = await removeSchoolBrandingAsset(asset)
+      if (!result.success) {
+        setBrandingError(result.error || `Failed to remove ${label}`)
+        return
+      }
+      setBranding((prev) =>
+        asset === "logo" ? { ...prev, logoUrl: null } : { ...prev, introVideoUrl: null }
+      )
+      showBrandingSuccess(`${label.charAt(0).toUpperCase() + label.slice(1)} removed.`)
+    } catch (err) {
+      console.error("[Settings] Error removing branding:", err)
+      setBrandingError(err instanceof Error ? err.message : `Failed to remove ${label}`)
     }
   }
 
@@ -322,6 +462,10 @@ export default function SettingsPage() {
           <TabsTrigger value="prompts" className="gap-2">
             <FileText className="h-4 w-4" />
             Prompts
+          </TabsTrigger>
+          <TabsTrigger value="branding" className="gap-2">
+            <ImageIcon className="h-4 w-4" />
+            Branding
           </TabsTrigger>
         </TabsList>
 
@@ -710,6 +854,170 @@ export default function SettingsPage() {
                       ))
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        {/* Branding Tab */}
+        <TabsContent value="branding" className="space-y-6 mt-6">
+          <div>
+            <h3 className="text-xl font-bold text-[#1d1d1f]">Branding</h3>
+            <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
+              Upload your school logo and an intro video. The logo is shown to students on the interview
+              page, and the intro video plays when a student opens the interview link, before they start.
+            </p>
+          </div>
+
+          {brandingError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{brandingError}</AlertDescription>
+            </Alert>
+          )}
+          {brandingSuccess && (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">{brandingSuccess}</AlertDescription>
+            </Alert>
+          )}
+
+          {brandingLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent"></div>
+            </div>
+          ) : (
+            <>
+              {/* Logo */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
+                    <div>
+                      <CardTitle>School Logo</CardTitle>
+                      <CardDescription>
+                        Shown on the student interview page. PNG, JPEG, WEBP, or SVG, up to 5 MB.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {branding.logoUrl ? (
+                    <div className="flex items-center justify-center rounded-lg border border-black/[0.06] bg-[#f5f5f7] p-6">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={toProxyUrl(branding.logoUrl)}
+                        alt="School logo"
+                        className="max-h-24 w-auto object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-black/[0.12] bg-[#f5f5f7] py-10 text-center">
+                      <ImageIcon className="h-8 w-8 text-[rgba(0,0,0,0.36)]" />
+                      <p className="mt-2 text-sm text-[rgba(0,0,0,0.48)]">No logo uploaded yet</p>
+                    </div>
+                  )}
+
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    className="hidden"
+                    onChange={handleLogoSelected}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={uploadingLogo}
+                      className="gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploadingLogo ? "Uploading..." : branding.logoUrl ? "Replace Logo" : "Upload Logo"}
+                    </Button>
+                    {branding.logoUrl && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleRemoveBranding("logo")}
+                        disabled={uploadingLogo}
+                        className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Intro Video */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Video className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
+                    <div>
+                      <CardTitle>Intro Video</CardTitle>
+                      <CardDescription>
+                        Plays when a student opens the interview link, before the interview starts. MP4,
+                        WEBM, MOV, or OGG, up to 50 MB.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {branding.introVideoUrl ? (
+                    <div className="overflow-hidden rounded-lg border border-black/[0.06] bg-black">
+                      <video
+                        key={branding.introVideoUrl}
+                        src={toProxyUrl(branding.introVideoUrl)}
+                        controls
+                        className="w-full max-h-80"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-black/[0.12] bg-[#f5f5f7] py-10 text-center">
+                      <Video className="h-8 w-8 text-[rgba(0,0,0,0.36)]" />
+                      <p className="mt-2 text-sm text-[rgba(0,0,0,0.48)]">No intro video uploaded yet</p>
+                    </div>
+                  )}
+
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime,video/ogg"
+                    className="hidden"
+                    onChange={handleVideoSelected}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => videoInputRef.current?.click()}
+                      disabled={uploadingVideo}
+                      className="gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploadingVideo
+                        ? "Uploading..."
+                        : branding.introVideoUrl
+                          ? "Replace Video"
+                          : "Upload Video"}
+                    </Button>
+                    {branding.introVideoUrl && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleRemoveBranding("intro_video")}
+                        disabled={uploadingVideo}
+                        className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  {uploadingVideo && (
+                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                      Uploading video, this may take a moment for larger files...
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </>

@@ -9,6 +9,7 @@ import { InterviewSetup } from "@/components/interview/interview-setup"
 import { InterviewStudentInfo } from "@/components/interview/interview-student-info"
 import { InterviewPrompt } from "@/components/interview/interview-prompt"
 import { InterviewComplete } from "@/components/interview/interview-complete"
+import { InterviewIntro } from "@/components/interview/interview-intro"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
 import { uploadJsonToB2 } from "@/app/actions/upload-json"
 import { saveInterview } from "@/app/actions/interviews"
@@ -42,6 +43,14 @@ function InterviewPageContent() {
   const [isUnsupportedDevice, setIsUnsupportedDevice] = useState(false)
   
   const [stage, setStage] = useState<InterviewStage>("student-info")
+  // School branding (logo shown on the interview page, intro video gate before start)
+  const [branding, setBranding] = useState<{
+    logoUrl: string | null
+    introVideoUrl: string | null
+    name: string | null
+  }>({ logoUrl: null, introVideoUrl: null, name: null })
+  const [introAcknowledged, setIntroAcknowledged] = useState(false)
+  const [brandingLoading, setBrandingLoading] = useState(true)
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [promptsLoading, setPromptsLoading] = useState(true)
@@ -121,6 +130,35 @@ function InterviewPageContent() {
     }
 
     loadPrompts()
+  }, [schoolCode])
+
+  // 加载学校品牌信息（logo + intro video）
+  useEffect(() => {
+    if (!schoolCode) {
+      setBrandingLoading(false)
+      return
+    }
+
+    const loadBranding = async () => {
+      try {
+        setBrandingLoading(true)
+        const { getSchoolBrandingByCode } = await import("@/app/actions/school-branding")
+        const result = await getSchoolBrandingByCode(schoolCode)
+        if (result.success && result.branding) {
+          setBranding({
+            logoUrl: result.branding.logoUrl,
+            introVideoUrl: result.branding.introVideoUrl,
+            name: result.branding.name,
+          })
+        }
+      } catch (err) {
+        console.error("[Interview] Error loading school branding:", err)
+      } finally {
+        setBrandingLoading(false)
+      }
+    }
+
+    loadBranding()
   }, [schoolCode])
 
   // 初始化 interviewId（仅在客户端）
@@ -742,6 +780,17 @@ function InterviewPageContent() {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {branding.logoUrl && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/proxy-video?url=${encodeURIComponent(branding.logoUrl)}`}
+                    alt={branding.name ? `${branding.name} logo` : "School logo"}
+                    className="h-10 w-auto object-contain"
+                  />
+                  <div className="h-8 w-px bg-black/[0.1]" aria-hidden="true" />
+                </>
+              )}
               {(stage === "student-info" || stage === "setup") && (
                 <Image
                   src="/RGB Logo Verified Video Interviews.png"
@@ -788,7 +837,7 @@ function InterviewPageContent() {
           </Alert>
         )}
 
-        {promptsLoading && (
+        {(promptsLoading || brandingLoading) && (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
@@ -834,9 +883,17 @@ function InterviewPageContent() {
           </Alert>
         )}
 
-        {!isUnsupportedDevice && !promptsLoading && !promptsError && prompts.length > 0 && (
+        {!isUnsupportedDevice && !promptsLoading && !brandingLoading && !promptsError && prompts.length > 0 && (
           <>
-        {stage === "student-info" && (
+        {stage === "student-info" && branding.introVideoUrl && !introAcknowledged && (
+          <InterviewIntro
+            videoUrl={branding.introVideoUrl}
+            schoolName={branding.name}
+            onContinue={() => setIntroAcknowledged(true)}
+          />
+        )}
+
+        {stage === "student-info" && (!branding.introVideoUrl || introAcknowledged) && (
           <InterviewStudentInfo 
             onSubmit={handleStudentInfoComplete}
           />

@@ -20,6 +20,8 @@ model School {
   is_super_admin      Boolean             @default(false)
   is_rater            Boolean             @default(false)
   credits_balance     Int                 @default(0)
+  logo_url            String?             @db.VarChar(500) // School logo shown on the student interview page
+  intro_video_url     String?             @db.VarChar(500) // School intro video played before the interview starts
   created_at          DateTime            @default(now()) @db.Timestamptz(6)
   updated_at          DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
   last_login_at       DateTime?           @db.Timestamptz(6)
