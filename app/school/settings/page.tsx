@@ -904,16 +904,16 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {branding.logoUrl ? (
-                    <div className="flex items-center justify-center rounded-lg border border-black/[0.06] bg-[#f5f5f7] p-6">
+                    <div className="flex h-36 w-full max-w-xs items-center justify-center rounded-lg border border-black/[0.06] bg-[#f5f5f7] p-6">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={toProxyUrl(branding.logoUrl)}
                         alt="School logo"
-                        className="max-h-24 w-auto object-contain"
+                        className="max-h-full max-w-full object-contain"
                       />
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-black/[0.12] bg-[#f5f5f7] py-10 text-center">
+                    <div className="flex h-36 w-full max-w-xs flex-col items-center justify-center rounded-lg border border-dashed border-black/[0.12] bg-[#f5f5f7] text-center">
                       <ImageIcon className="h-8 w-8 text-[rgba(0,0,0,0.36)]" />
                       <p className="mt-2 text-sm text-[rgba(0,0,0,0.48)]">No logo uploaded yet</p>
                     </div>
@@ -966,16 +966,16 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {branding.introVideoUrl ? (
-                    <div className="overflow-hidden rounded-lg border border-black/[0.06] bg-black">
+                    <div className="w-full max-w-md overflow-hidden rounded-lg border border-black/[0.06] bg-black">
                       <video
                         key={branding.introVideoUrl}
                         src={toProxyUrl(branding.introVideoUrl)}
                         controls
-                        className="w-full max-h-80"
+                        className="block h-auto w-full max-h-[60vh]"
                       />
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-black/[0.12] bg-[#f5f5f7] py-10 text-center">
+                    <div className="flex aspect-video w-full max-w-md flex-col items-center justify-center rounded-lg border border-dashed border-black/[0.12] bg-[#f5f5f7] text-center">
                       <Video className="h-8 w-8 text-[rgba(0,0,0,0.36)]" />
                       <p className="mt-2 text-sm text-[rgba(0,0,0,0.48)]">No intro video uploaded yet</p>
                     </div>

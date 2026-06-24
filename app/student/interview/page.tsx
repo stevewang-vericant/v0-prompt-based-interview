@@ -780,26 +780,24 @@ function InterviewPageContent() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {branding.logoUrl && (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/proxy-video?url=${encodeURIComponent(branding.logoUrl)}`}
-                    alt={branding.name ? `${branding.name} logo` : "School logo"}
-                    className="h-10 w-auto object-contain"
-                  />
-                  <div className="h-8 w-px bg-black/[0.1]" aria-hidden="true" />
-                </>
-              )}
-              {(stage === "student-info" || stage === "setup") && (
-                <Image
-                  src="/RGB Logo Verified Video Interviews.png"
-                  alt="Vericant Logo"
-                  width={210}
-                  height={40}
-                  className="h-10 w-auto"
-                  priority
+              {branding.logoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={`/api/proxy-video?url=${encodeURIComponent(branding.logoUrl)}`}
+                  alt={branding.name ? `${branding.name} logo` : "School logo"}
+                  className="h-10 w-auto object-contain"
                 />
+              ) : (
+                (stage === "student-info" || stage === "setup") && (
+                  <Image
+                    src="/RGB Logo Verified Video Interviews.png"
+                    alt="Vericant Logo"
+                    width={210}
+                    height={40}
+                    className="h-10 w-auto"
+                    priority
+                  />
+                )
               )}
               {(stage === "student-info" || stage === "setup") && (
                 <Button variant="outline" onClick={() => (window.location.href = "/")}>
