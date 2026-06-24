@@ -785,7 +785,7 @@ function InterviewPageContent() {
                 <img
                   src={`/api/proxy-video?url=${encodeURIComponent(branding.logoUrl)}`}
                   alt={branding.name ? `${branding.name} logo` : "School logo"}
-                  className="h-10 w-auto object-contain"
+                  className="h-12 w-auto max-w-[220px] object-contain"
                 />
               ) : (
                 (stage === "student-info" || stage === "setup") && (
