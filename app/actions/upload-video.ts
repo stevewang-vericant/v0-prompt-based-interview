@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
+import { toClientError } from "@/lib/errors"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 
 const s3Client = new S3Client({
@@ -213,7 +214,7 @@ export async function uploadVideoToB2AndSave(
     console.error("[v0] ❌ Upload error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Upload failed",
+      error: toClientError(error, "Upload failed"),
     }
   }
 }

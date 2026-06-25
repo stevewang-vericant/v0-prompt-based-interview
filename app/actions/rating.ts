@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "./auth"
+import { toClientError } from "@/lib/errors"
 
 export interface RatingInterviewRecord {
   id: string
@@ -150,7 +151,7 @@ export async function getRatingInterviews(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -236,7 +237,7 @@ export async function getInterviewForRating(interviewId: string): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -273,7 +274,7 @@ export async function approveScore(interviewId: string): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -344,7 +345,7 @@ export async function approveWithOverride(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -387,7 +388,7 @@ export async function revokeApproval(interviewId: string): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }

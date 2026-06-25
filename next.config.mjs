@@ -2,10 +2,13 @@
 const nextConfig = {
   output: 'standalone', // 支持 Docker 部署
   eslint: {
+    // ESLint is still skipped at build time; the codebase has pre-existing lint
+    // debt that would otherwise block deploys. Run `npm run lint` separately.
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    // Type errors now fail the build. Keep this on to prevent shipping type regressions.
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

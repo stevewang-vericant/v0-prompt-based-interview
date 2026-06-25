@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { evaluateInterviewWithCathoven } from "@/lib/cathoven"
 import { notifyRatersAfterScoring } from "@/lib/rater-notifications"
+import { requireUserApi } from "@/lib/auth-guards"
 
 function extractQuestionsFromMetadata(metadata: Record<string, any> | null): string[] {
   if (!metadata) return []
@@ -27,6 +28,9 @@ function extractQuestionsFromMetadata(metadata: Record<string, any> | null): str
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireUserApi()
+    if (!auth.ok) return auth.response
+
     const body = await request.json()
     const interviewId = body?.interviewId as string | undefined
 

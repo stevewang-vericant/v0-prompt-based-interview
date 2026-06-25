@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isAllowedProxyUrl } from '@/lib/proxy-allowlist'
 
 export const dynamic = "force-dynamic"
 
@@ -8,6 +9,10 @@ export async function GET(request: NextRequest) {
 
   if (!url) {
     return new NextResponse('Missing URL parameter', { status: 400 })
+  }
+
+  if (!isAllowedProxyUrl(url)) {
+    return new NextResponse('URL host not allowed', { status: 400 })
   }
 
   try {

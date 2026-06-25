@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "./auth"
+import { requireSuperAdmin, requireUser } from "@/lib/auth-guards"
+import { toClientError } from "@/lib/errors"
 
 /**
  * 面试数据类型定义
@@ -213,7 +215,7 @@ export async function saveInterview(data: InterviewData): Promise<{
     console.error("[DB] Unexpected error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -231,6 +233,9 @@ export async function getInterviews(
   error?: string
 }> {
   try {
+    // Listing every interview across all schools is a super-admin-only operation.
+    await requireSuperAdmin()
+
     console.log("[DB] Fetching interviews, limit:", limit, "offset:", offset)
     
     const [interviews, count] = await prisma.$transaction([
@@ -253,7 +258,7 @@ export async function getInterviews(
     console.error("[DB] Unexpected error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -287,7 +292,7 @@ export async function getInterviewById(interviewId: string): Promise<{
     console.error("[DB] Unexpected error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -301,6 +306,8 @@ export async function getInterviewsByEmail(studentEmail: string): Promise<{
   error?: string
 }> {
   try {
+    await requireSuperAdmin()
+
     console.log("[DB] Fetching interviews for student:", studentEmail)
     
     // 需要先找到学生 ID
@@ -324,7 +331,7 @@ export async function getInterviewsByEmail(studentEmail: string): Promise<{
     console.error("[DB] Unexpected error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -340,6 +347,8 @@ export async function updateInterviewStatus(
   error?: string
 }> {
   try {
+    await requireSuperAdmin()
+
     console.log("[DB] Updating interview status:", interviewId, "->", status)
     
     await prisma.interview.update({
@@ -353,7 +362,7 @@ export async function updateInterviewStatus(
     console.error("[DB] Unexpected error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -372,6 +381,14 @@ export async function getInterviewsBySchoolCode(
   error?: string
 }> {
   try {
+    // A school admin may only read their own school's interviews; super admins
+    // may read any school. This prevents cross-tenant data access via a forged
+    // school code.
+    const user = await requireUser()
+    if (!user.school.is_super_admin && user.school.code !== schoolCode) {
+      throw new Error("Not authorized")
+    }
+
     console.log("[DB] Fetching interviews for school:", schoolCode)
     
     const [interviews, count] = await prisma.$transaction([
@@ -405,7 +422,7 @@ export async function getInterviewsBySchoolCode(
     console.error("[DB] Unexpected error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -446,7 +463,7 @@ export async function deleteIncompleteInterview(interviewId: string): Promise<{
     console.error("[DB] Failed to delete incomplete interview:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -464,6 +481,8 @@ export async function getSchoolByAdminEmail(adminEmail: string): Promise<{
   error?: string
 }> {
   try {
+    await requireSuperAdmin()
+
     console.log("[DB] Fetching school for admin:", adminEmail)
     
     // 新架构：管理员就是学校本身，或者学校有管理员
@@ -495,7 +514,7 @@ export async function getSchoolByAdminEmail(adminEmail: string): Promise<{
     console.error("[DB] Unexpected error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -509,6 +528,8 @@ export async function checkSuperAdmin(email: string): Promise<{
   error?: string
 }> {
   try {
+    await requireSuperAdmin()
+
     console.log("[DB] Checking super admin status for:", email)
     
     const school = await prisma.school.findUnique({
@@ -528,7 +549,7 @@ export async function checkSuperAdmin(email: string): Promise<{
     return {
       success: false,
       is_super_admin: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }

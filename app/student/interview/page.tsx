@@ -11,9 +11,7 @@ import { InterviewPrompt } from "@/components/interview/interview-prompt"
 import { InterviewComplete } from "@/components/interview/interview-complete"
 import { InterviewIntro } from "@/components/interview/interview-intro"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
-import { uploadJsonToB2 } from "@/app/actions/upload-json"
 import { saveInterview } from "@/app/actions/interviews"
-import { startTranscription } from '@/app/actions/transcription'
 import { getVideoDuration } from '@/lib/video-utils'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, CreditCard } from "lucide-react"
@@ -649,16 +647,7 @@ function InterviewPageContent() {
           console.log("[v0] ✓ Video merge task created:", mergeData.taskId)
           console.log("[v0] Video processing will continue in the background")
           
-          // 更新数据库中的taskId（如果之前保存成功）
-          if (studentEmail) {
-            // 异步更新，不阻塞
-            import('@/app/actions/interviews').then(({ updateInterviewMetadata }) => {
-              // 如果这个函数存在，更新metadata
-              // 否则在processVideoMergeTask中更新
-            }).catch(() => {
-              // 忽略错误，processVideoMergeTask会处理
-            })
-          }
+          // taskId 的持久化由 processVideoMergeTask 在后台完成，这里无需额外更新。
         } else {
           console.error("[v0] Merge API returned error:", mergeData.error)
           // 不抛出错误，让用户知道上传成功，合并会在后台重试
@@ -710,7 +699,7 @@ function InterviewPageContent() {
     console.log("[v0] Submitting interview with", Object.keys(responses).length, "responses")
     console.log("[v0] Student email:", studentInfo.email)
     console.log("[v0] School code:", schoolCode || "Not specified")
-    console.log("[v0] Student info:", studentInfo)
+    console.log("[v0] Student info present:", !!studentInfo)
     
     // 上传所有视频分段到 B2，然后在服务端使用 FFmpeg 合并
     const result = await uploadSegmentVideos(responses, studentInfo.email, studentInfo.name, schoolCode)

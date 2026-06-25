@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import OpenAI from 'openai'
+import { requireUserApi } from '@/lib/auth-guards'
 
 // 初始化 OpenAI 客户端
 const openai = new OpenAI({
@@ -9,6 +10,9 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireUserApi()
+    if (!auth.ok) return auth.response
+
     const { interviewId } = await request.json()
 
     if (!interviewId) {

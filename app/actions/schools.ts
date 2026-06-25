@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "./auth"
 import { hashPassword } from "@/lib/auth-utils"
+import { toClientError } from "@/lib/errors"
 
 type SchoolLevel = "k12" | "undergraduate"
 
@@ -77,7 +78,7 @@ export async function listSchools(): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -174,7 +175,7 @@ export async function createSchool({
       }
     })
 
-    console.log(`[Auth] Created school ${normalizedCode} with default password: ${defaultPassword}`)
+    console.log(`[Auth] Created school ${normalizedCode} with a generated default password (not logged)`)
 
     return {
       success: true,
@@ -187,7 +188,7 @@ export async function createSchool({
     console.error("Create school error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -245,7 +246,7 @@ export async function updateSchoolLevel(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -324,7 +325,7 @@ export async function setSchoolCredits(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -365,7 +366,7 @@ export async function deleteSchool(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }

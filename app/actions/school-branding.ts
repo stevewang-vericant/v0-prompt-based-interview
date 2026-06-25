@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "./auth"
+import { toClientError } from "@/lib/errors"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 
 const s3Client = new S3Client({
@@ -87,7 +88,7 @@ export async function getSchoolBranding(): Promise<{
     }
   } catch (error) {
     console.error("[Branding] Error fetching branding:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    return { success: false, error: toClientError(error) }
   }
 }
 
@@ -133,7 +134,7 @@ export async function uploadSchoolLogo(formData: FormData): Promise<{
     return { success: true, url }
   } catch (error) {
     console.error("[Branding] Error uploading logo:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Upload failed" }
+    return { success: false, error: toClientError(error, "Upload failed") }
   }
 }
 
@@ -179,7 +180,7 @@ export async function uploadSchoolIntroVideo(formData: FormData): Promise<{
     return { success: true, url }
   } catch (error) {
     console.error("[Branding] Error uploading intro video:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Upload failed" }
+    return { success: false, error: toClientError(error, "Upload failed") }
   }
 }
 
@@ -205,7 +206,7 @@ export async function removeSchoolBrandingAsset(asset: "logo" | "intro_video"): 
     return { success: true }
   } catch (error) {
     console.error("[Branding] Error removing branding asset:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    return { success: false, error: toClientError(error) }
   }
 }
 
@@ -238,6 +239,6 @@ export async function getSchoolBrandingByCode(schoolCode: string): Promise<{
     }
   } catch (error) {
     console.error("[Branding] Error fetching branding by code:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    return { success: false, error: toClientError(error) }
   }
 }

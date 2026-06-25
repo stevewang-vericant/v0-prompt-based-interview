@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUserApi } from '@/lib/auth-guards'
 
 // AssemblyAI API 配置
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLY_AI_API_KEY
@@ -84,6 +85,9 @@ async function pollAssemblyAIResult(transcriptId: string, maxWaitMs: number = 60
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireUserApi()
+    if (!auth.ok) return auth.response
+
     const { interviewId } = await request.json()
 
     if (!interviewId) {

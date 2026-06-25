@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
+import { toClientError } from "@/lib/errors"
 
 // AssemblyAI API 配置
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLY_AI_API_KEY
@@ -96,7 +97,7 @@ export async function createTranscriptionJob(
     console.error("[Transcription] Unexpected error:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -356,7 +357,7 @@ export async function processTranscriptionJob(
         where: { job_id: jobId },
         data: {
           status: 'failed',
-          error_message: error instanceof Error ? error.message : 'Unknown error',
+          error_message: toClientError(error),
           completed_at: new Date()
         }
       })
@@ -371,7 +372,7 @@ export async function processTranscriptionJob(
     
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -414,7 +415,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -454,7 +455,7 @@ export async function startTranscription(interviewId: string, videoUrl: string):
     console.error("[Transcription] ✗ Exception in startTranscription:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }

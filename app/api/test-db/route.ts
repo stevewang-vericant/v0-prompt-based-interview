@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireSuperAdminApi } from '@/lib/auth-guards'
 
 export async function GET() {
   try {
+    const auth = await requireSuperAdminApi()
+    if (!auth.ok) return auth.response
+
     // 测试数据库连接
     const count = await prisma.interview.count()
     

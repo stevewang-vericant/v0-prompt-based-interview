@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTranscriptionStatus } from '@/app/actions/transcription-simple'
+import { requireUserApi } from '@/lib/auth-guards'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireUserApi()
+    if (!auth.ok) return auth.response
+
     const { searchParams } = new URL(request.url)
     const interviewId = searchParams.get('interviewId')
     

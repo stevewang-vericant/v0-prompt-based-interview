@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
+import { toClientError } from "@/lib/errors"
 import { hashPassword, verifyPassword } from "@/lib/auth-utils"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -9,8 +10,33 @@ import crypto from "crypto"
 import { sendPasswordResetEmail, sendSignupApprovalNotificationEmail } from "@/lib/email"
 
 // 简单的 Session 管理，使用 JWT 存储在 HttpOnly Cookie 中
-const SECRET_KEY = new TextEncoder().encode(process.env.AUTH_SECRET || "default_secret_key_change_me")
 const ALG = "HS256"
+const INSECURE_DEFAULT_SECRET = "default_secret_key_change_me"
+
+// Lazily resolved + memoized so a missing AUTH_SECRET fails fast at *runtime*
+// in production, without breaking the build (where the env var may be absent).
+let cachedSecretKey: Uint8Array | null = null
+function getSecretKey(): Uint8Array {
+  if (cachedSecretKey) return cachedSecretKey
+
+  const secret = process.env.AUTH_SECRET
+  if (secret && secret.length > 0 && secret !== INSECURE_DEFAULT_SECRET) {
+    cachedSecretKey = new TextEncoder().encode(secret)
+    return cachedSecretKey
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_SECRET is not configured. Set a strong, unique AUTH_SECRET environment variable before running in production."
+    )
+  }
+
+  console.warn(
+    "[Auth] AUTH_SECRET is not set — using an INSECURE development fallback. Set AUTH_SECRET before deploying."
+  )
+  cachedSecretKey = new TextEncoder().encode("dev_only_insecure_secret_do_not_use_in_prod")
+  return cachedSecretKey
+}
 
 // Password reset token expiration time (1 hour)
 const RESET_TOKEN_EXPIRATION_HOURS = 1
@@ -112,7 +138,7 @@ export async function getSchools(): Promise<{
     console.error("[Auth] Unexpected error:", error)
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: toClientError(error) 
     }
   }
 }
@@ -186,13 +212,13 @@ export async function registerSchoolAdmin(
   } catch (error) {
     console.error("[Auth] Unexpected error during registration:", error)
     console.error("[Auth] Error details:", {
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: toClientError(error),
       code: (error as any)?.code,
       meta: (error as any)?.meta
     })
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: toClientError(error) 
     }
   }
 }
@@ -241,7 +267,7 @@ export async function signIn(
       })
         .setProtectedHeader({ alg: ALG })
         .setExpirationTime('24h')
-        .sign(SECRET_KEY)
+        .sign(getSecretKey())
 
       const cookieStore = await cookies()
       cookieStore.set('session', token, {
@@ -284,7 +310,7 @@ export async function signIn(
       })
         .setProtectedHeader({ alg: ALG })
         .setExpirationTime('24h')
-        .sign(SECRET_KEY)
+        .sign(getSecretKey())
 
       const cookieStore = await cookies()
       cookieStore.set('session', token, {
@@ -304,7 +330,7 @@ export async function signIn(
     console.error("[Auth] Unexpected error:", error)
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: toClientError(error) 
     }
   }
 }
@@ -336,7 +362,7 @@ export async function getCurrentUser(): Promise<{
     }
 
     try {
-      const { payload } = await jwtVerify(token, SECRET_KEY)
+      const { payload } = await jwtVerify(token, getSecretKey())
       const schoolId = payload.sub as string
       const adminId = (payload as any).admin_id as string | undefined
       
@@ -406,7 +432,7 @@ export async function getCurrentUser(): Promise<{
     console.error("[Auth] Unexpected error:", error)
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: toClientError(error) 
     }
   }
 }
@@ -430,7 +456,7 @@ export async function changePassword(
     }
 
     try {
-      const { payload } = await jwtVerify(token, SECRET_KEY)
+      const { payload } = await jwtVerify(token, getSecretKey())
       const adminId = (payload as any).admin_id as string | undefined
       const email = payload.email as string
 
@@ -459,7 +485,7 @@ export async function changePassword(
     console.error("[Auth] Unexpected error:", error)
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: toClientError(error) 
     }
   }
 }
@@ -564,7 +590,7 @@ export async function requestPasswordReset(
     console.error("[Auth] Unexpected error during password reset request:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -605,7 +631,7 @@ export async function verifyResetToken(
     return {
       success: false,
       valid: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -673,7 +699,7 @@ export async function resetPasswordWithToken(
     console.error("[Auth] Unexpected error during password reset:", error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }

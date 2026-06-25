@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { hashPassword } from "@/lib/auth-utils"
 import { getCurrentUser } from "./auth"
+import { toClientError } from "@/lib/errors"
 import { sendSignupApprovedEmail } from "@/lib/email"
 
 export interface ManagedUser {
@@ -158,7 +159,7 @@ export async function listUsers(): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -249,7 +250,7 @@ export async function activateUser(userId: string, userType?: 'school_admin' | '
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -317,7 +318,7 @@ export async function deactivateUser(userId: string, userType?: 'school_admin' |
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -412,7 +413,7 @@ export async function declineUserRequest(userId: string, userType?: 'school_admi
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -469,7 +470,7 @@ export async function deleteUser(userId: string): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -539,7 +540,7 @@ export async function resetUserPassword(userId: string, newPassword: string, use
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }
@@ -578,7 +579,7 @@ export async function toggleRaterRole(userId: string, isRater: boolean): Promise
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: toClientError(error),
     }
   }
 }

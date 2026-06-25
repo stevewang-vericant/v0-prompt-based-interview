@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from './auth'
+import { toClientError } from '@/lib/errors'
 
 export interface PromptRecord {
   id: string
@@ -53,7 +54,7 @@ export async function getSchoolPrompts(schoolId: string): Promise<{
     console.error('[Prompts] Error fetching prompts:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -107,7 +108,7 @@ export async function getSelectedPromptIds(): Promise<{
     console.error('[Prompts] Error fetching selected prompts:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -149,7 +150,7 @@ export async function updateSelectedPrompts(promptIds: string[]): Promise<{
     console.error('[Prompts] Error updating selected prompts:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -204,7 +205,7 @@ export async function createPrompt(data: {
     console.error('[Prompts] Error creating prompt:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -269,7 +270,7 @@ export async function deletePrompt(promptId: string): Promise<{
     console.error('[Prompts] Error deleting prompt:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -375,7 +376,7 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
     console.error('[Prompts] Error fetching prompts by school code:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }

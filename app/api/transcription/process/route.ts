@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processTranscriptionJob } from '@/app/actions/transcription'
+import { requireInternalOrSuperAdminApi } from '@/lib/auth-guards'
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireInternalOrSuperAdminApi(request)
+    if (!auth.ok) return auth.response
+
     const { jobId, videoUrl } = await request.json()
     
     if (!jobId || !videoUrl) {

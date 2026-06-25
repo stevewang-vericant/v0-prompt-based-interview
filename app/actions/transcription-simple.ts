@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
+import { toClientError } from "@/lib/errors"
 import { TranscriptionMetadata, TranscriptionStatus } from "./transcription"
 import OpenAI from "openai"
 
@@ -229,7 +230,7 @@ export async function transcribeVideo(
     console.error("[Transcription] ========== TRANSCRIPTION FAILED ==========")
     console.error(error)
     
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage = toClientError(error)
     
     // 更新状态为失败，并保存错误信息
     try {
@@ -288,7 +289,7 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }

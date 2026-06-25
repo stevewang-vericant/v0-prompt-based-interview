@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { requireSuperAdminApi } from "@/lib/auth-guards"
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSuperAdminApi()
+    if (!auth.ok) return auth.response
+
     const searchParams = request.nextUrl.searchParams
     const interviewId = searchParams.get("interviewId")
     const limitRaw = searchParams.get("limit")

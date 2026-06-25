@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
+import { requireSuperAdminApi } from '@/lib/auth-guards'
 
 export async function GET() {
+  const auth = await requireSuperAdminApi()
+  if (!auth.ok) return auth.response
+
   const region = process.env.B2_BUCKET_REGION
   const endpoint = region ? `https://s3.${region}.backblazeb2.com` : '❌ Missing region'
   

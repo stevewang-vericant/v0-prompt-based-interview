@@ -32,7 +32,7 @@ export default function StudentRegisterPage() {
     if (!token) {
       setInvitationValid(false)
     } else {
-      console.log("[v0] Validating invitation token:", token)
+      console.log("[v0] Validating invitation token")
       // Simulate token validation
       setInvitationValid(true)
     }
@@ -47,7 +47,7 @@ export default function StudentRegisterPage() {
     }
 
     setIsLoading(true)
-    console.log("[v0] Student registration:", { ...formData, token })
+    console.log("[v0] Student registration submitted for:", formData.email)
 
     // TODO: Implement actual registration
     setTimeout(() => {

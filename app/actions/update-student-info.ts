@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { toClientError } from '@/lib/errors'
 
 interface AdditionalStudentInfo {
   gender?: string | null
@@ -65,7 +66,7 @@ export async function updateStudentInfo(
     console.error('[v0] Error updating student info:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }

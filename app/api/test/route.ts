@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSuperAdminApi } from '@/lib/auth-guards'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSuperAdminApi()
+    if (!auth.ok) return auth.response
+
     console.log('[Test API] Test endpoint called')
     
     return NextResponse.json({

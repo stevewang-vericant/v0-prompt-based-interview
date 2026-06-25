@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSuperAdminApi } from '@/lib/auth-guards'
 
 // 存储日志的内存数组（在生产环境中，这应该使用Redis或数据库）
 let logs: Array<{
@@ -48,6 +49,9 @@ console.warn = (...args: any[]) => addLog('warn', ...args)
 console.info = (...args: any[]) => addLog('info', ...args)
 
 export async function GET(request: NextRequest) {
+  const auth = await requireSuperAdminApi()
+  if (!auth.ok) return auth.response
+
   const { searchParams } = new URL(request.url)
   const since = searchParams.get('since')
   
@@ -74,6 +78,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE() {
+  const auth = await requireSuperAdminApi()
+  if (!auth.ok) return auth.response
+
   logs = []
   return NextResponse.json({
     success: true,

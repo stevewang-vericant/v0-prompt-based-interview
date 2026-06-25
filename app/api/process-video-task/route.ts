@@ -5,6 +5,7 @@ import { transcribeVideo } from '@/app/actions/transcription-simple'
 import { evaluateInterviewWithCathoven } from '@/lib/cathoven'
 import { sendInterviewCompletionEmail } from '@/lib/email'
 import { notifyRatersAfterScoring } from '@/lib/rater-notifications'
+import { requireInternalOrSuperAdminApi } from '@/lib/auth-guards'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
@@ -786,6 +787,9 @@ async function processVideoMergeTaskInner(taskId: string) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireInternalOrSuperAdminApi(request)
+    if (!auth.ok) return auth.response
+
     const { taskId } = await request.json()
     
     if (!taskId) {

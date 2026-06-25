@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from './auth'
+import { toClientError } from '@/lib/errors'
 
 /**
  * 获取全局时间设置（准备时间和回答时间）
@@ -32,7 +33,7 @@ export async function getGlobalTimingSettings(): Promise<{
     console.error('[SystemSettings] Error fetching global timing settings:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
@@ -93,7 +94,7 @@ export async function updateGlobalTimingSettings(
     console.error('[SystemSettings] Error updating global timing settings:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: toClientError(error)
     }
   }
 }
