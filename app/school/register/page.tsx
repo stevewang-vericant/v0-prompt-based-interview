@@ -15,7 +15,7 @@ type SchoolLevel = "k12" | "undergraduate"
 
 const SCHOOL_LEVEL_OPTIONS: Array<{ value: SchoolLevel; label: string }> = [
   { value: "k12", label: "K-12" },
-  { value: "undergraduate", label: "University" },
+  { value: "undergraduate", label: "Higher Education" },
 ]
 
 export default function SchoolRegisterPage() {
