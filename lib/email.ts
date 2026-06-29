@@ -9,6 +9,29 @@ const transporter = nodemailer.createTransport({
   },
 })
 
+// Credit balance at/above which schools are considered healthy. When a school's
+// balance drops from this threshold to just below it (5 -> 4), an alert is sent.
+export const LOW_CREDIT_ALERT_THRESHOLD = 5
+
+// Default recipient for low-credit alerts. Can be overridden per environment via
+// LOW_CREDIT_ALERT_RECIPIENTS (comma/semicolon separated) — useful for sending
+// staging test alerts to a QA inbox instead of the production recipient.
+const DEFAULT_LOW_CREDIT_ALERT_RECIPIENT = "brandon.woods@vericant.com"
+
+function getLowCreditAlertRecipients(): string[] {
+  const raw = process.env.LOW_CREDIT_ALERT_RECIPIENTS || ""
+  const configured = Array.from(
+    new Set(
+      raw
+        .split(/[;,]/)
+        .map((email) => email.trim())
+        .filter(Boolean)
+    )
+  )
+
+  return configured.length > 0 ? configured : [DEFAULT_LOW_CREDIT_ALERT_RECIPIENT]
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -403,5 +426,75 @@ ${reviewUrl}
   } catch (error) {
     console.error('[Email] Failed to send rater review notification:', error)
     throw new Error('Failed to send rater review notification email')
+  }
+}
+
+export interface LowCreditAlertParams {
+  schoolName: string
+  schoolCode?: string | null
+  creditsBalance: number
+}
+
+/**
+ * Alert configured recipients (default: Brandon) that a school's credit balance
+ * has dropped below the healthy threshold (triggered on the 5 -> 4 transition).
+ */
+export async function sendLowCreditAlertEmail(
+  params: LowCreditAlertParams
+): Promise<void> {
+  const recipients = getLowCreditAlertRecipients()
+  const safeSchoolName = escapeHtml(params.schoolName?.trim() || 'Unknown school')
+  const safeSchoolCode = escapeHtml(params.schoolCode?.trim() || 'N/A')
+  const balance = params.creditsBalance
+
+  const mailOptions = {
+    from: process.env.GMAIL_USER,
+    to: recipients,
+    subject: `Low Credit Alert: ${params.schoolName?.trim() || 'Unknown school'} has ${balance} credits left`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #fff8f0; padding: 30px; border-radius: 10px; border: 1px solid #f0c27a;">
+          <h2 style="color: #b35900; margin-bottom: 20px;">Low Credit Alert</h2>
+
+          <p>A school's credit balance has dropped below ${LOW_CREDIT_ALERT_THRESHOLD}.</p>
+
+          <ul style="padding-left: 20px; margin: 20px 0;">
+            <li><strong>School:</strong> ${safeSchoolName}</li>
+            <li><strong>Code:</strong> ${safeSchoolCode}</li>
+            <li><strong>Remaining credits:</strong> ${balance}</li>
+          </ul>
+
+          <p style="color: #666; font-size: 14px;">
+            Please follow up with the school to top up their credits.
+          </p>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+Low Credit Alert
+
+A school's credit balance has dropped below ${LOW_CREDIT_ALERT_THRESHOLD}.
+
+School: ${params.schoolName?.trim() || 'Unknown school'}
+Code: ${params.schoolCode?.trim() || 'N/A'}
+Remaining credits: ${balance}
+
+Please follow up with the school to top up their credits.
+    `.trim(),
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    console.log('[Email] Low credit alert sent to:', recipients.join(', '))
+  } catch (error) {
+    console.error('[Email] Failed to send low credit alert email:', error)
+    throw new Error('Failed to send low credit alert email')
   }
 }

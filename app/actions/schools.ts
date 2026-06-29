@@ -4,10 +4,17 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "./auth"
 import { hashPassword } from "@/lib/auth-utils"
 import { toClientError } from "@/lib/errors"
+import {
+  sendLowCreditAlertEmail,
+  LOW_CREDIT_ALERT_THRESHOLD,
+} from "@/lib/email"
 
 type SchoolLevel = "k12" | "undergraduate"
 
 const SCHOOL_LEVELS: SchoolLevel[] = ["k12", "undergraduate"]
+
+// Default credit balance granted to a brand-new school created by a super admin.
+const DEFAULT_NEW_SCHOOL_CREDITS = 5
 
 export interface ManagedSchool {
   id: string
@@ -161,6 +168,7 @@ export async function createSchool({
         email: email,
         password_hash: hashedPassword,
         active: true,
+        credits_balance: DEFAULT_NEW_SCHOOL_CREDITS, // New schools added by super admin start with default credits
         selected_prompt_ids: defaultPromptIds.length === 4 ? defaultPromptIds : [], // 只有正好4个才设置
       },
       select: {
@@ -312,14 +320,31 @@ export async function setSchoolCredits(
         })
       }
 
-      return updatedSchool
+      return { updatedSchool, previousCredits: existing.credits_balance }
     })
+
+    // Alert when the balance drops from the threshold (5) to just below it (4).
+    // Best-effort: never fail the credit update because the alert email failed.
+    if (
+      school.previousCredits === LOW_CREDIT_ALERT_THRESHOLD &&
+      school.updatedSchool.credits_balance === LOW_CREDIT_ALERT_THRESHOLD - 1
+    ) {
+      try {
+        await sendLowCreditAlertEmail({
+          schoolName: school.updatedSchool.name,
+          schoolCode: school.updatedSchool.code || "",
+          creditsBalance: school.updatedSchool.credits_balance,
+        })
+      } catch (error) {
+        console.error("[Schools] Failed to send low credit alert email:", error)
+      }
+    }
 
     return {
       success: true,
       school: {
-        ...school,
-        code: school.code || "",
+        ...school.updatedSchool,
+        code: school.updatedSchool.code || "",
       },
     }
   } catch (error) {
