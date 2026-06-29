@@ -387,7 +387,15 @@ async function processVideoMergeTaskInner(taskId: string) {
         tempFiles.push(inputWebm, outputMp4)
         intermediateMp4s.push(outputMp4)
 
-        const cmd = `ffmpeg -loglevel error -i "${inputWebm}" -c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 -threads 1 -c:a aac -b:a 128k -movflags +faststart "${outputMp4}" -y`
+        // 对需要裁掉 prep 的分段，在 prep 边界强制插入一个关键帧。
+        // 这样后续可以用 input-seek (`-ss <prep>` 放在 `-i` 前) + `-c copy` 精确裁剪，
+        // 且裁剪后的视频流时间戳从 0 重新开始——避免"开头几秒画面定格、只有声音"的问题
+        // （根因：output-seek + copy 会保留 ~prep 秒的视频 start_time，与从 0 开始的音频错位）。
+        // libx264 默认 GOP 约 250 帧(≈8.3s)，没有这个强制关键帧时 copy 无法在 prep 处切割。
+        const prepForKeyframe = segmentPrepDurations[i] || 0
+        const forceKeyframe = prepForKeyframe > 0 ? `-force_key_frames ${prepForKeyframe} ` : ''
+
+        const cmd = `ffmpeg -loglevel error -i "${inputWebm}" -c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 -pix_fmt yuv420p -vsync cfr -r 30 ${forceKeyframe}-threads 1 -c:a aac -b:a 128k -movflags +faststart "${outputMp4}" -y`
         const { stderr } = await execAsync(cmd, { maxBuffer: 100 * 1024 * 1024 })
         if (stderr) console.log(`[Task ${taskId}] FFmpeg passA seg ${i + 1} stderr:`, stderr)
         if (!existsSync(outputMp4)) {
@@ -402,9 +410,13 @@ async function processVideoMergeTaskInner(taskId: string) {
         if (prep > 0) {
           const trimmed = join(tempDir, `seg_resp_${i + 1}_${Date.now()}.mp4`)
           tempFiles.push(trimmed)
-          // 把 -ss 放在 -i 之后才会精确按 PTS 裁剪到 prep 秒；MP4 已带可靠的关键帧分布，
-          // 用 -c copy 几乎瞬间完成，不再二次编码。
-          const trimCmd = `ffmpeg -loglevel error -i "${intermediateMp4s[i]}" -ss ${prep} -c copy -movflags +faststart "${trimmed}" -y`
+          // 用 input-seek（-ss 放在 -i 之前）配合 Pass A 在 prep 处强制插入的关键帧，
+          // 既能精确切到 prep 秒，又能让输出的视频/音频时间戳都从 0 重新开始。
+          // `-avoid_negative_ts make_zero` 进一步保证不留下负/正起始偏移。
+          // 这样合并后的成片不会再出现"开头画面定格、只有声音"的现象。
+          // 注意：不能用 output-seek（-ss 在 -i 之后）+ -c copy，那样视频 start_time 会保留
+          // 约 prep 秒而音频从 0 开始，造成开头几秒有声无画。
+          const trimCmd = `ffmpeg -loglevel error -ss ${prep} -i "${intermediateMp4s[i]}" -c copy -avoid_negative_ts make_zero -movflags +faststart "${trimmed}" -y`
           const { stderr } = await execAsync(trimCmd, { maxBuffer: 100 * 1024 * 1024 })
           if (stderr) console.log(`[Task ${taskId}] FFmpeg trim seg ${i + 1} stderr:`, stderr)
           if (!existsSync(trimmed)) {
