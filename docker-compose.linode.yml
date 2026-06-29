@@ -8,7 +8,7 @@ services:
         - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-}
     container_name: v0-interview-app
     ports:
-      - "3001:3000"  # 使用 3001 端口，避免与现有应用冲突
+      - "127.0.0.1:3001:3000"  # 仅本机监听；公网经 nginx 反代访问，避免直连绕过 nginx
     env_file:
       - .env.production  # 所有环境变量
     environment:
@@ -37,7 +37,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./prisma:/docker-prisma  # 挂载 Prisma 文件以便初始化
     ports:
-      - "5433:5432"  # 映射到 5433 避免与主机 PostgreSQL 冲突
+      - "127.0.0.1:5433:5432"  # 仅本机监听；数据库不对公网暴露（应用经 docker 内网 postgres:5432 访问）
     restart: unless-stopped
     networks:
       - app-network
