@@ -3,7 +3,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3
 import { prisma } from '@/lib/prisma'
 import { transcribeVideo } from '@/app/actions/transcription-simple'
 import { evaluateInterviewWithCathoven } from '@/lib/cathoven'
-import { sendInterviewCompletionEmail } from '@/lib/email'
+import { sendInterviewCompletionEmail, sendLowCreditAlertEmail, LOW_CREDIT_ALERT_THRESHOLD } from '@/lib/email'
 import { notifyRatersAfterScoring } from '@/lib/rater-notifications'
 import { requireInternalOrSuperAdminApi } from '@/lib/auth-guards'
 import { exec } from 'child_process'
@@ -638,6 +638,7 @@ async function processVideoMergeTaskInner(taskId: string) {
                 ? existingMetadata.creditDeductedAt
                 : mergedAt
 
+            let lowCreditAlert: { schoolName: string; schoolCode: string | null; creditsBalance: number } | null = null
             await prisma.$transaction(async (tx) => {
                 await tx.interview.update({
                     where: { id: interview.id },
@@ -672,14 +673,30 @@ async function processVideoMergeTaskInner(taskId: string) {
                 })
 
                 if (!creditAlreadyDeducted) {
-                    await tx.school.update({
+                    const updatedSchool = await tx.school.update({
                         where: { id: interview.school_id },
                         data: {
                             credits_balance: {
                                 decrement: 1,
                             },
                         },
+                        select: {
+                            name: true,
+                            code: true,
+                            credits_balance: true,
+                        },
                     })
+
+                    // Trigger the low-credit alert only on the threshold crossing
+                    // (5 -> 4). Since usage decrements by exactly 1, a new balance
+                    // of (threshold - 1) means it was at the threshold before.
+                    if (updatedSchool.credits_balance === LOW_CREDIT_ALERT_THRESHOLD - 1) {
+                        lowCreditAlert = {
+                            schoolName: updatedSchool.name,
+                            schoolCode: updatedSchool.code,
+                            creditsBalance: updatedSchool.credits_balance,
+                        }
+                    }
 
                     await tx.creditTransaction.create({
                         data: {
@@ -692,6 +709,16 @@ async function processVideoMergeTaskInner(taskId: string) {
                 }
             })
             console.log(`[Task ${taskId}] ✓ Database updated successfully`)
+
+            // Best-effort low-credit alert (after the transaction commits).
+            if (lowCreditAlert) {
+                try {
+                    await sendLowCreditAlertEmail(lowCreditAlert)
+                    console.log(`[Task ${taskId}] ✓ Low credit alert email sent`)
+                } catch (alertError) {
+                    console.error(`[Task ${taskId}] ⚠️ Failed to send low credit alert email:`, alertError)
+                }
+            }
 
             // 发送面试完成通知（最佳努力，不阻塞主流程）
             if (interview.student?.email) {
