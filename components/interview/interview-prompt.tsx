@@ -28,6 +28,34 @@ interface InterviewPromptProps {
 
 type Stage = "reading" | "preparing" | "recording"
 
+// 录制码率上限：720p 面试用 1.5 Mbps 视频 + 64 kbps 音频已足够清晰，
+// 约 110s 的 prep+response 分段只有 ~20MB，远低于 nginx(100M)/Server Actions(50MB) 限制。
+// 不设这些参数时浏览器会用默认高码率（可达 ~10 Mbps），曾导致单段 ~140MB 触发 413 上传失败。
+const VIDEO_BITS_PER_SECOND = 1_500_000
+const AUDIO_BITS_PER_SECOND = 64_000
+
+// 按优先级挑选当前浏览器支持的 webm 编码，避免在不支持指定 codec 时构造失败。
+function buildRecorderOptions(): MediaRecorderOptions {
+  const options: MediaRecorderOptions = {
+    videoBitsPerSecond: VIDEO_BITS_PER_SECOND,
+    audioBitsPerSecond: AUDIO_BITS_PER_SECOND,
+  }
+
+  if (typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function") {
+    const preferredTypes = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+    ]
+    const supported = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type))
+    if (supported) {
+      options.mimeType = supported
+    }
+  }
+
+  return options
+}
+
 export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete }: InterviewPromptProps) {
   const [stage, setStage] = useState<Stage>("reading")
   const [timeRemaining, setTimeRemaining] = useState(0)
@@ -156,7 +184,8 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       }
 
       // 一开始就启动录像，覆盖整段 prep + response
-      const mediaRecorder = new MediaRecorder(streamRef.current)
+      // 显式限制码率，避免浏览器默认高码率把单个分段撑到 100MB+ 触发上传 413。
+      const mediaRecorder = new MediaRecorder(streamRef.current, buildRecorderOptions())
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
       prepDurationRef.current = prompt.preparationTime
