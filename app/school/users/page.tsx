@@ -366,8 +366,8 @@ export default function UsersPage() {
                   <div className="flex-1">
                     <p className="font-semibold text-[#1d1d1f]">
                       {user.name}
-                      {user.code && (
-                        <span className="text-sm font-normal text-[rgba(0,0,0,0.48)] ml-2">({user.code})</span>
+                      {user.school_name && user.school_name !== user.name && (
+                        <span className="text-sm font-normal text-[rgba(0,0,0,0.48)] ml-2">({user.school_name})</span>
                       )}
                     </p>
                     <p className="text-sm text-[rgba(0,0,0,0.56)]">{user.email}</p>
@@ -449,8 +449,8 @@ export default function UsersPage() {
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-[#1d1d1f]">
                         {user.name}
-                        {user.code && (
-                          <span className="text-sm font-normal text-[rgba(0,0,0,0.48)] ml-2">({user.code})</span>
+                        {user.school_name && user.school_name !== user.name && (
+                          <span className="text-sm font-normal text-[rgba(0,0,0,0.48)] ml-2">({user.school_name})</span>
                         )}
                       </p>
                       {user.is_super_admin && (
