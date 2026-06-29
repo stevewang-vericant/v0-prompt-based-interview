@@ -268,7 +268,7 @@ export default function SchoolsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="k12">K-12</SelectItem>
-                <SelectItem value="undergraduate">Undergraduate</SelectItem>
+                <SelectItem value="undergraduate">Higher Education</SelectItem>
               </SelectContent>
             </Select>
             <Button type="submit" disabled={isCreatingSchool}>
@@ -279,7 +279,7 @@ export default function SchoolsPage() {
             School codes must be lowercase letters, numbers, or hyphen. Example: harvard, mit, the-governors-academy.
           </p>
           <p className="text-xs text-[rgba(0,0,0,0.48)]">
-            Level controls rating: <strong>Undergraduate</strong> interviews are AI-scored and rated; <strong>K-12</strong> interviews are not scored.
+            Level controls rating: <strong>Higher Education</strong> interviews are AI-scored and rated; <strong>K-12</strong> interviews are not scored.
           </p>
         </CardContent>
       </Card>
@@ -377,7 +377,7 @@ export default function SchoolsPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="k12">K-12</SelectItem>
-                          <SelectItem value="undergraduate">Undergraduate</SelectItem>
+                          <SelectItem value="undergraduate">Higher Education</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

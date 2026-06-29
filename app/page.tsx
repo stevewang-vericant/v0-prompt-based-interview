@@ -81,7 +81,7 @@ export default function HomePage() {
               Ready to Get Started?
             </h2>
             <p className="text-lg text-[rgba(255,255,255,0.64)] leading-relaxed tracking-tight">
-              Join leading institutions using our platform for undergraduate admissions
+              Join leading institutions using our platform for higher education admissions
             </p>
             <div className="pt-4">
               <Button asChild size="lg" className="bg-white text-[#1d1d1f] hover:bg-white/90 active:bg-white/80">
