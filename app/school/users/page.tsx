@@ -380,13 +380,13 @@ export default function UsersPage() {
                       Last login {user.last_login_at ? format(new Date(user.last_login_at), "MMM dd, yyyy HH:mm") : "Never"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center md:flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleDecline(user.id, user.type)}
                       disabled={actionLoading === user.id}
-                      className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                      className="w-full justify-center text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 sm:w-auto"
                     >
                       {actionLoading === user.id ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -400,6 +400,7 @@ export default function UsersPage() {
                       size="sm"
                       onClick={() => handleActivate(user.id, user.type)}
                       disabled={actionLoading === user.id}
+                      className="w-full justify-center sm:w-auto"
                     >
                       {actionLoading === user.id ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -473,7 +474,7 @@ export default function UsersPage() {
                       Last login {user.last_login_at ? format(new Date(user.last_login_at), "MMM dd, yyyy HH:mm") : "Never"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center md:flex-shrink-0">
                     {!user.is_super_admin && (
                       <>
                         {user.active ? (
@@ -482,6 +483,7 @@ export default function UsersPage() {
                             size="sm"
                             onClick={() => handleDeactivate(user.id, user.type)}
                             disabled={actionLoading === user.id}
+                            className="w-full justify-center sm:w-auto"
                           >
                             {actionLoading === user.id ? (
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -496,6 +498,7 @@ export default function UsersPage() {
                             size="sm"
                             onClick={() => handleActivate(user.id, user.type)}
                             disabled={actionLoading === user.id}
+                            className="w-full justify-center sm:w-auto"
                           >
                             {actionLoading === user.id ? (
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -510,7 +513,7 @@ export default function UsersPage() {
                           size="sm"
                           onClick={() => handleToggleRater(user.id, user.is_rater)}
                           disabled={actionLoading === user.id}
-                          className={user.is_rater ? "border-blue-200 text-blue-700 hover:bg-blue-50" : ""}
+                          className={`w-full justify-center sm:w-auto ${user.is_rater ? "border-blue-200 text-blue-700 hover:bg-blue-50" : ""}`}
                         >
                           {actionLoading === user.id ? (
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -522,6 +525,7 @@ export default function UsersPage() {
                           size="sm"
                           onClick={() => handleResetPasswordClick(user)}
                           disabled={actionLoading === user.id}
+                          className="w-full justify-center sm:w-auto"
                         >
                           <KeyRound className="h-4 w-4 mr-2" />
                           Reset Password
@@ -531,6 +535,7 @@ export default function UsersPage() {
                           size="sm"
                           onClick={() => handleDeleteClick(user)}
                           disabled={actionLoading === user.id}
+                          className="w-full justify-center sm:w-auto"
                         >
                           {actionLoading === user.id ? (
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
