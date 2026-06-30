@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-06-30T18:12:46.679Z",
+  "staging_url": "https://staging.guided.vericant.com",
+  "email": "test-user-1782843156623@vericant.com",
+  "password": "TestPass123!",
+  "name": "Test User 1782843156623",
+  "school": "Vericant",
+  "level_used": "Higher Education",
+  "result": "success",
+  "passed": true
+}
