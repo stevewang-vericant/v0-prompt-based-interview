@@ -50,6 +50,8 @@ export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudent
   const [usesCbo, setUsesCbo] = useState("")
   const [cboOrganization, setCboOrganization] = useState("")
   const [cboOtherName, setCboOtherName] = useState("")
+  // Selectable CBO list = static list + previously entered custom names (loaded from DB).
+  const [cboOptions, setCboOptions] = useState<string[]>(CBO_ORGANIZATIONS)
   const [cityError, setCityError] = useState("")
   const [gradeError, setGradeError] = useState("")
   const [cboOrganizationError, setCboOrganizationError] = useState("")
@@ -87,6 +89,25 @@ export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudent
       setCboOrganizationError("")
     }
   }, [usesCbo])
+
+  // Load the merged CBO list (static + previously entered) for K-12 schools.
+  useEffect(() => {
+    if (!showCbo) return
+    let cancelled = false
+    import("@/app/actions/cbo")
+      .then(({ getCboOrganizations }) => getCboOrganizations())
+      .then((res) => {
+        if (!cancelled && res.organizations?.length) {
+          setCboOptions(res.organizations)
+        }
+      })
+      .catch(() => {
+        // Keep the static fallback list on failure.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showCbo])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -470,7 +491,7 @@ export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudent
                       <SelectValue placeholder="Select CBO" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CBO_ORGANIZATIONS.map((organization) => (
+                      {cboOptions.map((organization) => (
                         <SelectItem key={organization} value={organization}>
                           {organization}
                         </SelectItem>
