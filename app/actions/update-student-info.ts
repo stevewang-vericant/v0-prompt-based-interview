@@ -9,7 +9,8 @@ interface AdditionalStudentInfo {
   residencyCity?: string | null
   residenceCountry?: string | null
   needFinancialAid?: boolean | null
-  usesCbo?: boolean
+  // null => the (optional) CBO question was left unanswered or is not applicable
+  usesCbo?: boolean | null
   cboOrganization?: string | null
 }
 
@@ -34,11 +35,18 @@ export async function updateStudentInfo(
     const hasCboInput =
       additionalInfo.usesCbo !== undefined ||
       additionalInfo.cboOrganization !== undefined
-    const usesCbo =
-      additionalInfo.usesCbo === true ||
-      (additionalInfo.usesCbo === undefined && !!cboOrganization)
 
-    if (usesCbo && !cboOrganization) {
+    // CBO is optional: null (or unanswered) stays null, false stays false.
+    let usesCbo: boolean | null = null
+    if (additionalInfo.usesCbo === true) {
+      usesCbo = true
+    } else if (additionalInfo.usesCbo === false) {
+      usesCbo = false
+    } else if (additionalInfo.usesCbo === undefined && !!cboOrganization) {
+      usesCbo = true
+    }
+
+    if (usesCbo === true && !cboOrganization) {
       return {
         success: false,
         error: 'CBO organization is required when using a CBO'
@@ -56,7 +64,7 @@ export async function updateStudentInfo(
         residence_country: additionalInfo.residenceCountry === undefined ? undefined : (additionalInfo.residenceCountry || null),
         need_financial_aid: additionalInfo.needFinancialAid === undefined ? undefined : (additionalInfo.needFinancialAid === null ? null : additionalInfo.needFinancialAid),
         uses_cbo: hasCboInput ? usesCbo : undefined,
-        cbo_organization: hasCboInput ? (usesCbo ? cboOrganization : null) : undefined
+        cbo_organization: hasCboInput ? (usesCbo === true ? cboOrganization : null) : undefined
       }
     })
 
