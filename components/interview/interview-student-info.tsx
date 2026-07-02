@@ -11,6 +11,9 @@ import { Mail, User, MapPin } from "lucide-react"
 import { COUNTRIES, searchCountries } from "@/lib/countries"
 import { CBO_ORGANIZATIONS } from "@/lib/cbo-organizations"
 
+// Sentinel value for "my CBO is not in the list" so the student can type it in.
+const CBO_OTHER_VALUE = "__other__"
+
 interface StudentInfo {
   email: string
   name: string
@@ -19,15 +22,19 @@ interface StudentInfo {
   residencyCity?: string | null
   residenceCountry: string
   needFinancialAid?: boolean | null
-  usesCbo: boolean
+  usesCbo: boolean | null
   cboOrganization?: string | null
 }
 
 interface InterviewStudentInfoProps {
   onSubmit: (info: StudentInfo) => void
+  // School level ("k12" | "undergraduate"). CBO is only relevant to K-12 students.
+  schoolLevel?: string | null
 }
 
-export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
+export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudentInfoProps) {
+  // Higher-ed schools don't collect CBO info; everything else defaults to K-12.
+  const showCbo = schoolLevel !== "undergraduate"
   const [studentEmail, setStudentEmail] = useState("")
   const [studentName, setStudentName] = useState("")
   const [emailError, setEmailError] = useState("")
@@ -42,9 +49,9 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
   const [needFinancialAid, setNeedFinancialAid] = useState<string>("")
   const [usesCbo, setUsesCbo] = useState("")
   const [cboOrganization, setCboOrganization] = useState("")
+  const [cboOtherName, setCboOtherName] = useState("")
   const [cityError, setCityError] = useState("")
   const [gradeError, setGradeError] = useState("")
-  const [usesCboError, setUsesCboError] = useState("")
   const [cboOrganizationError, setCboOrganizationError] = useState("")
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
   
@@ -76,6 +83,7 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
   useEffect(() => {
     if (usesCbo !== "yes") {
       setCboOrganization("")
+      setCboOtherName("")
       setCboOrganizationError("")
     }
   }, [usesCbo])
@@ -158,22 +166,40 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
       setGradeError("")
     }
 
-    if (!usesCbo) {
-      setUsesCboError("Please select whether you are using a CBO")
-      hasError = true
-    } else {
-      setUsesCboError("")
-    }
+    // CBO is optional. Only validate the organization when the student has
+    // explicitly said "yes" (and only for K-12 schools where CBO is shown).
+    const cboSelectedName =
+      cboOrganization === CBO_OTHER_VALUE ? cboOtherName.trim() : cboOrganization.trim()
 
-    if (usesCbo === "yes" && !cboOrganization.trim()) {
-      setCboOrganizationError("Please select your CBO")
-      hasError = true
+    if (showCbo && usesCbo === "yes") {
+      if (!cboOrganization) {
+        setCboOrganizationError("Please select your CBO")
+        hasError = true
+      } else if (cboOrganization === CBO_OTHER_VALUE && !cboOtherName.trim()) {
+        setCboOrganizationError("Please enter the name of your CBO")
+        hasError = true
+      } else {
+        setCboOrganizationError("")
+      }
     } else {
       setCboOrganizationError("")
     }
 
     if (hasError) {
       return
+    }
+
+    // Resolve the CBO answer. `null` means the (optional) question was left
+    // unanswered or is not applicable (higher-ed schools).
+    let usesCboValue: boolean | null = null
+    let cboOrganizationValue: string | null = null
+    if (showCbo) {
+      if (usesCbo === "yes") {
+        usesCboValue = true
+        cboOrganizationValue = cboSelectedName
+      } else if (usesCbo === "no") {
+        usesCboValue = false
+      }
     }
 
     // Prepare student info
@@ -185,8 +211,8 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
       residencyCity: residencyCity.trim() || null,
       residenceCountry: residenceCountry.trim(),
       needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : null,
-      usesCbo: usesCbo === "yes",
-      cboOrganization: usesCbo === "yes" ? cboOrganization.trim() : null
+      usesCbo: usesCboValue,
+      cboOrganization: cboOrganizationValue,
     }
 
     onSubmit(studentInfo)
@@ -398,61 +424,79 @@ export function InterviewStudentInfo({ onSubmit }: InterviewStudentInfoProps) {
             </RadioGroup>
           </div>
 
-          <div className="space-y-2">
-            <Label>
-              Are you using a CBO? <span className="text-red-500">*</span>
-            </Label>
-            <RadioGroup
-              value={usesCbo}
-              onValueChange={(value) => {
-                setUsesCbo(value)
-                setUsesCboError("")
-              }}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="yes" id="cbo-yes" />
-                <Label htmlFor="cbo-yes" className="font-normal cursor-pointer">Yes</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="no" id="cbo-no" />
-                <Label htmlFor="cbo-no" className="font-normal cursor-pointer">No</Label>
-              </div>
-            </RadioGroup>
-            {usesCboError && (
-              <p className="text-sm text-red-600">{usesCboError}</p>
-            )}
-          </div>
-
-          {usesCbo === "yes" && (
-            <div className="space-y-2">
-              <Label htmlFor="cboOrganization">
-                CBO <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={cboOrganization}
-                onValueChange={(value) => {
-                  setCboOrganization(value)
-                  setCboOrganizationError("")
-                }}
-              >
-                <SelectTrigger
-                  id="cboOrganization"
-                  className={cboOrganizationError ? "border-red-500" : ""}
+          {showCbo && (
+            <>
+              <div className="space-y-2">
+                <Label>
+                  Are you working with a Community-Based Organization (CBO) / Access Organization,
+                  such as Matriculate, College Possible, or LEDA? (Optional)
+                </Label>
+                <RadioGroup
+                  value={usesCbo}
+                  onValueChange={(value) => {
+                    setUsesCbo(value)
+                  }}
                 >
-                  <SelectValue placeholder="Select CBO" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CBO_ORGANIZATIONS.map((organization) => (
-                    <SelectItem key={organization} value={organization}>
-                      {organization}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {cboOrganizationError && (
-                <p className="text-sm text-red-600">{cboOrganizationError}</p>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="cbo-yes" />
+                    <Label htmlFor="cbo-yes" className="font-normal cursor-pointer">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="cbo-no" />
+                    <Label htmlFor="cbo-no" className="font-normal cursor-pointer">No</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {usesCbo === "yes" && (
+                <div className="space-y-2">
+                  <Label htmlFor="cboOrganization">
+                    Which CBO / Access Organization? <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={cboOrganization}
+                    onValueChange={(value) => {
+                      setCboOrganization(value)
+                      setCboOrganizationError("")
+                      if (value !== CBO_OTHER_VALUE) {
+                        setCboOtherName("")
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="cboOrganization"
+                      className={cboOrganizationError ? "border-red-500" : ""}
+                    >
+                      <SelectValue placeholder="Select CBO" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CBO_ORGANIZATIONS.map((organization) => (
+                        <SelectItem key={organization} value={organization}>
+                          {organization}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={CBO_OTHER_VALUE}>Other (not listed)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {cboOrganization === CBO_OTHER_VALUE && (
+                    <Input
+                      id="cboOtherName"
+                      type="text"
+                      placeholder="Enter the name of your CBO / Access Organization"
+                      value={cboOtherName}
+                      onChange={(e) => {
+                        setCboOtherName(e.target.value)
+                        setCboOrganizationError("")
+                      }}
+                      className={cboOrganizationError ? "border-red-500" : ""}
+                    />
+                  )}
+                  {cboOrganizationError && (
+                    <p className="text-sm text-red-600">{cboOrganizationError}</p>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
 
           <Button 

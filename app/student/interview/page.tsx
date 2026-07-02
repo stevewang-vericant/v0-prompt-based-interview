@@ -46,7 +46,8 @@ function InterviewPageContent() {
     logoUrl: string | null
     introVideoUrl: string | null
     name: string | null
-  }>({ logoUrl: null, introVideoUrl: null, name: null })
+    level: string | null
+  }>({ logoUrl: null, introVideoUrl: null, name: null, level: null })
   const [introAcknowledged, setIntroAcknowledged] = useState(false)
   const [brandingLoading, setBrandingLoading] = useState(true)
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0)
@@ -72,7 +73,7 @@ function InterviewPageContent() {
     residencyCity?: string | null
     residenceCountry: string
     needFinancialAid?: boolean | null
-    usesCbo: boolean
+    usesCbo: boolean | null
     cboOrganization?: string | null
   } | null>(null)
 
@@ -147,6 +148,7 @@ function InterviewPageContent() {
             logoUrl: result.branding.logoUrl,
             introVideoUrl: result.branding.introVideoUrl,
             name: result.branding.name,
+            level: result.branding.level,
           })
         }
       } catch (err) {
@@ -221,7 +223,7 @@ function InterviewPageContent() {
                 residencyCity: iv.student_city,
                 residenceCountry: 'Unknown',
                 needFinancialAid: iv.student_financial_aid,
-                usesCbo: iv.student_uses_cbo || false,
+                usesCbo: iv.student_uses_cbo ?? null,
                 cboOrganization: iv.student_cbo_organization
               })
               console.log('[v0] Restored student info from database')
@@ -360,7 +362,7 @@ function InterviewPageContent() {
     residencyCity?: string | null
     residenceCountry: string
     needFinancialAid?: boolean | null
-    usesCbo: boolean
+    usesCbo: boolean | null
     cboOrganization?: string | null
   }) => {
     console.log('[v0] Student info collected:', info)
@@ -883,6 +885,7 @@ function InterviewPageContent() {
         {stage === "student-info" && (!branding.introVideoUrl || introAcknowledged) && (
           <InterviewStudentInfo 
             onSubmit={handleStudentInfoComplete}
+            schoolLevel={branding.level}
           />
         )}
 

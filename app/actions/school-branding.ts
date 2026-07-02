@@ -216,26 +216,31 @@ export async function removeSchoolBrandingAsset(asset: "logo" | "intro_video"): 
  */
 export async function getSchoolBrandingByCode(schoolCode: string): Promise<{
   success: boolean
-  branding?: SchoolBranding & { name: string | null }
+  branding?: SchoolBranding & { name: string | null; level: string | null }
   error?: string
 }> {
   try {
     if (!schoolCode) {
-      return { success: true, branding: { logoUrl: null, introVideoUrl: null, name: null } }
+      return { success: true, branding: { logoUrl: null, introVideoUrl: null, name: null, level: null } }
     }
 
     const school = await prisma.school.findUnique({
       where: { code: schoolCode },
-      select: { name: true, logo_url: true, intro_video_url: true },
+      select: { name: true, logo_url: true, intro_video_url: true, level: true },
     })
 
     if (!school) {
-      return { success: true, branding: { logoUrl: null, introVideoUrl: null, name: null } }
+      return { success: true, branding: { logoUrl: null, introVideoUrl: null, name: null, level: null } }
     }
 
     return {
       success: true,
-      branding: { logoUrl: school.logo_url, introVideoUrl: school.intro_video_url, name: school.name },
+      branding: {
+        logoUrl: school.logo_url,
+        introVideoUrl: school.intro_video_url,
+        name: school.name,
+        level: school.level,
+      },
     }
   } catch (error) {
     console.error("[Branding] Error fetching branding by code:", error)
