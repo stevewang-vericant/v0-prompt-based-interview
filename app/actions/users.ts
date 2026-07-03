@@ -421,12 +421,43 @@ export async function declineUserRequest(userId: string, userType?: 'school_admi
 /**
  * 删除用户
  */
-export async function deleteUser(userId: string): Promise<{
+export async function deleteUser(userId: string, userType?: 'school_admin' | 'school'): Promise<{
   success: boolean
   error?: string
 }> {
   try {
     await ensureSuperAdmin()
+
+    // 如果没有指定类型，先尝试查找 SchoolAdmin
+    if (!userType) {
+      const admin = await prisma.schoolAdmin.findUnique({
+        where: { id: userId }
+      })
+      userType = admin ? 'school_admin' : 'school'
+    }
+
+    if (userType === 'school_admin') {
+      const admin = await prisma.schoolAdmin.findUnique({
+        where: { id: userId },
+        select: { id: true, is_super_admin: true }
+      })
+
+      if (!admin) {
+        return { success: false, error: "User not found" }
+      }
+
+      if (admin.is_super_admin) {
+        return { success: false, error: "Cannot delete super admin account" }
+      }
+
+      // SchoolAdmin 只是学校下的一个管理员账号，学校可能被其他管理员共享
+      // 或已有面试记录，因此只删除该管理员账号，不删除学校本身
+      await prisma.schoolAdmin.delete({
+        where: { id: userId }
+      })
+
+      return { success: true }
+    }
 
     const user = await prisma.school.findUnique({
       where: { id: userId },

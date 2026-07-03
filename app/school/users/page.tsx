@@ -181,7 +181,7 @@ export default function UsersPage() {
     setDeleteDialogOpen(false)
     
     try {
-      const result = await deleteUser(selectedUser.id)
+      const result = await deleteUser(selectedUser.id, selectedUser.type)
       if (result.success) {
         setSuccess("User deleted successfully")
         await fetchUsers()
