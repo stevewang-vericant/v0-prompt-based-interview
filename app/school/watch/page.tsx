@@ -6,7 +6,7 @@ import { VideoPlayerWithSubtitles } from '@/components/video-player-with-subtitl
 import { TranscriptionDisplay } from '@/components/transcription/transcription-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, FileText, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ExternalLink } from 'lucide-react'
 
 function SchoolWatchPageContent() {
   const searchParams = useSearchParams()
@@ -23,7 +23,6 @@ function SchoolWatchPageContent() {
   const studentUsesCbo = searchParams.get('studentUsesCbo')
   const studentCboOrganization = searchParams.get('studentCboOrganization')
   const finalScoreParam = searchParams.get('finalScore')
-  const scoreDetailReady = searchParams.get('scoreDetailReady') === 'true'
   const schoolLevel = searchParams.get('schoolLevel')
   // K-12 interviews are not rated: hide score badge and detail report.
   const isK12 = schoolLevel === 'k12'
@@ -140,20 +139,6 @@ function SchoolWatchPageContent() {
                     <span className="px-2 py-0.5 text-xs rounded bg-emerald-100 text-emerald-800">
                       BASE score: {finalScore !== null ? finalScore.toFixed(2) : 'N/A'}
                     </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      disabled={!interviewId || !scoreDetailReady}
-                      title={!scoreDetailReady ? 'Score detail not ready yet' : 'Open score detail report'}
-                      onClick={() => {
-                        if (!interviewId || !scoreDetailReady) return
-                        window.open(`/school/interview-report?interviewId=${encodeURIComponent(interviewId)}`, '_blank', 'noopener,noreferrer')
-                      }}
-                    >
-                      <FileText className="h-3 w-3 mr-1" />
-                      Detail Report
-                    </Button>
                   </div>
                 )}
               </div>

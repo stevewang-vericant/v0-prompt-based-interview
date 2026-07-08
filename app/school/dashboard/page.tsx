@@ -11,7 +11,7 @@ import {
   InterviewRecord 
 } from "@/app/actions/interviews"
 import { getCurrentUser } from "@/app/actions/auth"
-import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Copy, Search, Link as LinkIcon, CheckCircle, Trash2, FileText, CreditCard } from "lucide-react"
+import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Copy, Search, Link as LinkIcon, CheckCircle, Trash2, CreditCard } from "lucide-react"
 import { format } from "date-fns"
 
 function SchoolDashboardContent() {
@@ -198,7 +198,6 @@ function SchoolDashboardContent() {
       ? `/api/proxy-json?url=${encodeURIComponent(interview.subtitle_url)}` 
       : ''
     const finalScore = getFinalScore(interview)
-    const scoreDetailReady = hasScoreDetail(interview)
     
     const params = new URLSearchParams({
       videoUrl: proxyVideoUrl,
@@ -260,8 +259,6 @@ function SchoolDashboardContent() {
       params.append('finalScore', finalScore.toFixed(2))
     }
 
-    params.append('scoreDetailReady', String(scoreDetailReady))
-    
     const watchUrl = `/school/watch?${params.toString()}`
     
     window.location.href = watchUrl
@@ -305,21 +302,6 @@ function SchoolDashboardContent() {
     const response = metadata?.cathoven?.response
     const metaScore = response?.vericant_lite?.overall ?? null
     return typeof metaScore === 'number' ? metaScore : null
-  }
-
-  const hasScoreDetail = (interview: InterviewRecord): boolean => {
-    const metadata = interview.metadata as Record<string, any> | null
-    const hasCathovenResponse = Boolean(metadata?.cathoven?.response)
-    // Score detail only visible for approved interviews (super admins always see them)
-    if (!isPrivilegedUser && !interview.score_approved) {
-      return false
-    }
-    return hasCathovenResponse
-  }
-
-  const handleOpenScoreDetail = (interview: InterviewRecord) => {
-    if (!interview.interview_id) return
-    window.location.href = `/school/interview-report?interviewId=${encodeURIComponent(interview.interview_id)}`
   }
 
   const getCathovenStatus = (interview: InterviewRecord): 'completed' | 'failed' | 'not_called' => {
@@ -897,7 +879,7 @@ function SchoolDashboardContent() {
                           )}
                         </div>
 
-                        <div className={`grid w-full shrink-0 ${isK12(interview) ? "grid-cols-1" : "grid-cols-3"} gap-1.5 rounded-xl border border-black/[0.06] bg-black/[0.02] p-1 lg:justify-self-end`}>
+                        <div className={`grid w-full shrink-0 ${isK12(interview) ? "grid-cols-1" : "grid-cols-2"} gap-1.5 rounded-xl border border-black/[0.06] bg-black/[0.02] p-1 lg:justify-self-end`}>
                           <Button
                             onClick={() => handleWatchInterview(interview)}
                             size="sm"
@@ -922,17 +904,6 @@ function SchoolDashboardContent() {
                           </Button>
                           {!isK12(interview) && (
                             <>
-                              <Button
-                                onClick={() => handleOpenScoreDetail(interview)}
-                                size="sm"
-                                variant="ghost"
-                                className="col-span-1 min-w-0 border border-black/[0.14] bg-white text-[#1d1d1f] hover:bg-black/[0.04] active:bg-black/[0.08] disabled:border-black/[0.08] disabled:bg-black/[0.02] disabled:text-[rgba(0,0,0,0.32)] disabled:opacity-100"
-                                disabled={!hasScoreDetail(interview)}
-                                title={!hasScoreDetail(interview) ? "Score detail not ready yet" : "Open score detail"}
-                              >
-                                <FileText className="mr-1.5 h-3.5 w-3.5" />
-                                Detail
-                              </Button>
                               <Button
                                 onClick={() => handleRetryCathoven(interview)}
                                 size="sm"
