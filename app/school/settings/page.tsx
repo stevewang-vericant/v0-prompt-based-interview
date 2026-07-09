@@ -27,7 +27,8 @@ import {
   uploadSchoolIntroVideo,
   removeSchoolBrandingAsset,
 } from "@/app/actions/school-branding"
-import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText, Image as ImageIcon, Video, Upload } from "lucide-react"
+import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText, Image as ImageIcon, Video, Upload, Users } from "lucide-react"
+import { ParentQuestionsSettings } from "@/components/settings/parent-questions-settings"
 
 // B2-hosted assets must be served same-origin because the app sends a
 // Cross-Origin-Embedder-Policy: require-corp header.
@@ -463,6 +464,10 @@ export default function SettingsPage() {
             <FileText className="h-4 w-4" />
             Prompts
           </TabsTrigger>
+          <TabsTrigger value="parent-questions" className="gap-2">
+            <Users className="h-4 w-4" />
+            Parent Questions
+          </TabsTrigger>
           <TabsTrigger value="branding" className="gap-2">
             <ImageIcon className="h-4 w-4" />
             Branding
@@ -858,6 +863,11 @@ export default function SettingsPage() {
               </Card>
             </>
           )}
+        </TabsContent>
+
+        {/* Parent Questions Tab */}
+        <TabsContent value="parent-questions" className="space-y-6 mt-6">
+          <ParentQuestionsSettings />
         </TabsContent>
 
         {/* Branding Tab */}

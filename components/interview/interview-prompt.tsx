@@ -11,6 +11,9 @@ interface Prompt {
   id: string
   category: string
   text: string
+  // Optional translation of `text` (used by the parent interview to show each
+  // question in English plus the parent's preferred language).
+  translatedText?: string
   preparationTime: number
   responseTime: number
 }
@@ -284,9 +287,25 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
       {/* Main Content */}
       <Card>
         <CardHeader>
-          {stage !== "reading" && <CardTitle className="text-sm sm:text-base font-medium text-balance">{prompt.text}</CardTitle>}
+          {stage !== "reading" && (
+            <CardTitle className="text-sm sm:text-base font-medium text-balance">
+              {prompt.text}
+              {prompt.translatedText && prompt.translatedText !== prompt.text && (
+                <span className="mt-1 block text-sm font-normal text-[rgba(0,0,0,0.6)]">{prompt.translatedText}</span>
+              )}
+            </CardTitle>
+          )}
           {stage === "reading" && (
-            <CardDescription className="text-sm sm:text-base">Read the prompt carefully and click "Start Preparation" when ready</CardDescription>
+            prompt.translatedText ? (
+              <>
+                <CardTitle className="text-sm sm:text-base font-medium text-balance">{prompt.text}</CardTitle>
+                <CardDescription className="text-sm sm:text-base text-[rgba(0,0,0,0.6)]">
+                  {prompt.translatedText}
+                </CardDescription>
+              </>
+            ) : (
+              <CardDescription className="text-sm sm:text-base">Read the prompt carefully and click "Start Preparation" when ready</CardDescription>
+            )
           )}
         </CardHeader>
         <CardContent className="space-y-6">

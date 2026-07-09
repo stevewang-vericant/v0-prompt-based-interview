@@ -6,6 +6,8 @@ import { evaluateInterviewWithCathoven } from '@/lib/cathoven'
 import { sendInterviewCompletionEmail, sendLowCreditAlertEmail, LOW_CREDIT_ALERT_THRESHOLD } from '@/lib/email'
 import { notifyRatersAfterScoring } from '@/lib/rater-notifications'
 import { requireInternalOrSuperAdminApi } from '@/lib/auth-guards'
+import { generateEnglishCaptionsFromFile } from '@/lib/english-captions'
+import { findMatchingStudentInterviewId } from '@/app/actions/parent-interviews'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
@@ -178,6 +180,100 @@ async function runPostMergeProcessing(params: {
     }
   } catch (error) {
     console.error(`[Task ${taskId}] ✗ Transcription exception:`, error)
+  }
+}
+
+/**
+ * Post-merge processing for PARENT interviews.
+ *
+ * Parent interviews are never scored/rated. Instead we:
+ *  1. Generate English captions from the (possibly non-English) response audio
+ *     via Whisper translation, store them as caption_url + transcription_text.
+ *  2. Try to match the parent-provided student identity to an existing student
+ *     interview and store the matched interview_id for the playback page.
+ */
+async function runParentPostMergeProcessing(params: {
+  taskId: string
+  interviewId: string
+  interviewDbId: string
+  mergedVideoBuffer: Buffer
+}) {
+  const { taskId, interviewId, interviewDbId, mergedVideoBuffer } = params
+
+  // 1) English captions
+  try {
+    console.log(`[Task ${taskId}] (parent) Generating English captions...`)
+    const tmpVideo = join(tmpdir(), `parent_caption_src_${Date.now()}.mp4`)
+    writeFileSync(tmpVideo, mergedVideoBuffer as any)
+    let captions
+    try {
+      captions = await generateEnglishCaptionsFromFile(tmpVideo)
+    } finally {
+      try { if (existsSync(tmpVideo)) unlinkSync(tmpVideo) } catch {}
+    }
+
+    if (captions) {
+      const captionPayload = {
+        interviewId,
+        language: 'en',
+        sourceLanguage: captions.sourceLanguage,
+        totalDuration: captions.totalDuration,
+        segments: captions.segments,
+        createdAt: new Date().toISOString(),
+      }
+      const captionKey = `interviews/${interviewId}/english-captions-${Date.now()}.json`
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: process.env.B2_BUCKET_NAME!,
+          Key: captionKey,
+          Body: Buffer.from(JSON.stringify(captionPayload, null, 2), 'utf-8'),
+          ContentType: 'application/json',
+        }),
+      )
+      const captionUrl = `https://f001.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${captionKey}`
+
+      await prisma.interview.update({
+        where: { id: interviewDbId },
+        data: {
+          caption_url: captionUrl,
+          transcription_status: 'completed',
+          transcription_text: captions.text,
+          transcription_metadata: {
+            model: 'whisper-1-translate',
+            language: 'en',
+            sourceLanguage: captions.sourceLanguage,
+            duration: captions.totalDuration,
+            segments: captions.segments,
+            createdAt: new Date().toISOString(),
+          } as any,
+        },
+      })
+      console.log(`[Task ${taskId}] (parent) ✓ English captions stored:`, captionUrl)
+    } else {
+      await prisma.interview.update({
+        where: { id: interviewDbId },
+        data: { transcription_status: 'failed' },
+      })
+      console.warn(`[Task ${taskId}] (parent) English caption generation returned no result`)
+    }
+  } catch (error) {
+    console.error(`[Task ${taskId}] (parent) ✗ English caption generation failed:`, error)
+  }
+
+  // 2) Match to an existing student interview
+  try {
+    const matchedId = await findMatchingStudentInterviewId(interviewId)
+    if (matchedId) {
+      await prisma.interview.update({
+        where: { id: interviewDbId },
+        data: { matched_interview_id: matchedId },
+      })
+      console.log(`[Task ${taskId}] (parent) ✓ Matched student interview:`, matchedId)
+    } else {
+      console.log(`[Task ${taskId}] (parent) No matching student interview found`)
+    }
+  } catch (error) {
+    console.error(`[Task ${taskId}] (parent) ✗ Student matching failed:`, error)
   }
 }
 
@@ -607,6 +703,7 @@ async function processVideoMergeTaskInner(taskId: string) {
     // 更新数据库中的视频URL和字幕URL
     console.log(`[Task ${taskId}] Updating database for interview_id: ${interviewId}`)
     let interviewDbId: string | null = null
+    let interviewType: string = 'student'
 
     try {
         // 使用 external ID 查找 Interview
@@ -616,7 +713,14 @@ async function processVideoMergeTaskInner(taskId: string) {
               id: true,
               school_id: true,
               metadata: true,
+              interview_type: true,
               student: {
+                select: {
+                  email: true,
+                  name: true,
+                }
+              },
+              parent: {
                 select: {
                   email: true,
                   name: true,
@@ -627,6 +731,8 @@ async function processVideoMergeTaskInner(taskId: string) {
         
         if (interview) {
             interviewDbId = interview.id
+            interviewType = interview.interview_type || 'student'
+            const isParent = interviewType === 'parent'
             const existingMetadata =
               interview.metadata && typeof interview.metadata === 'object' && !Array.isArray(interview.metadata)
                 ? (interview.metadata as Record<string, unknown>)
@@ -672,7 +778,8 @@ async function processVideoMergeTaskInner(taskId: string) {
                     }
                 })
 
-                if (!creditAlreadyDeducted) {
+                // Parent interviews do not consume school interview credits.
+                if (!creditAlreadyDeducted && !isParent) {
                     const updatedSchool = await tx.school.update({
                         where: { id: interview.school_id },
                         data: {
@@ -721,14 +828,16 @@ async function processVideoMergeTaskInner(taskId: string) {
             }
 
             // 发送面试完成通知（最佳努力，不阻塞主流程）
-            if (interview.student?.email) {
+            const notifyEmail = isParent ? interview.parent?.email : interview.student?.email
+            const notifyName = isParent ? interview.parent?.name : interview.student?.name
+            if (notifyEmail) {
               try {
                 await sendInterviewCompletionEmail(
-                  interview.student.email,
-                  interview.student.name,
+                  notifyEmail,
+                  notifyName || null,
                   mergedVideoUrl,
                 )
-                console.log(`[Task ${taskId}] ✓ Interview completion email sent to student`)
+                console.log(`[Task ${taskId}] ✓ Interview completion email sent`)
               } catch (emailError) {
                 console.error(
                   `[Task ${taskId}] ⚠️ Failed to send interview completion email:`,
@@ -737,7 +846,7 @@ async function processVideoMergeTaskInner(taskId: string) {
               }
             } else {
               console.warn(
-                `[Task ${taskId}] ⚠️ Skip interview completion email: student email not found`,
+                `[Task ${taskId}] ⚠️ Skip interview completion email: recipient email not found`,
               )
             }
         } else {
@@ -762,14 +871,24 @@ async function processVideoMergeTaskInner(taskId: string) {
 
     // 异步执行后处理，避免卡住主流程。
     if (interviewDbId) {
-      void runPostMergeProcessing({
-        taskId,
-        interviewId,
-        interviewDbId,
-        mergedVideoBuffer: mergedBuffer,
-        questionTexts,
-        mergedVideoUrl,
-      })
+      if (interviewType === 'parent') {
+        // Parent interviews: English captions + student matching, no scoring.
+        void runParentPostMergeProcessing({
+          taskId,
+          interviewId,
+          interviewDbId,
+          mergedVideoBuffer: mergedBuffer,
+        })
+      } else {
+        void runPostMergeProcessing({
+          taskId,
+          interviewId,
+          interviewDbId,
+          mergedVideoBuffer: mergedBuffer,
+          questionTexts,
+          mergedVideoUrl,
+        })
+      }
     }
     
     return {

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
-import { Building2, Video, Settings, LogOut, Menu, X, Users, ClipboardCheck } from "lucide-react"
+import { Building2, Video, Settings, LogOut, Menu, X, Users, ClipboardCheck, UsersRound } from "lucide-react"
 import Link from "next/link"
 
 function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
@@ -57,6 +57,11 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
           name: "Interviews",
           href: "/school/dashboard",
           icon: Video,
+        },
+        {
+          name: "Parent Interviews",
+          href: "/school/parent-interviews",
+          icon: UsersRound,
         },
         ...(currentUser?.is_rater || schoolInfo.is_super_admin
           ? [
@@ -214,7 +219,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar — frosted glass header */}
-        {pathname !== "/school/watch" && (
+        {pathname !== "/school/watch" && pathname !== "/school/watch-parent" && (
           <header className="bg-white/80 backdrop-blur-xl backdrop-saturate-[180%] border-b border-black/[0.06] sticky top-0 z-20">
             <div className="px-4 sm:px-6 lg:px-8 py-4">
               <div className="flex items-center justify-between">
@@ -222,6 +227,8 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                   <h1 className="text-2xl sm:text-[28px] font-semibold text-[#1d1d1f] tracking-tight leading-tight">
                     {pathname === "/school/dashboard"
                       ? "Vericant Guided Interviews"
+                      : pathname === "/school/parent-interviews"
+                        ? "Parent Interviews"
                       : pathname === "/school/settings"
                         ? "Settings"
                         : pathname === "/school/users"
@@ -239,7 +246,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Page content */}
-        <main className={pathname === "/school/watch" ? "" : "px-4 sm:px-6 lg:px-8 py-8"}>{children}</main>
+        <main className={pathname === "/school/watch" || pathname === "/school/watch-parent" ? "" : "px-4 sm:px-6 lg:px-8 py-8"}>{children}</main>
       </div>
     </div>
   )

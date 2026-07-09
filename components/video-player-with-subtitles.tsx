@@ -22,9 +22,24 @@ interface SubtitleMetadata {
   questions: SubtitleQuestion[]
 }
 
+interface CaptionSegment {
+  start: number
+  end: number
+  text: string
+}
+
+interface CaptionMetadata {
+  language?: string
+  sourceLanguage?: string | null
+  totalDuration?: number
+  segments: CaptionSegment[]
+}
+
 interface VideoPlayerWithSubtitlesProps {
   videoUrl: string
   subtitleUrl?: string
+  // Parent interviews: English speech captions generated from the spoken audio.
+  captionUrl?: string
   autoPlay?: boolean
   debug?: boolean
 }
@@ -43,6 +58,7 @@ interface VideoStats {
 export function VideoPlayerWithSubtitles({ 
   videoUrl, 
   subtitleUrl,
+  captionUrl,
   autoPlay = false,
   debug = false,
 }: VideoPlayerWithSubtitlesProps) {
@@ -53,6 +69,8 @@ export function VideoPlayerWithSubtitles({
   const [duration, setDuration] = useState(0)
   const [currentSubtitle, setCurrentSubtitle] = useState<SubtitleQuestion | null>(null)
   const [subtitles, setSubtitles] = useState<SubtitleMetadata | null>(null)
+  const [captions, setCaptions] = useState<CaptionMetadata | null>(null)
+  const [currentCaption, setCurrentCaption] = useState<CaptionSegment | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [videoReady, setVideoReady] = useState(false)
@@ -141,6 +159,33 @@ export function VideoPlayerWithSubtitles({
 
     loadSubtitles()
   }, [subtitleUrl])
+
+  // Load English speech captions (parent interviews)
+  useEffect(() => {
+    if (!captionUrl) return
+
+    const loadCaptions = async () => {
+      try {
+        const response = await fetch(captionUrl)
+        if (!response.ok) {
+          throw new Error(`Failed to load captions: ${response.status}`)
+        }
+        const data = await response.json()
+        setCaptions(data)
+      } catch (err) {
+        console.error("[Player] Failed to load captions:", err)
+      }
+    }
+
+    loadCaptions()
+  }, [captionUrl])
+
+  // Track the active English caption segment
+  useEffect(() => {
+    if (!captions?.segments?.length) return
+    const current = captions.segments.find((s) => currentTime >= s.start && currentTime < s.end)
+    setCurrentCaption(current || null)
+  }, [currentTime, captions])
 
   // 更新当前字幕
   useEffect(() => {
@@ -404,6 +449,19 @@ export function VideoPlayerWithSubtitles({
                   <div className="bg-black/80 px-4 py-2 rounded max-w-full">
                     <p className="text-white text-sm leading-snug">
                       {currentSubtitle.text}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* English speech captions (parent interviews) */}
+            {currentCaption && (
+              <div className="absolute bottom-4 left-0 right-0 px-4 pointer-events-none">
+                <div className="max-w-3xl mx-auto flex justify-center">
+                  <div className="bg-black/80 px-4 py-2 rounded max-w-full">
+                    <p className="text-white text-base leading-snug text-center">
+                      {currentCaption.text}
                     </p>
                   </div>
                 </div>
