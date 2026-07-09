@@ -10,9 +10,24 @@ interface InterviewSetupProps {
   onComplete: () => void
   preparationTime?: number
   responseTime?: number
+  // Number of questions the interviewee will answer. Defaults to 4 to preserve
+  // the original student-interview copy.
+  totalPrompts?: number
+  // Whether a final free-speech segment follows the configured prompts. Student
+  // interviews include one; parent interviews do not.
+  showFreeSpeech?: boolean
+  // Noun used in the instructions ("prompt" for students, "question" for parents).
+  promptNoun?: string
 }
 
-export function InterviewSetup({ onComplete, preparationTime = 20, responseTime = 90 }: InterviewSetupProps) {
+export function InterviewSetup({
+  onComplete,
+  preparationTime = 20,
+  responseTime = 90,
+  totalPrompts = 4,
+  showFreeSpeech = true,
+  promptNoun = "prompt",
+}: InterviewSetupProps) {
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null)
   const [micPermission, setMicPermission] = useState<boolean | null>(null)
   const [isTestingCamera, setIsTestingCamera] = useState(false)
@@ -329,21 +344,27 @@ export function InterviewSetup({ onComplete, preparationTime = 20, responseTime 
               3
             </div>
             <div>
-              <p className="font-medium">Complete all prompts</p>
-              <p className="text-sm text-muted-foreground">Answer 4 prompts covering different topics and skills</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center text-sm font-semibold">
-              4
-            </div>
-            <div>
-              <p className="font-medium">Free Speech</p>
+              <p className="font-medium">Complete all {promptNoun}s</p>
               <p className="text-sm text-muted-foreground">
-                You'll have <strong>{preparationTime} seconds</strong> to prepare and <strong>{responseTime} seconds</strong> to record. You can say anything you want during this time.
+                Answer {totalPrompts} {promptNoun}
+                {totalPrompts === 1 ? "" : "s"}
+                {showFreeSpeech ? " covering different topics and skills" : ""}
               </p>
             </div>
           </div>
+          {showFreeSpeech && (
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center text-sm font-semibold">
+                4
+              </div>
+              <div>
+                <p className="font-medium">Free Speech</p>
+                <p className="text-sm text-muted-foreground">
+                  You'll have <strong>{preparationTime} seconds</strong> to prepare and <strong>{responseTime} seconds</strong> to record. You can say anything you want during this time.
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

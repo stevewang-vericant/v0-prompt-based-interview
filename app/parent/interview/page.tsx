@@ -352,6 +352,9 @@ function ParentInterviewContent() {
                 onComplete={handleSetupComplete}
                 preparationTime={prompts[0]?.preparationTime}
                 responseTime={prompts[0]?.responseTime}
+                totalPrompts={prompts.length}
+                showFreeSpeech={false}
+                promptNoun="question"
               />
             )}
 
