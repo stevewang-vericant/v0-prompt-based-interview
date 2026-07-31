@@ -509,7 +509,11 @@ function ParentInterviewsContent() {
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[rgba(0,0,0,0.36)]" />
                           <Input
                             type="text"
-                            placeholder="Search student by name or email..."
+                            placeholder={
+                              schoolInfo?.is_super_admin
+                                ? "Search student by name or email (all schools)..."
+                                : "Search student by name or email..."
+                            }
                             value={studentSearch}
                             onChange={(e) => setStudentSearch(e.target.value)}
                             className="pl-10"
@@ -541,8 +545,16 @@ function ParentInterviewsContent() {
                                   }`}
                                 >
                                   <span className="min-w-0">
-                                    <span className="block truncate text-sm font-medium text-[#1d1d1f]">
-                                      {option.student_name || "Unknown student"}
+                                    <span className="flex items-center gap-2">
+                                      <span className="truncate text-sm font-medium text-[#1d1d1f]">
+                                        {option.student_name || "Unknown student"}
+                                      </span>
+                                      {schoolInfo?.is_super_admin && option.school_name && (
+                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-700">
+                                          <Shield className="h-2.5 w-2.5" />
+                                          {option.school_name}
+                                        </span>
+                                      )}
                                     </span>
                                     <span className="block truncate text-xs text-[rgba(0,0,0,0.56)]">
                                       {option.student_email || "No email"} · {format(new Date(option.created_at), "MMM dd, yyyy")}

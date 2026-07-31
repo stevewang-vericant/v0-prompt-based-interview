@@ -306,11 +306,15 @@ export interface StudentInterviewOption {
   student_email: string | null
   created_at: string
   has_video: boolean
+  school_code: string | null
+  school_name: string | null
 }
 
 /**
- * List this school's student interviews so staff can manually link a parent
- * interview to the correct student. Optional query filters by student name/email.
+ * List student interviews so staff can manually link a parent interview to the
+ * correct student. A regular school admin is scoped to their own school; a super
+ * admin may search students across ALL schools. Optional query filters by
+ * student name/email.
  */
 export async function getStudentInterviewsForSchool(
   schoolCode: string,
@@ -318,7 +322,8 @@ export async function getStudentInterviewsForSchool(
 ): Promise<{ success: boolean; interviews?: StudentInterviewOption[]; error?: string }> {
   try {
     const user = await requireUser()
-    if (!user.school.is_super_admin && user.school.code !== schoolCode) {
+    const isSuper = user.school.is_super_admin
+    if (!isSuper && user.school.code !== schoolCode) {
       throw new Error('Not authorized')
     }
 
@@ -326,8 +331,9 @@ export async function getStudentInterviewsForSchool(
     const interviews = await prisma.interview.findMany({
       where: {
         interview_type: 'student',
-        school: { code: schoolCode },
         interview_id: { not: null },
+        // Super admins search every school; regular admins are scoped to theirs.
+        ...(isSuper ? {} : { school: { code: schoolCode } }),
         ...(trimmed
           ? {
               student: {
@@ -343,7 +349,10 @@ export async function getStudentInterviewsForSchool(
       },
       orderBy: { created_at: 'desc' },
       take: 50,
-      include: { student: { select: { name: true, email: true } } },
+      include: {
+        student: { select: { name: true, email: true } },
+        school: { select: { code: true, name: true } },
+      },
     })
 
     const options: StudentInterviewOption[] = interviews.map((i) => ({
@@ -352,6 +361,8 @@ export async function getStudentInterviewsForSchool(
       student_email: i.student?.email || null,
       created_at: i.created_at.toISOString(),
       has_video: Boolean(i.video_url),
+      school_code: i.school?.code || null,
+      school_name: i.school?.name || null,
     }))
 
     return { success: true, interviews: options }
@@ -393,7 +404,12 @@ export async function setParentInterviewMatch(
       if (!studentInterview || studentInterview.interview_type !== 'student') {
         return { success: false, error: 'Selected student interview not found' }
       }
-      if (studentInterview.school?.code !== parentInterview.school?.code) {
+      // Regular admins may only link within their own school; super admins can
+      // link a parent interview to a student interview at any school.
+      if (
+        !user.school.is_super_admin &&
+        studentInterview.school?.code !== parentInterview.school?.code
+      ) {
         return { success: false, error: 'Student interview belongs to a different school' }
       }
     }
