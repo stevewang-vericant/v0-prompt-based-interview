@@ -191,6 +191,9 @@ export interface ParentInterviewRecord {
   interview_id: string | null
   created_at: string
   status: string | null
+  // Owning school (useful when a super admin views interviews across schools).
+  school_code: string | null
+  school_name: string | null
   video_url: string | null
   video_with_prep_url: string | null
   subtitle_url: string | null
@@ -213,8 +216,9 @@ export interface ParentInterviewRecord {
 }
 
 /**
- * List parent interviews for a school (school admin sees their own; super admin
- * may read any). Student interviews are never returned here.
+ * List parent interviews. A super admin sees parent interviews across ALL
+ * schools (mirroring the student dashboard); a regular school admin only sees
+ * their own school's. Student interviews are never returned here.
  */
 export async function getParentInterviewsBySchoolCode(
   schoolCode: string,
@@ -227,7 +231,11 @@ export async function getParentInterviewsBySchoolCode(
       throw new Error("Not authorized")
     }
 
-    const where = { interview_type: "parent", school: { code: schoolCode } }
+    // Super admins view every school's parent interviews; regular admins are
+    // scoped to their own school.
+    const where = user.school.is_super_admin
+      ? { interview_type: "parent" }
+      : { interview_type: "parent", school: { code: schoolCode } }
 
     const [interviews, count] = await prisma.$transaction([
       prisma.interview.findMany({
@@ -235,7 +243,11 @@ export async function getParentInterviewsBySchoolCode(
         orderBy: { created_at: "desc" },
         skip: offset,
         take: limit,
-        include: { parent: true, _count: { select: { responses: true } } },
+        include: {
+          parent: true,
+          school: { select: { code: true, name: true } },
+          _count: { select: { responses: true } },
+        },
       }),
       prisma.interview.count({ where }),
     ])
@@ -259,6 +271,8 @@ export async function getParentInterviewsBySchoolCode(
         interview_id: i.interview_id,
         created_at: i.created_at.toISOString(),
         status: i.status,
+        school_code: i.school?.code || null,
+        school_name: i.school?.name || null,
         video_url: i.video_url,
         video_with_prep_url: i.video_with_prep_url,
         subtitle_url: i.subtitle_url,
