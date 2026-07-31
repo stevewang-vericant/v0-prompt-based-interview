@@ -208,6 +208,8 @@ export interface ParentInterviewRecord {
   matched_video_url: string | null
   matched_subtitle_url: string | null
   matched_student_name: string | null
+  // True when the match was set manually by school staff (vs the automatic matcher).
+  matched_manually: boolean
 }
 
 /**
@@ -273,12 +275,126 @@ export async function getParentInterviewsBySchoolCode(
         matched_video_url: matched?.video_url || null,
         matched_subtitle_url: matched?.subtitle_url || null,
         matched_student_name: matched?.student?.name || null,
+        matched_manually: i.matched_manually,
       }
     })
 
     return { success: true, interviews: mapped, count }
   } catch (error) {
     console.error("[ParentInterview] List error:", error)
+    return { success: false, error: toClientError(error) }
+  }
+}
+
+export interface StudentInterviewOption {
+  interview_id: string
+  student_name: string | null
+  student_email: string | null
+  created_at: string
+  has_video: boolean
+}
+
+/**
+ * List this school's student interviews so staff can manually link a parent
+ * interview to the correct student. Optional query filters by student name/email.
+ */
+export async function getStudentInterviewsForSchool(
+  schoolCode: string,
+  query: string = '',
+): Promise<{ success: boolean; interviews?: StudentInterviewOption[]; error?: string }> {
+  try {
+    const user = await requireUser()
+    if (!user.school.is_super_admin && user.school.code !== schoolCode) {
+      throw new Error('Not authorized')
+    }
+
+    const trimmed = query.trim()
+    const interviews = await prisma.interview.findMany({
+      where: {
+        interview_type: 'student',
+        school: { code: schoolCode },
+        interview_id: { not: null },
+        ...(trimmed
+          ? {
+              student: {
+                is: {
+                  OR: [
+                    { name: { contains: trimmed, mode: 'insensitive' } },
+                    { email: { contains: trimmed, mode: 'insensitive' } },
+                  ],
+                },
+              },
+            }
+          : {}),
+      },
+      orderBy: { created_at: 'desc' },
+      take: 50,
+      include: { student: { select: { name: true, email: true } } },
+    })
+
+    const options: StudentInterviewOption[] = interviews.map((i) => ({
+      interview_id: i.interview_id as string,
+      student_name: i.student?.name || null,
+      student_email: i.student?.email || null,
+      created_at: i.created_at.toISOString(),
+      has_video: Boolean(i.video_url),
+    }))
+
+    return { success: true, interviews: options }
+  } catch (error) {
+    console.error('[ParentInterview] List student interviews error:', error)
+    return { success: false, error: toClientError(error) }
+  }
+}
+
+/**
+ * Manually link (or unlink) a parent interview to a student interview. Pass a
+ * null studentInterviewId to clear the link. Manual links set matched_manually
+ * so the automatic matcher never overwrites them.
+ */
+export async function setParentInterviewMatch(
+  parentInterviewId: string,
+  studentInterviewId: string | null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireUser()
+
+    const parentInterview = await prisma.interview.findUnique({
+      where: { interview_id: parentInterviewId },
+      select: { id: true, interview_type: true, school: { select: { code: true } } },
+    })
+    if (!parentInterview || parentInterview.interview_type !== 'parent') {
+      return { success: false, error: 'Parent interview not found' }
+    }
+    if (!user.school.is_super_admin && user.school.code !== parentInterview.school?.code) {
+      return { success: false, error: 'Not authorized' }
+    }
+
+    if (studentInterviewId) {
+      // Validate the target is a student interview at the same school.
+      const studentInterview = await prisma.interview.findUnique({
+        where: { interview_id: studentInterviewId },
+        select: { interview_type: true, school: { select: { code: true } } },
+      })
+      if (!studentInterview || studentInterview.interview_type !== 'student') {
+        return { success: false, error: 'Selected student interview not found' }
+      }
+      if (studentInterview.school?.code !== parentInterview.school?.code) {
+        return { success: false, error: 'Student interview belongs to a different school' }
+      }
+    }
+
+    await prisma.interview.update({
+      where: { id: parentInterview.id },
+      data: {
+        matched_interview_id: studentInterviewId,
+        matched_manually: Boolean(studentInterviewId),
+      },
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('[ParentInterview] Set match error:', error)
     return { success: false, error: toClientError(error) }
   }
 }

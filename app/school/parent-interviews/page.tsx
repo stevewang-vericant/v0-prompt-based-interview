@@ -8,7 +8,10 @@ import { Input } from "@/components/ui/input"
 import { getCurrentUser } from "@/app/actions/auth"
 import {
   getParentInterviewsBySchoolCode,
+  getStudentInterviewsForSchool,
+  setParentInterviewMatch,
   type ParentInterviewRecord,
+  type StudentInterviewOption,
 } from "@/app/actions/parent-interviews"
 import {
   Video,
@@ -20,6 +23,8 @@ import {
   Copy,
   Search,
   Link as LinkIcon,
+  Link2,
+  Unlink,
   CheckCircle,
   Globe,
   UsersRound,
@@ -36,6 +41,14 @@ function ParentInterviewsContent() {
   const [authError, setAuthError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [linkCopied, setLinkCopied] = useState(false)
+
+  // Manual student-linking panel state
+  const [linkingId, setLinkingId] = useState<string | null>(null)
+  const [studentOptions, setStudentOptions] = useState<StudentInterviewOption[]>([])
+  const [studentSearch, setStudentSearch] = useState("")
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  const [savingMatchId, setSavingMatchId] = useState<string | null>(null)
+  const [linkError, setLinkError] = useState<string | null>(null)
 
   const loadInterviews = async () => {
     try {
@@ -142,6 +155,66 @@ function ParentInterviewsContent() {
       if (interview.matched_student_name) params.append("matchedStudentName", interview.matched_student_name)
     }
     window.location.href = `/school/watch-parent?${params.toString()}`
+  }
+
+  const loadStudentOptions = async (query: string) => {
+    if (!schoolInfo) return
+    try {
+      setLoadingStudents(true)
+      setLinkError(null)
+      const result = await getStudentInterviewsForSchool(schoolInfo.code, query)
+      if (result.success && result.interviews) {
+        setStudentOptions(result.interviews)
+      } else {
+        setLinkError(result.error || "Failed to load student interviews")
+      }
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setLoadingStudents(false)
+    }
+  }
+
+  const openLinkPanel = (interview: ParentInterviewRecord) => {
+    if (linkingId === interview.interview_id) {
+      setLinkingId(null)
+      return
+    }
+    setLinkingId(interview.interview_id)
+    setStudentSearch("")
+    setStudentOptions([])
+    setLinkError(null)
+    loadStudentOptions("")
+  }
+
+  // Debounced reload of student options while the link panel is open.
+  useEffect(() => {
+    if (!linkingId) return
+    const handle = setTimeout(() => loadStudentOptions(studentSearch), 300)
+    return () => clearTimeout(handle)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentSearch, linkingId])
+
+  const handleSelectStudent = async (
+    parentInterviewId: string | null,
+    studentInterviewId: string | null,
+  ) => {
+    if (!parentInterviewId) return
+    try {
+      setSavingMatchId(parentInterviewId)
+      setLinkError(null)
+      const result = await setParentInterviewMatch(parentInterviewId, studentInterviewId)
+      if (!result.success) {
+        setLinkError(result.error || "Failed to update link")
+        return
+      }
+      setLinkingId(null)
+      await loadInterviews()
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setSavingMatchId(null)
+    }
   }
 
   const filteredInterviews = interviews.filter((interview) => {
@@ -337,7 +410,7 @@ function ParentInterviewsContent() {
                           {interview.matched_interview_id ? (
                             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-emerald-700">
                               <UserCheck className="h-3 w-3" />
-                              Matched to student interview
+                              {interview.matched_manually ? "Linked to student (manual)" : "Matched to student interview"}
                             </span>
                           ) : (
                             <span className="rounded-md bg-black/[0.03] px-2 py-0.5 text-[rgba(0,0,0,0.56)]">
@@ -353,7 +426,7 @@ function ParentInterviewsContent() {
                         </span>
                       </div>
 
-                      <div className="lg:justify-self-end">
+                      <div className="flex flex-col items-stretch gap-2 lg:justify-self-end">
                         <Button
                           onClick={() => handleWatch(interview)}
                           size="sm"
@@ -364,8 +437,102 @@ function ParentInterviewsContent() {
                           <Video className="mr-1.5 h-3.5 w-3.5" />
                           {interview.video_url ? "Watch" : "Processing"}
                         </Button>
+                        <Button
+                          onClick={() => openLinkPanel(interview)}
+                          size="sm"
+                          variant="outline"
+                          title="Manually link this parent interview to a student interview"
+                        >
+                          <Link2 className="mr-1.5 h-3.5 w-3.5" />
+                          {interview.matched_interview_id ? "Change link" : "Link student"}
+                        </Button>
                       </div>
                     </div>
+
+                    {/* Manual student-linking panel */}
+                    {linkingId === interview.interview_id && (
+                      <div className="mt-4 rounded-lg border border-black/[0.08] bg-[#fafafa] p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-[#1d1d1f]">
+                            Link "{interview.parent_name || interview.parent_email || "this parent"}" to a student interview
+                          </p>
+                          {interview.matched_interview_id && (
+                            <Button
+                              onClick={() => handleSelectStudent(interview.interview_id, null)}
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                              disabled={savingMatchId === interview.interview_id}
+                            >
+                              <Unlink className="mr-1.5 h-3.5 w-3.5" />
+                              Unlink
+                            </Button>
+                          )}
+                        </div>
+
+                        {interview.matched_interview_id && (
+                          <p className="text-xs text-[rgba(0,0,0,0.56)]">
+                            Currently linked to: <span className="font-medium">{interview.matched_student_name || interview.matched_interview_id}</span>
+                          </p>
+                        )}
+
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[rgba(0,0,0,0.36)]" />
+                          <Input
+                            type="text"
+                            placeholder="Search student by name or email..."
+                            value={studentSearch}
+                            onChange={(e) => setStudentSearch(e.target.value)}
+                            className="pl-10"
+                          />
+                        </div>
+
+                        {linkError && <p className="text-sm text-red-600">{linkError}</p>}
+
+                        <div className="max-h-64 overflow-y-auto rounded-md border border-black/[0.06] bg-white divide-y divide-black/[0.05]">
+                          {loadingStudents ? (
+                            <div className="flex items-center justify-center py-6">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                            </div>
+                          ) : studentOptions.length === 0 ? (
+                            <p className="px-3 py-6 text-center text-sm text-[rgba(0,0,0,0.48)]">
+                              No student interviews found
+                            </p>
+                          ) : (
+                            studentOptions.map((option) => {
+                              const isCurrent = option.interview_id === interview.matched_interview_id
+                              return (
+                                <button
+                                  key={option.interview_id}
+                                  type="button"
+                                  onClick={() => handleSelectStudent(interview.interview_id, option.interview_id)}
+                                  disabled={savingMatchId === interview.interview_id || isCurrent}
+                                  className={`flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-blue-50 disabled:cursor-not-allowed ${
+                                    isCurrent ? "bg-emerald-50" : ""
+                                  }`}
+                                >
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-medium text-[#1d1d1f]">
+                                      {option.student_name || "Unknown student"}
+                                    </span>
+                                    <span className="block truncate text-xs text-[rgba(0,0,0,0.56)]">
+                                      {option.student_email || "No email"} · {format(new Date(option.created_at), "MMM dd, yyyy")}
+                                    </span>
+                                  </span>
+                                  {isCurrent ? (
+                                    <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-emerald-700">
+                                      <CheckCircle className="h-3.5 w-3.5" /> Linked
+                                    </span>
+                                  ) : (
+                                    <span className="whitespace-nowrap text-xs font-medium text-[#0071e3]">Select</span>
+                                  )}
+                                </button>
+                              )
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}

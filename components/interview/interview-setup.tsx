@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2, XCircle, Video, Mic, AlertCircle } from "lucide-react"
+import { parentT, type ParentUILang } from "@/lib/parent-i18n"
 
 interface InterviewSetupProps {
   onComplete: () => void
@@ -18,6 +19,8 @@ interface InterviewSetupProps {
   showFreeSpeech?: boolean
   // Noun used in the instructions ("prompt" for students, "question" for parents).
   promptNoun?: string
+  // Display language. Only "zh" changes copy; English is unchanged for students.
+  lang?: ParentUILang
 }
 
 export function InterviewSetup({
@@ -27,7 +30,10 @@ export function InterviewSetup({
   totalPrompts = 4,
   showFreeSpeech = true,
   promptNoun = "prompt",
+  lang = "en",
 }: InterviewSetupProps) {
+  const zh = lang === "zh"
+  const t = parentT("zh")
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null)
   const [micPermission, setMicPermission] = useState<boolean | null>(null)
   const [isTestingCamera, setIsTestingCamera] = useState(false)
@@ -93,9 +99,11 @@ export function InterviewSetup({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>System Check</CardTitle>
+          <CardTitle>{zh ? t.setup.systemCheck : "System Check"}</CardTitle>
           <CardDescription>
-            Before starting your interview, we need to verify your camera and microphone are working properly
+            {zh
+              ? t.setup.systemCheckDesc
+              : "Before starting your interview, we need to verify your camera and microphone are working properly"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -105,8 +113,8 @@ export function InterviewSetup({
               <div className="flex items-center gap-3">
                 <Video className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
                 <div>
-                  <p className="font-medium">Camera</p>
-                  <p className="text-sm text-muted-foreground">Required for video recording</p>
+                  <p className="font-medium">{zh ? t.setup.camera : "Camera"}</p>
+                  <p className="text-sm text-muted-foreground">{zh ? t.setup.cameraDesc : "Required for video recording"}</p>
                 </div>
               </div>
               {cameraPermission === null ? (
@@ -122,8 +130,8 @@ export function InterviewSetup({
               <div className="flex items-center gap-3">
                 <Mic className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
                 <div>
-                  <p className="font-medium">Microphone</p>
-                  <p className="text-sm text-muted-foreground">Required for audio recording</p>
+                  <p className="font-medium">{zh ? t.setup.microphone : "Microphone"}</p>
+                  <p className="text-sm text-muted-foreground">{zh ? t.setup.micDesc : "Required for audio recording"}</p>
                 </div>
               </div>
               {micPermission === null ? (
@@ -139,7 +147,7 @@ export function InterviewSetup({
           {/* Camera Preview */}
           {isTestingCamera && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Camera Preview</p>
+              <p className="text-sm font-medium">{zh ? t.setup.cameraPreview : "Camera Preview"}</p>
               <div className="relative rounded-lg overflow-hidden border border-black/[0.06] bg-black">
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto" />
               </div>
@@ -149,7 +157,7 @@ export function InterviewSetup({
           {/* Test Button */}
           {!isTestingCamera && (
             <Button onClick={testDevices} className="w-full" size="lg">
-              Test Camera & Microphone
+              {zh ? t.setup.testDevices : "Test Camera & Microphone"}
             </Button>
           )}
 
@@ -157,13 +165,12 @@ export function InterviewSetup({
           {cameraPermission && micPermission && (
             <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
               <p className="text-sm font-semibold text-amber-900">
-                Important: Both preparation and response will be recorded
+                {zh ? t.setup.noticeTitle : "Important: Both preparation and response will be recorded"}
               </p>
               <p className="text-sm text-amber-900">
-                For each question your camera and microphone are recorded continuously from the start of
-                the preparation timer until the end of your response. The school will receive a video
-                of your responses, and they may also choose to view a separate video that includes your
-                preparation time.
+                {zh
+                  ? t.setup.noticeBody
+                  : "For each question your camera and microphone are recorded continuously from the start of the preparation timer until the end of your response. The school will receive a video of your responses, and they may also choose to view a separate video that includes your preparation time."}
               </p>
               <label className="flex items-start gap-2 text-sm text-amber-900 cursor-pointer">
                 <input
@@ -173,8 +180,9 @@ export function InterviewSetup({
                   className="mt-0.5 h-4 w-4 rounded border-amber-400 text-[#0071e3] focus:ring-[#0071e3]"
                 />
                 <span>
-                  I understand that both my preparation time and my response will be recorded and may
-                  be shared with the school.
+                  {zh
+                    ? t.setup.consent
+                    : "I understand that both my preparation time and my response will be recorded and may be shared with the school."}
                 </span>
               </label>
             </div>
@@ -188,9 +196,9 @@ export function InterviewSetup({
               size="lg"
               variant="default"
               disabled={!canProceed}
-              title={!recordingConsent ? "Please confirm the recording notice above" : undefined}
+              title={!recordingConsent ? (zh ? t.setup.consentHint : "Please confirm the recording notice above") : undefined}
             >
-              Start Interview
+              {zh ? t.setup.startInterview : "Start Interview"}
             </Button>
           )}
 
@@ -200,7 +208,7 @@ export function InterviewSetup({
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {errorMessage || "Unable to access your camera or microphone. Please check your browser permissions and try again."}
+                  {errorMessage || (zh ? t.setup.deviceError : "Unable to access your camera or microphone. Please check your browser permissions and try again.")}
                 </AlertDescription>
               </Alert>
               
@@ -313,7 +321,7 @@ export function InterviewSetup({
       {/* Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>Interview Instructions</CardTitle>
+          <CardTitle>{zh ? t.setup.instructions : "Interview Instructions"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-3">
@@ -321,11 +329,15 @@ export function InterviewSetup({
               1
             </div>
             <div>
-              <p className="font-medium">Read the prompt and prepare</p>
-              <p className="text-sm text-muted-foreground">
-                You'll have <strong>{preparationTime} seconds</strong> to prepare after reading each prompt.
-                The camera and microphone are recording during preparation as well — the school may view this segment.
-              </p>
+              <p className="font-medium">{zh ? t.setup.step1Title : "Read the prompt and prepare"}</p>
+              {zh ? (
+                <p className="text-sm text-muted-foreground">{t.setup.step1Body(preparationTime)}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  You'll have <strong>{preparationTime} seconds</strong> to prepare after reading each prompt.
+                  The camera and microphone are recording during preparation as well — the school may view this segment.
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-3">
@@ -333,10 +345,14 @@ export function InterviewSetup({
               2
             </div>
             <div>
-              <p className="font-medium">Record your response</p>
-              <p className="text-sm text-muted-foreground">
-                You'll have <strong>{responseTime} seconds</strong> to record your video response to each prompt
-              </p>
+              <p className="font-medium">{zh ? t.setup.step2Title : "Record your response"}</p>
+              {zh ? (
+                <p className="text-sm text-muted-foreground">{t.setup.step2Body(responseTime)}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  You'll have <strong>{responseTime} seconds</strong> to record your video response to each prompt
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-3">
@@ -344,11 +360,11 @@ export function InterviewSetup({
               3
             </div>
             <div>
-              <p className="font-medium">Complete all {promptNoun}s</p>
+              <p className="font-medium">{zh ? t.setup.step3Title : `Complete all ${promptNoun}s`}</p>
               <p className="text-sm text-muted-foreground">
-                Answer {totalPrompts} {promptNoun}
-                {totalPrompts === 1 ? "" : "s"}
-                {showFreeSpeech ? " covering different topics and skills" : ""}
+                {zh
+                  ? t.setup.step3Body(totalPrompts)
+                  : `Answer ${totalPrompts} ${promptNoun}${totalPrompts === 1 ? "" : "s"}${showFreeSpeech ? " covering different topics and skills" : ""}`}
               </p>
             </div>
           </div>

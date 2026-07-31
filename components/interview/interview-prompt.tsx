@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Circle, Square } from "lucide-react"
+import { parentT, type ParentUILang } from "@/lib/parent-i18n"
 
 interface Prompt {
   id: string
@@ -27,6 +28,8 @@ interface InterviewPromptProps {
     videoBlob: Blob,
     prepDurationSec: number,
   ) => Promise<void>
+  // Display language. Only "zh" changes copy; English is unchanged for students.
+  lang?: ParentUILang
 }
 
 type Stage = "reading" | "preparing" | "recording"
@@ -59,7 +62,9 @@ function buildRecorderOptions(): MediaRecorderOptions {
   return options
 }
 
-export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete }: InterviewPromptProps) {
+export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete, lang = "en" }: InterviewPromptProps) {
+  const zh = lang === "zh"
+  const t = parentT("zh")
   const [stage, setStage] = useState<Stage>("reading")
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
@@ -87,7 +92,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
         console.log("[v0] Stream initialized successfully")
       } catch (err) {
         console.error("[v0] Stream initialization error:", err)
-        alert("Unable to access camera and microphone. Please check your permissions.")
+        alert(zh ? t.prompt.cameraError : "Unable to access camera and microphone. Please check your permissions.")
       }
     }
 
@@ -276,7 +281,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-muted-foreground">
-              Question {promptNumber} of {totalPrompts}
+              {zh ? t.prompt.questionOf(promptNumber, totalPrompts) : `Question ${promptNumber} of ${totalPrompts}`}
             </span>
             <Badge variant="secondary">{prompt.category}</Badge>
           </div>
@@ -304,7 +309,9 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
                 </CardDescription>
               </>
             ) : (
-              <CardDescription className="text-sm sm:text-base">Read the prompt carefully and click "Start Preparation" when ready</CardDescription>
+              <CardDescription className="text-sm sm:text-base">
+                {zh ? t.prompt.readInstruction : 'Read the prompt carefully and click "Start Preparation" when ready'}
+              </CardDescription>
             )
           )}
         </CardHeader>
@@ -313,18 +320,19 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
           {stage === "reading" && (
             <div className="space-y-4">
               <div className="bg-[#0071e3]/5 border border-blue-200 rounded-lg p-4 space-y-2">
-                <p className="text-sm font-medium text-blue-900">What to expect:</p>
+                <p className="text-sm font-medium text-blue-900">{zh ? t.prompt.whatToExpect : "What to expect:"}</p>
                 <ul className="text-sm text-[#0071e3] space-y-1 list-disc list-inside">
-                  <li>Preparation time: {prompt.preparationTime} seconds (recorded)</li>
-                  <li>Recording time: {prompt.responseTime} seconds</li>
+                  <li>{zh ? t.prompt.expectPrep(prompt.preparationTime) : `Preparation time: ${prompt.preparationTime} seconds (recorded)`}</li>
+                  <li>{zh ? t.prompt.expectRec(prompt.responseTime) : `Recording time: ${prompt.responseTime} seconds`}</li>
                 </ul>
                 <p className="text-xs text-blue-900/80 pt-1">
-                  Recording starts as soon as you click below. Both your preparation and your response
-                  are saved and shared with the school.
+                  {zh
+                    ? t.prompt.recStartsNote
+                    : "Recording starts as soon as you click below. Both your preparation and your response are saved and shared with the school."}
                 </p>
               </div>
               <Button onClick={startPreparation} className="w-full" size="lg">
-                Start Preparation (recording begins)
+                {zh ? t.prompt.startPrep : "Start Preparation (recording begins)"}
               </Button>
             </div>
           )}
@@ -333,12 +341,12 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
           {stage === "preparing" && (
             <div className="space-y-4">
               <div className="bg-[#0071e3]/5 border border-blue-200 rounded-lg p-4 space-y-2 mb-4">
-                <p className="text-sm font-medium text-blue-900">Preparation Phase (recording)</p>
+                <p className="text-sm font-medium text-blue-900">{zh ? t.prompt.prepPhase : "Preparation Phase (recording)"}</p>
                 <ul className="text-sm text-[#0071e3] space-y-1 list-disc list-inside">
-                  <li>Use this time to think about your response</li>
-                  <li>You are being recorded — the school will see this preparation segment</li>
-                  <li>Response phase will start automatically when prep time is up</li>
-                  <li>You'll have {prompt.responseTime} seconds to respond</li>
+                  <li>{zh ? t.prompt.prepTip1 : "Use this time to think about your response"}</li>
+                  <li>{zh ? t.prompt.prepTip2 : "You are being recorded — the school will see this preparation segment"}</li>
+                  <li>{zh ? t.prompt.prepTip3 : "Response phase will start automatically when prep time is up"}</li>
+                  <li>{zh ? t.prompt.prepTip4(prompt.responseTime) : `You'll have ${prompt.responseTime} seconds to respond`}</li>
                 </ul>
               </div>
               <div className="relative rounded-lg overflow-hidden border-2 border-amber-500 bg-[#1d1d1f]">
@@ -351,7 +359,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
                 />
                 <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex items-center gap-1 sm:gap-2 bg-amber-600 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm">
                   <Circle className="h-2 w-2 sm:h-3 sm:w-3 fill-current animate-pulse" />
-                  <span className="font-medium">Recording (Preparation)</span>
+                  <span className="font-medium">{zh ? t.prompt.recordingPrep : "Recording (Preparation)"}</span>
                 </div>
                 <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black/75 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full">
                   <span className="text-lg sm:text-2xl font-bold">{formatTime(timeRemaining)}</span>
@@ -359,7 +367,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
               </div>
               <Progress value={getProgressPercentage()} className="h-2" />
               <p className="text-xs text-center text-muted-foreground">
-                Preparation time remaining — response phase starts automatically
+                {zh ? t.prompt.prepRemaining : "Preparation time remaining — response phase starts automatically"}
               </p>
             </div>
           )}
@@ -371,7 +379,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto min-h-[250px] sm:min-h-[400px] bg-[#1d1d1f]" />
                 <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex items-center gap-1 sm:gap-2 bg-red-600 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm">
                   <Circle className="h-2 w-2 sm:h-3 sm:w-3 fill-current animate-pulse" />
-                  <span className="font-medium">Recording (Response)</span>
+                  <span className="font-medium">{zh ? t.prompt.recordingResponse : "Recording (Response)"}</span>
                 </div>
                 <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black/75 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-full">
                   <span className="text-lg sm:text-2xl font-bold">{formatTime(timeRemaining)}</span>
@@ -380,7 +388,13 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
               <Progress value={getProgressPercentage()} className="h-2" />
               <Button onClick={stopRecording} variant="destructive" className="w-full" size="lg">
                 <Square className="h-4 w-4 mr-2 fill-current" />
-                {promptNumber < totalPrompts ? "Done — Next Question" : "Done"}
+                {promptNumber < totalPrompts
+                  ? zh
+                    ? t.prompt.doneNext
+                    : "Done — Next Question"
+                  : zh
+                    ? t.prompt.done
+                    : "Done"}
               </Button>
             </div>
           )}

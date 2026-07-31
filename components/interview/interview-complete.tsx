@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Clock } from "lucide-react"
+import { parentT, type ParentUILang } from "@/lib/parent-i18n"
 
 interface StudentInfo {
   email: string
@@ -24,6 +25,9 @@ interface InterviewCompleteProps {
   interviewId?: string
   isResumeUpload?: boolean
   pendingCount?: number
+  // When set, renders the parent-interview copy in the given UI language.
+  // Left undefined for the student flow (copy unchanged).
+  lang?: ParentUILang
 }
 
 export function InterviewComplete({ 
@@ -34,9 +38,12 @@ export function InterviewComplete({
   uploadStatus = "",
   interviewId,
   isResumeUpload = false,
-  pendingCount = 0
+  pendingCount = 0,
+  lang
 }: InterviewCompleteProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Parent copy (nullable): null => student flow, keep original English strings.
+  const p = lang ? parentT(lang).complete : null
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
@@ -69,8 +76,10 @@ export function InterviewComplete({
                 <CheckCircle2 className="h-8 w-8 text-green-600" />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-green-900">Interview Complete!</h2>
-                <p className="text-sm sm:text-base text-green-700">You've successfully recorded all {responsesCount} responses</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-green-900">{p ? p.heading : "Interview Complete!"}</h2>
+                <p className="text-sm sm:text-base text-green-700">
+                  {p ? p.recordedAll(responsesCount) : `You've successfully recorded all ${responsesCount} responses`}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -80,7 +89,7 @@ export function InterviewComplete({
       {!isResumeUpload && (
         <Card>
           <CardHeader>
-            <CardTitle>What Happens Next?</CardTitle>
+            <CardTitle>{p ? p.whatNext : "What Happens Next?"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-3 sm:gap-4">
@@ -88,9 +97,9 @@ export function InterviewComplete({
                 <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-[#0071e3]" />
               </div>
               <div className="min-w-0">
-                <p className="font-medium text-sm sm:text-base">Verification Process</p>
+                <p className="font-medium text-sm sm:text-base">{p ? p.reviewTitle : "Verification Process"}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Your identity and responses will be verified by our operations team to ensure authenticity
+                  {p ? p.reviewBody : "Your identity and responses will be verified by our operations team to ensure authenticity"}
                 </p>
               </div>
             </div>
@@ -100,10 +109,11 @@ export function InterviewComplete({
                 <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-[#0071e3]" />
               </div>
               <div className="min-w-0">
-                <p className="font-medium text-sm sm:text-base">Video Delivery</p>
+                <p className="font-medium text-sm sm:text-base">{p ? p.deliveryTitle : "Video Delivery"}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Your video will be delivered to your school within 48 hours. You'll receive an email notification when
-                  complete.
+                  {p
+                    ? p.deliveryBody
+                    : "Your video will be delivered to your school within 48 hours. You'll receive an email notification when complete."}
                 </p>
               </div>
             </div>
@@ -113,11 +123,13 @@ export function InterviewComplete({
 
       <Card>
         <CardHeader>
-          <CardTitle>{isResumeUpload ? 'Continue Upload' : 'Submit Interview'}</CardTitle>
+          <CardTitle>{isResumeUpload ? 'Continue Upload' : p ? p.submitTitle : 'Submit Interview'}</CardTitle>
           <CardDescription>
             {isResumeUpload
               ? 'Click the button below to upload your remaining video segments'
-              : 'Click the button below to submit your interview video'}
+              : p
+                ? p.submitDesc
+                : 'Click the button below to submit your interview video'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -127,16 +139,16 @@ export function InterviewComplete({
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#0071e3]"></div>
                 <div className="flex-1">
                   <p className="font-medium text-blue-900">
-                    {uploadStatus || "Uploading your interview video..."}
+                    {uploadStatus || (p ? p.uploading : "Uploading your interview video...")}
                   </p>
                   <p className="text-sm text-[#0071e3]">
                     {uploadProgress < 100 
-                      ? "Please wait, do not close this page" 
-                      : "Upload complete! You can close this window. Video processing will continue in the background."}
+                      ? (p ? p.doNotClose : "Please wait, do not close this page")
+                      : (p ? p.uploadDoneNote : "Upload complete! You can close this window. Video processing will continue in the background.")}
                   </p>
                   {interviewId && (
                     <p className="text-xs text-[#0071e3] font-mono mt-1">
-                      Interview ID: {interviewId}
+                      {p ? p.interviewId : "Interview ID:"} {interviewId}
                     </p>
                   )}
                 </div>
@@ -157,13 +169,15 @@ export function InterviewComplete({
             size="lg"
           >
             {isUploading
-              ? (uploadProgress < 100 ? "Uploading Video..." : "Upload Complete!")
+              ? (uploadProgress < 100 ? (p ? p.uploadingBtn : "Uploading Video...") : (p ? p.uploadDoneBtn : "Upload Complete!"))
               : isSubmitting
                 ? "Uploading..."
-                : isResumeUpload ? "Continue Upload" : "Submit Interview"}
+                : isResumeUpload ? "Continue Upload" : (p ? p.submitBtn : "Submit Interview")}
           </Button>
           <p className="text-xs text-center text-muted-foreground">
-            By submitting, you confirm that all responses are your own work and were completed without assistance
+            {p
+              ? p.confirm
+              : "By submitting, you confirm that all responses are your own work and were completed without assistance"}
           </p>
         </CardContent>
       </Card>

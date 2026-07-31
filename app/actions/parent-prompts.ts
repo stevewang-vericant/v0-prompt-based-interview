@@ -243,31 +243,39 @@ export async function getParentPromptsBySchoolCode(
   error?: string
 }> {
   try {
-    // Global timing overrides (shared with student prompts).
-    const globalTimingSettings = await (prisma as any).systemSettings.findMany({
-      where: { key: { in: ['global_preparation_time', 'global_response_time'] } },
-    })
-    const globalPrepTime = globalTimingSettings.find((s: { key: string; value: string }) => s.key === 'global_preparation_time')
-    const globalResponseTime = globalTimingSettings.find((s: { key: string; value: string }) => s.key === 'global_response_time')
-    const defaultPrepTime = globalPrepTime ? parseInt(globalPrepTime.value, 10) : 20
-    const defaultResponseTime = globalResponseTime ? parseInt(globalResponseTime.value, 10) : 90
+    // Parent interview timing. Defaults to the student/global timing unless a
+    // super admin has configured a parent-specific override.
+    const { getParentTimingSettings } = await import('./system-settings')
+    const parentTiming = await getParentTimingSettings()
+    const defaultPrepTime = parentTiming.preparationTime ?? 20
+    const defaultResponseTime = parentTiming.responseTime ?? 90
 
     const school = await prisma.school.findUnique({
       where: { code: schoolCode },
-      select: { parent_selected_prompt_ids: true },
+      select: { parent_selected_prompt_ids: true, selected_prompt_ids: true },
     })
 
     if (!school) {
       return { success: false, error: 'School not found' }
     }
 
-    const promptIds = school.parent_selected_prompt_ids || []
+    // Default parent interview structure mirrors the student interview: when the
+    // school has not configured parent-specific questions, fall back to the
+    // student's selected prompts (same number of questions and content).
+    const usingStudentFallback =
+      !school.parent_selected_prompt_ids || school.parent_selected_prompt_ids.length === 0
+    const promptIds = usingStudentFallback
+      ? school.selected_prompt_ids || []
+      : school.parent_selected_prompt_ids
+
     if (promptIds.length === 0) {
-      return { success: false, error: 'This school has not configured parent interview questions yet.' }
+      return { success: false, error: 'This school has not configured any interview questions yet.' }
     }
 
+    // When falling back to student prompts they are prompt_type = "student"; the
+    // configured parent prompts are prompt_type = "parent". Fetch by id in both cases.
     const prompts = await prisma.prompt.findMany({
-      where: { id: { in: promptIds }, prompt_type: 'parent' },
+      where: { id: { in: promptIds } },
     })
 
     // Preserve the school's configured order.

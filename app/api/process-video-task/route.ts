@@ -260,17 +260,25 @@ async function runParentPostMergeProcessing(params: {
     console.error(`[Task ${taskId}] (parent) ✗ English caption generation failed:`, error)
   }
 
-  // 2) Match to an existing student interview
+  // 2) Match to an existing student interview (never overwrite a manual link)
   try {
-    const matchedId = await findMatchingStudentInterviewId(interviewId)
-    if (matchedId) {
-      await prisma.interview.update({
-        where: { id: interviewDbId },
-        data: { matched_interview_id: matchedId },
-      })
-      console.log(`[Task ${taskId}] (parent) ✓ Matched student interview:`, matchedId)
+    const existing = await prisma.interview.findUnique({
+      where: { id: interviewDbId },
+      select: { matched_manually: true },
+    })
+    if (existing?.matched_manually) {
+      console.log(`[Task ${taskId}] (parent) Skipping auto-match: interview was manually linked`)
     } else {
-      console.log(`[Task ${taskId}] (parent) No matching student interview found`)
+      const matchedId = await findMatchingStudentInterviewId(interviewId)
+      if (matchedId) {
+        await prisma.interview.update({
+          where: { id: interviewDbId },
+          data: { matched_interview_id: matchedId },
+        })
+        console.log(`[Task ${taskId}] (parent) ✓ Matched student interview:`, matchedId)
+      } else {
+        console.log(`[Task ${taskId}] (parent) No matching student interview found`)
+      }
     }
   } catch (error) {
     console.error(`[Task ${taskId}] (parent) ✗ Student matching failed:`, error)

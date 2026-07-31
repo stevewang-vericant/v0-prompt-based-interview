@@ -15,6 +15,7 @@ import { getParentPromptsBySchoolCode } from "@/app/actions/parent-prompts"
 import { getSchoolBrandingByCode } from "@/app/actions/school-branding"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { parentT, type ParentUILang, PARENT_UI_LANGUAGES, DEFAULT_PARENT_UI_LANG } from "@/lib/parent-i18n"
 
 interface ParentPrompt {
   id: string
@@ -32,6 +33,7 @@ function ParentInterviewContent() {
   const schoolCode = searchParams.get("school")
 
   const [isUnsupportedDevice, setIsUnsupportedDevice] = useState(false)
+  const [uiLang, setUiLang] = useState<ParentUILang>(DEFAULT_PARENT_UI_LANG)
   const [stage, setStage] = useState<Stage>("parent-info")
   const [branding, setBranding] = useState<{ logoUrl: string | null; introVideoUrl: string | null; name: string | null }>({
     logoUrl: null,
@@ -62,6 +64,10 @@ function ParentInterviewContent() {
     const isTablet = /iPad|Tablet|PlayBook|Silk/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua))
     const isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1
     setIsUnsupportedDevice(isPhone || isTablet || isIPadOS)
+    // Default the UI language to Chinese when the browser prefers Chinese.
+    if ((navigator.language || "").toLowerCase().startsWith("zh")) {
+      setUiLang("zh")
+    }
   }, [])
 
   useEffect(() => {
@@ -232,57 +238,79 @@ function ParentInterviewContent() {
       setUploadProgress(100)
       setUploadStatus("Upload complete! You can now close this window.")
 
-      const params = new URLSearchParams({ status: "success", email: parentInfo.parentEmail })
+      const params = new URLSearchParams({ status: "success", email: parentInfo.parentEmail, lang: uiLang })
       setTimeout(() => {
         window.location.href = `/parent/interview/complete?${params.toString()}`
       }, 1000)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
-      const params = new URLSearchParams({ status: "error", error: message })
+      const params = new URLSearchParams({ status: "error", error: message, lang: uiLang })
       window.location.href = `/parent/interview/complete?${params.toString()}`
     } finally {
       setIsUploading(false)
     }
   }
 
+  const t = parentT(uiLang)
+
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       <header className="bg-white border-b border-black/[0.06]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-[#1d1d1f]">Parent Video Interview</h1>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl font-bold text-[#1d1d1f]">{t.page.title}</h1>
               <p className="text-sm text-[rgba(0,0,0,0.56)]">
-                {stage === "parent-info" && "Parent information"}
-                {stage === "setup" && "System check and preparation"}
-                {stage === "interview" && prompts.length > 0 && `Question ${currentPromptIndex + 1} of ${prompts.length}`}
-                {stage === "complete" && "Interview completed"}
+                {stage === "parent-info" && t.page.stageParentInfo}
+                {stage === "setup" && t.page.stageSetup}
+                {stage === "interview" && prompts.length > 0 && t.page.stageInterview(currentPromptIndex + 1, prompts.length)}
+                {stage === "complete" && t.page.stageComplete}
               </p>
               {schoolCode && (
                 <p className="text-xs text-[rgba(0,0,0,0.48)] mt-1">
-                  School: <span className="font-medium">{schoolCode}</span>
+                  {t.page.school}: <span className="font-medium">{schoolCode}</span>
                 </p>
               )}
             </div>
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`/api/proxy-video?url=${encodeURIComponent(branding.logoUrl)}`}
-                alt={branding.name ? `${branding.name} logo` : "School logo"}
-                className="h-12 w-auto max-w-[220px] object-contain"
-              />
-            ) : (
-              (stage === "parent-info" || stage === "setup") && (
-                <Image
-                  src="/RGB Logo Verified Video Interviews.png"
-                  alt="Vericant Logo"
-                  width={210}
-                  height={40}
-                  className="h-10 w-auto"
-                  priority
+            <div className="flex flex-col items-end gap-2">
+              {/* UI language toggle (independent of the parent's response language) */}
+              <div className="inline-flex rounded-md border border-black/[0.1] overflow-hidden text-xs">
+                {PARENT_UI_LANGUAGES.map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => setUiLang(l.code)}
+                    className={`px-3 py-1.5 font-medium transition-colors ${
+                      uiLang === l.code
+                        ? "bg-[#0071e3] text-white"
+                        : "bg-white text-[rgba(0,0,0,0.6)] hover:bg-black/[0.03]"
+                    }`}
+                    aria-pressed={uiLang === l.code}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+              {branding.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/proxy-video?url=${encodeURIComponent(branding.logoUrl)}`}
+                  alt={branding.name ? `${branding.name} logo` : "School logo"}
+                  className="h-12 w-auto max-w-[220px] object-contain"
                 />
-              )
-            )}
+              ) : (
+                (stage === "parent-info" || stage === "setup") && (
+                  <Image
+                    src="/RGB Logo Verified Video Interviews.png"
+                    alt="Vericant Logo"
+                    width={210}
+                    height={40}
+                    className="h-10 w-auto"
+                    priority
+                  />
+                )
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -291,27 +319,23 @@ function ParentInterviewContent() {
         {!schoolCode && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Missing School Code</AlertTitle>
-            <AlertDescription>
-              This interview link is missing a school code. Please use the link provided by the school.
-            </AlertDescription>
+            <AlertTitle>{t.page.missingSchoolTitle}</AlertTitle>
+            <AlertDescription>{t.page.missingSchoolBody}</AlertDescription>
           </Alert>
         )}
 
         {isUnsupportedDevice && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Device Not Supported for Recording</AlertTitle>
-            <AlertDescription>
-              Video recording is only available on a PC or Mac. Please reopen this link on a desktop or laptop computer.
-            </AlertDescription>
+            <AlertTitle>{t.page.unsupportedTitle}</AlertTitle>
+            <AlertDescription>{t.page.unsupportedBody}</AlertDescription>
           </Alert>
         )}
 
         {promptsError && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Unable to Start Interview</AlertTitle>
+            <AlertTitle>{t.page.unableTitle}</AlertTitle>
             <AlertDescription>{promptsError}</AlertDescription>
           </Alert>
         )}
@@ -338,11 +362,11 @@ function ParentInterviewContent() {
                   <div className="flex items-center justify-center py-12">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
-                      <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Loading interview questions...</p>
+                      <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">{t.page.loadingQuestions}</p>
                     </div>
                   </div>
                 ) : (
-                  <InterviewParentInfo onSubmit={handleParentInfoComplete} schoolName={branding.name} />
+                  <InterviewParentInfo onSubmit={handleParentInfoComplete} schoolName={branding.name} lang={uiLang} />
                 )}
               </>
             )}
@@ -355,6 +379,7 @@ function ParentInterviewContent() {
                 totalPrompts={prompts.length}
                 showFreeSpeech={false}
                 promptNoun="question"
+                lang={uiLang}
               />
             )}
 
@@ -364,6 +389,7 @@ function ParentInterviewContent() {
                 promptNumber={currentPromptIndex + 1}
                 totalPrompts={prompts.length}
                 onComplete={handlePromptComplete}
+                lang={uiLang}
               />
             )}
 
@@ -375,6 +401,7 @@ function ParentInterviewContent() {
                 uploadProgress={uploadProgress}
                 uploadStatus={uploadStatus}
                 interviewId={interviewId}
+                lang={uiLang}
               />
             )}
           </>

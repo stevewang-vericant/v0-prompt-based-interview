@@ -161,6 +161,10 @@ model Interview {
   caption_url            String?             @db.VarChar(500)
   // Parent-only: interview_id of a matching student interview, when found.
   matched_interview_id   String?             @db.VarChar(255)
+  // Parent-only: true when a school staff manually linked the student interview
+  // (as opposed to the automatic name+email/DOB match). Manual links are never
+  // overwritten by the automatic matcher.
+  matched_manually       Boolean             @default(false)
   status                 String?             @default("not_started") @db.VarChar(50)
   video_url              String?             @db.VarChar(500)
   video_with_prep_url    String?             @db.VarChar(500)
