@@ -169,7 +169,7 @@ export function ParentQuestionsSettings() {
           <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
             Configure the questions parents answer by video. These are separate from student
             interview prompts and never affect student interviews. Select 1–{MAX_PARENT_PROMPTS} questions.
-            If none are selected, the parent interview defaults to the same questions as the student interview.
+            By default the 4 system parent questions are selected; you can change the selection or add your own below.
           </p>
         </div>
         <Button onClick={handleSave} disabled={selectedIds.size < MIN_PARENT_PROMPTS || saving} className="gap-2">

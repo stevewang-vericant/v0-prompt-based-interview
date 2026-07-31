@@ -78,7 +78,28 @@ export async function getSelectedParentPromptIds(): Promise<{
       return { success: false, error: 'School not found' }
     }
 
-    return { success: true, promptIds: school.parent_selected_prompt_ids || [] }
+    let selectedIds = school.parent_selected_prompt_ids || []
+
+    // If the school has not chosen any parent questions yet, default to the first
+    // 4 system-default parent questions (mirrors the student interview behavior)
+    // and persist the choice so it stays stable.
+    if (selectedIds.length === 0) {
+      const defaultPrompts = await prisma.prompt.findMany({
+        where: { school_id: null, prompt_type: 'parent', is_active: true },
+        take: 4,
+        select: { id: true },
+        orderBy: { created_at: 'asc' },
+      })
+      if (defaultPrompts.length > 0) {
+        selectedIds = defaultPrompts.map((p) => p.id)
+        await prisma.school.update({
+          where: { id: userResult.user.school.id },
+          data: { parent_selected_prompt_ids: selectedIds },
+        })
+      }
+    }
+
+    return { success: true, promptIds: selectedIds }
   } catch (error) {
     console.error('[ParentPrompts] Error fetching selected prompts:', error)
     return { success: false, error: toClientError(error) }
@@ -252,28 +273,31 @@ export async function getParentPromptsBySchoolCode(
 
     const school = await prisma.school.findUnique({
       where: { code: schoolCode },
-      select: { parent_selected_prompt_ids: true, selected_prompt_ids: true },
+      select: { parent_selected_prompt_ids: true },
     })
 
     if (!school) {
       return { success: false, error: 'School not found' }
     }
 
-    // Default parent interview structure mirrors the student interview: when the
-    // school has not configured parent-specific questions, fall back to the
-    // student's selected prompts (same number of questions and content).
-    const usingStudentFallback =
-      !school.parent_selected_prompt_ids || school.parent_selected_prompt_ids.length === 0
-    const promptIds = usingStudentFallback
-      ? school.selected_prompt_ids || []
-      : school.parent_selected_prompt_ids
-
+    // Parent interviews use their own question set (never the student prompts).
+    // When the school has not selected any parent questions, default to the first
+    // 4 system-default parent questions.
+    let promptIds = school.parent_selected_prompt_ids || []
     if (promptIds.length === 0) {
-      return { success: false, error: 'This school has not configured any interview questions yet.' }
+      const defaultPrompts = await prisma.prompt.findMany({
+        where: { school_id: null, prompt_type: 'parent', is_active: true },
+        take: 4,
+        select: { id: true },
+        orderBy: { created_at: 'asc' },
+      })
+      promptIds = defaultPrompts.map((p) => p.id)
     }
 
-    // When falling back to student prompts they are prompt_type = "student"; the
-    // configured parent prompts are prompt_type = "parent". Fetch by id in both cases.
+    if (promptIds.length === 0) {
+      return { success: false, error: 'This school has not configured any parent interview questions yet.' }
+    }
+
     const prompts = await prisma.prompt.findMany({
       where: { id: { in: promptIds } },
     })
