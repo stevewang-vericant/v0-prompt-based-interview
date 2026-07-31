@@ -94,6 +94,13 @@ if command -v nginx &> /dev/null; then
     fi
 fi
 
+# 清理 Docker 部署副产物（构建缓存 + 悬空镜像），避免磁盘被逐渐占满
+# 说明：构建缓存是每次 --build 部署的最大磁盘元凶；这里只清理 7 天前的缓存和悬空镜像，
+# 不会影响正在运行的容器和当前使用的镜像。
+echo -e "${GREEN}🧹 清理 Docker 构建缓存与悬空镜像...${NC}"
+docker builder prune -af --filter until=168h || true
+docker image prune -f || true
+
 echo -e "${GREEN}🎉 部署完成！${NC}"
 echo -e "${GREEN}本地访问: http://localhost:3001${NC}"
 echo -e "${GREEN}查看日志: docker compose -f $COMPOSE_FILE logs -f${NC}"
