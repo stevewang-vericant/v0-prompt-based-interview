@@ -433,13 +433,15 @@ function ParentInterviewsContent() {
                           )}
                           {interview.student_name && (
                             <span className="rounded-md bg-black/[0.03] px-2 py-0.5 text-[#1d1d1f]">
-                              Student: {interview.student_name}
+                              Student (entered): {interview.student_name}
                             </span>
                           )}
                           {interview.matched_interview_id ? (
                             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-emerald-700">
                               <UserCheck className="h-3 w-3" />
-                              {interview.matched_manually ? "Linked to student (manual)" : "Matched to student interview"}
+                              {interview.matched_manually
+                                ? `Linked: ${interview.matched_student_name || "student interview"} (manual)`
+                                : `Matched: ${interview.matched_student_name || "student interview"}`}
                             </span>
                           ) : (
                             <span className="rounded-md bg-black/[0.03] px-2 py-0.5 text-[rgba(0,0,0,0.56)]">
