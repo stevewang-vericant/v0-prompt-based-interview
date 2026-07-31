@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,6 +41,12 @@ export function InterviewParentInfo({ onSubmit, schoolName, lang = "en" }: Inter
   const [studentDob, setStudentDob] = useState("")
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Clear stale validation messages when the UI language changes so they don't
+  // linger in the previously selected language.
+  useEffect(() => {
+    setErrors({})
+  }, [lang])
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
