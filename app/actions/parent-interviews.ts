@@ -205,6 +205,7 @@ export interface ParentInterviewRecord {
   parent_relationship: string | null
   student_name: string | null
   student_email: string | null
+  student_date_of_birth: string | null
   responseCount: number
   // Populated when the parent-provided student info matched a student interview.
   matched_interview_id: string | null
@@ -284,6 +285,9 @@ export async function getParentInterviewsBySchoolCode(
         parent_relationship: i.parent?.relationship || null,
         student_name: i.parent?.student_name || null,
         student_email: i.parent?.student_email || null,
+        student_date_of_birth: i.parent?.student_date_of_birth
+          ? new Date(i.parent.student_date_of_birth).toISOString().slice(0, 10)
+          : null,
         responseCount: i._count?.responses ?? 0,
         matched_interview_id: i.matched_interview_id,
         matched_video_url: matched?.video_url || null,
@@ -425,6 +429,69 @@ export async function setParentInterviewMatch(
     return { success: true }
   } catch (error) {
     console.error('[ParentInterview] Set match error:', error)
+    return { success: false, error: toClientError(error) }
+  }
+}
+
+export interface MatchedParentInterview {
+  interview_id: string | null
+  video_url: string | null
+  video_with_prep_url: string | null
+  subtitle_url: string | null
+  caption_url: string | null
+  response_language: string | null
+  parent_name: string | null
+  parent_email: string | null
+  parent_relationship: string | null
+  student_name: string | null
+  student_email: string | null
+  matched_manually: boolean
+}
+
+/**
+ * Reverse lookup: given a STUDENT interview_id, return the parent interview that
+ * is linked to it (if any), so the student review page can surface a link back
+ * to the parent's video and the parent's contact info.
+ */
+export async function getMatchedParentInterview(
+  studentInterviewId: string,
+): Promise<{ success: boolean; parentInterview?: MatchedParentInterview | null; error?: string }> {
+  try {
+    const user = await requireUser()
+
+    const parentInterview = await prisma.interview.findFirst({
+      where: { interview_type: 'parent', matched_interview_id: studentInterviewId },
+      orderBy: { created_at: 'desc' },
+      include: { parent: true, school: { select: { code: true } } },
+    })
+
+    if (!parentInterview) {
+      return { success: true, parentInterview: null }
+    }
+
+    if (!user.school.is_super_admin && user.school.code !== parentInterview.school?.code) {
+      return { success: false, error: 'Not authorized' }
+    }
+
+    return {
+      success: true,
+      parentInterview: {
+        interview_id: parentInterview.interview_id,
+        video_url: parentInterview.video_url,
+        video_with_prep_url: parentInterview.video_with_prep_url,
+        subtitle_url: parentInterview.subtitle_url,
+        caption_url: parentInterview.caption_url,
+        response_language: parentInterview.response_language,
+        parent_name: parentInterview.parent?.name || null,
+        parent_email: parentInterview.parent?.email || null,
+        parent_relationship: parentInterview.parent?.relationship || null,
+        student_name: parentInterview.parent?.student_name || null,
+        student_email: parentInterview.parent?.student_email || null,
+        matched_manually: parentInterview.matched_manually,
+      },
+    }
+  } catch (error) {
+    console.error('[ParentInterview] Reverse match lookup error:', error)
     return { success: false, error: toClientError(error) }
   }
 }

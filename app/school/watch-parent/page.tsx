@@ -19,6 +19,8 @@ function WatchParentContent() {
   const relationship = searchParams.get("relationship")
   const language = searchParams.get("language")
   const studentName = searchParams.get("studentName")
+  const studentEmail = searchParams.get("studentEmail")
+  const studentDob = searchParams.get("studentDob")
   const videoWithPrepUrl = searchParams.get("videoWithPrepUrl")
 
   const matchedInterviewId = searchParams.get("matchedInterviewId")
@@ -89,7 +91,17 @@ function WatchParentContent() {
                 )}
                 {studentName && (
                   <p className="text-xs sm:text-sm text-[rgba(0,0,0,0.56)] truncate">
-                    <span className="font-medium">Student:</span> {studentName}
+                    <span className="font-medium">Student (as entered):</span> {studentName}
+                  </p>
+                )}
+                {studentEmail && (
+                  <p className="text-xs sm:text-sm text-[rgba(0,0,0,0.56)] truncate">
+                    <span className="font-medium">Student email:</span> {studentEmail}
+                  </p>
+                )}
+                {studentDob && (
+                  <p className="text-xs sm:text-sm text-[rgba(0,0,0,0.56)] truncate">
+                    <span className="font-medium">Student date of birth:</span> {studentDob}
                   </p>
                 )}
                 {language && (

@@ -155,6 +155,8 @@ function ParentInterviewsContent() {
     if (interview.parent_relationship) params.append("relationship", interview.parent_relationship)
     if (interview.response_language) params.append("language", interview.response_language)
     if (interview.student_name) params.append("studentName", interview.student_name)
+    if (interview.student_email) params.append("studentEmail", interview.student_email)
+    if (interview.student_date_of_birth) params.append("studentDob", interview.student_date_of_birth)
     if (interview.video_with_prep_url) params.append("videoWithPrepUrl", interview.video_with_prep_url)
     if (interview.matched_interview_id && interview.matched_video_url) {
       params.append("matchedInterviewId", interview.matched_interview_id)
