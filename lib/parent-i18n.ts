@@ -69,6 +69,7 @@ interface ParentStrings {
       langRequired: string
       studentNameRequired: string
       studentEmailInvalid: string
+      studentDobRequired: string
     }
   }
   // System check + instructions (components/interview/interview-setup.tsx)
@@ -190,7 +191,7 @@ const en: ParentStrings = {
     studentEmailPh: "student.email@example.com",
     studentEmailHint:
       "If your child has taken a Vericant interview or a Guided interview, please enter the student email used for that interview. This helps us link your interview to your child's.",
-    studentDob: "Student Date of Birth (Optional)",
+    studentDob: "Student Date of Birth",
     continue: "Continue to Interview",
     relationships: {
       Mother: "Mother",
@@ -207,6 +208,7 @@ const en: ParentStrings = {
       langRequired: "Please select a preferred language",
       studentNameRequired: "Please enter your child's full name",
       studentEmailInvalid: "Please enter a valid student email address",
+      studentDobRequired: "Please enter your child's date of birth",
     },
   },
   setup: {
@@ -331,7 +333,7 @@ const zh: ParentStrings = {
     studentEmailPh: "student.email@example.com",
     studentEmailHint:
       "如果您的孩子参加过 Vericant 面试或 Guided 面试，请填写当时使用的学生邮箱。这有助于我们将您的面试与孩子的面试进行关联。",
-    studentDob: "学生出生日期（选填）",
+    studentDob: "学生出生日期",
     continue: "继续面试",
     relationships: {
       Mother: "母亲",
@@ -348,6 +350,7 @@ const zh: ParentStrings = {
       langRequired: "请选择首选语言",
       studentNameRequired: "请输入您孩子的姓名",
       studentEmailInvalid: "请输入有效的学生邮箱地址",
+      studentDobRequired: "请输入您孩子的出生日期",
     },
   },
   setup: {

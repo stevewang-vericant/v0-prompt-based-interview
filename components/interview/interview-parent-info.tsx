@@ -65,6 +65,7 @@ export function InterviewParentInfo({ onSubmit, schoolName, lang = "en" }: Inter
     if (studentEmail.trim() && !validateEmail(studentEmail)) {
       nextErrors.studentEmail = t.info.errors.studentEmailInvalid
     }
+    if (!studentDob) nextErrors.studentDob = t.info.errors.studentDobRequired
 
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
@@ -221,13 +222,17 @@ export function InterviewParentInfo({ onSubmit, schoolName, lang = "en" }: Inter
                 {errors.studentEmail && <p className="text-sm text-red-600">{errors.studentEmail}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="student-dob">{t.info.studentDob}</Label>
+                <Label htmlFor="student-dob">
+                  {t.info.studentDob} <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="student-dob"
                   type="date"
                   value={studentDob}
                   onChange={(e) => setStudentDob(e.target.value)}
+                  className={errors.studentDob ? "border-red-500" : ""}
                 />
+                {errors.studentDob && <p className="text-sm text-red-600">{errors.studentDob}</p>}
               </div>
             </div>
             <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
