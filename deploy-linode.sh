@@ -94,12 +94,19 @@ if command -v nginx &> /dev/null; then
     fi
 fi
 
-# 清理 Docker 部署副产物（构建缓存 + 悬空镜像），避免磁盘被逐渐占满
-# 说明：构建缓存是每次 --build 部署的最大磁盘元凶；这里只清理 7 天前的缓存和悬空镜像，
-# 不会影响正在运行的容器和当前使用的镜像。
+# 清理 Docker 部署副产物（构建缓存 + 悬空镜像），避免磁盘被逐渐占满。
+# 说明：
+#  - 每次 `--build` 会产生新的构建缓存，并把上一版镜像变成无 tag 的 <none> 悬空镜像。
+#  - 关键：构建缓存会「引用」这些 <none> 镜像，导致 `docker image prune -f` 删不掉它们。
+#    因此必须【先清空构建缓存，再删悬空镜像】，顺序不能反，否则会不断累积（曾把 49G 盘占到 86%）。
+#  - 只清理未被任何容器使用的悬空镜像和构建缓存，不会影响正在运行的容器、当前镜像，
+#    也不会删除本机其它项目（如 ai-crop / cathoven-see / steve-agent）带 tag 的镜像。
+#  - 代价：下次构建没有缓存会稍慢一些；在这台磁盘吃紧且多项目共用的机器上，稳妥优先。
 echo -e "${GREEN}🧹 清理 Docker 构建缓存与悬空镜像...${NC}"
-docker builder prune -af --filter until=168h || true
+docker builder prune -af || true
 docker image prune -f || true
+echo -e "${GREEN}💾 当前磁盘使用：${NC}"
+df -h / | tail -1 || true
 
 echo -e "${GREEN}🎉 部署完成！${NC}"
 echo -e "${GREEN}本地访问: http://localhost:3001${NC}"
