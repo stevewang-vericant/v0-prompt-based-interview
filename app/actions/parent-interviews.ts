@@ -430,12 +430,15 @@ export async function setParentInterviewMatch(
 }
 
 /**
- * Conservative matching: find a completed student interview at the same school
- * whose student matches the parent-provided student identity.
+ * Find a completed student interview at the same school whose student matches
+ * the parent-provided student identity. Returns the matching interview_id, or
+ * null if there is no confident match.
  *
- * Rule: student full name matches (case-insensitive, trimmed) AND either the
- * student email matches or the date of birth matches. Returns the matching
- * interview_id, or null if there is no confident match.
+ * Matching rule (in priority order):
+ *  1. Student email matches — email is a unique, strong identifier, so an email
+ *     match alone is sufficient (parents often don't know the exact name the
+ *     student registered with).
+ *  2. Student full name matches (case-insensitive) AND date of birth matches.
  *
  * Exported for use by the video processing pipeline.
  */
@@ -448,37 +451,43 @@ export async function findMatchingStudentInterviewId(parentInterviewId: string):
     if (!parentInterview?.parent) return null
 
     const parent = parentInterview.parent
-    const targetName = parent.student_name?.trim().toLowerCase()
-    if (!targetName) return null
+    const targetEmail = parent.student_email?.trim().toLowerCase()
+    const targetName = parent.student_name?.trim()
 
-    const candidates = await prisma.interview.findMany({
-      where: {
-        interview_type: "student",
-        school_id: parentInterview.school_id,
-        video_url: { not: null },
-        student: { is: { name: { equals: parent.student_name, mode: "insensitive" } } },
-      },
-      orderBy: { created_at: "desc" },
-      include: { student: true },
-    })
+    // 1) Strong match: student email (unique identifier).
+    if (targetEmail) {
+      const byEmail = await prisma.interview.findFirst({
+        where: {
+          interview_type: "student",
+          school_id: parentInterview.school_id,
+          video_url: { not: null },
+          student: { is: { email: { equals: targetEmail, mode: "insensitive" } } },
+        },
+        orderBy: { created_at: "desc" },
+        select: { interview_id: true },
+      })
+      if (byEmail?.interview_id) return byEmail.interview_id
+    }
 
-    for (const candidate of candidates) {
-      const student = candidate.student
-      if (!student) continue
+    // 2) Fallback: full name + date of birth both match.
+    if (targetName && parent.student_date_of_birth) {
+      const candidates = await prisma.interview.findMany({
+        where: {
+          interview_type: "student",
+          school_id: parentInterview.school_id,
+          video_url: { not: null },
+          student: { is: { name: { equals: targetName, mode: "insensitive" } } },
+        },
+        orderBy: { created_at: "desc" },
+        include: { student: true },
+      })
 
-      const emailMatches =
-        Boolean(parent.student_email) &&
-        Boolean(student.email) &&
-        parent.student_email!.trim().toLowerCase() === student.email.trim().toLowerCase()
-
-      const dobMatches =
-        Boolean(parent.student_date_of_birth) &&
-        Boolean(student.date_of_birth) &&
-        new Date(parent.student_date_of_birth as Date).toISOString().slice(0, 10) ===
-          new Date(student.date_of_birth as Date).toISOString().slice(0, 10)
-
-      if (emailMatches || dobMatches) {
-        return candidate.interview_id
+      const parentDob = new Date(parent.student_date_of_birth as Date).toISOString().slice(0, 10)
+      for (const candidate of candidates) {
+        const student = candidate.student
+        if (!student?.date_of_birth) continue
+        const studentDob = new Date(student.date_of_birth as Date).toISOString().slice(0, 10)
+        if (studentDob === parentDob) return candidate.interview_id
       }
     }
 

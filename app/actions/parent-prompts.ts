@@ -38,7 +38,14 @@ export async function getSchoolParentPrompts(schoolId: string): Promise<{
       orderBy: { created_at: 'desc' },
     })
 
-    const allPrompts = [...defaultPrompts, ...customPrompts].map((p) => ({
+    // The free-speech segment is auto-appended to every parent interview and is
+    // persisted as a prompt row on upload; it must never appear as a selectable
+    // question in Settings.
+    const FREE_SPEECH_TEXT = 'This is your free speech time. You can say anything you want.'
+    const isFreeSpeech = (p: { category: string; prompt_text: string }) =>
+      p.category === 'Free Speech' || p.prompt_text === FREE_SPEECH_TEXT
+
+    const allPrompts = [...defaultPrompts, ...customPrompts].filter((p) => !isFreeSpeech(p)).map((p) => ({
       id: p.id,
       category: p.category,
       prompt_text: p.prompt_text,
@@ -347,6 +354,26 @@ export async function getParentPromptsBySchoolCode(
         }
       })
     )
+
+    // Mirror the student interview: append a final free-speech segment after the
+    // configured questions.
+    const freeSpeechText = 'This is your free speech time. You can say anything you want.'
+    let freeSpeechTranslated = freeSpeechText
+    if (wantsTranslation) {
+      try {
+        freeSpeechTranslated = await translateText(freeSpeechText, targetLanguage)
+      } catch {
+        freeSpeechTranslated = freeSpeechText
+      }
+    }
+    formattedPrompts.push({
+      id: 'free-speech',
+      category: 'Free Speech',
+      text: freeSpeechText,
+      translatedText: freeSpeechTranslated,
+      preparationTime: defaultPrepTime,
+      responseTime: defaultResponseTime,
+    })
 
     return { success: true, prompts: formattedPrompts }
   } catch (error) {

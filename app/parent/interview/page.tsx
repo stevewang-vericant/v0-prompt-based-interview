@@ -376,8 +376,8 @@ function ParentInterviewContent() {
                 onComplete={handleSetupComplete}
                 preparationTime={prompts[0]?.preparationTime}
                 responseTime={prompts[0]?.responseTime}
-                totalPrompts={prompts.length}
-                showFreeSpeech={false}
+                totalPrompts={prompts.filter((p) => p.id !== "free-speech").length}
+                showFreeSpeech={prompts.some((p) => p.id === "free-speech")}
                 promptNoun="question"
                 lang={uiLang}
               />
