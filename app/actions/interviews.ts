@@ -240,12 +240,13 @@ export async function getInterviews(
     
     const [interviews, count] = await prisma.$transaction([
       prisma.interview.findMany({
+        where: { interview_type: 'student' },
         orderBy: { created_at: 'desc' },
         skip: offset,
         take: limit,
         include: { student: true, school: true, _count: { select: { responses: true } } }
       }),
-      prisma.interview.count()
+      prisma.interview.count({ where: { interview_type: 'student' } })
     ])
     
     console.log("[DB] Fetched", interviews.length, "interviews")
@@ -314,6 +315,7 @@ export async function getInterviewsByEmail(studentEmail: string): Promise<{
     // 或者直接关联查询
     const interviews = await prisma.interview.findMany({
       where: {
+        interview_type: 'student',
         student: {
           email: studentEmail
         }
@@ -394,6 +396,7 @@ export async function getInterviewsBySchoolCode(
     const [interviews, count] = await prisma.$transaction([
       prisma.interview.findMany({
         where: {
+          interview_type: 'student',
           school: {
             code: schoolCode
           }
@@ -405,10 +408,11 @@ export async function getInterviewsBySchoolCode(
       }),
       prisma.interview.count({
         where: {
+          interview_type: 'student',
           school: {
             code: schoolCode
-      }
-    }
+          }
+        }
       })
     ])
     

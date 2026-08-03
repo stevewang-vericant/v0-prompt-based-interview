@@ -26,6 +26,9 @@ yarn-error.log*
 .playwright/
 .playwright-mcp/
 
+# local-only test screenshots (not tracked)
+docs/screenshots/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -37,3 +40,6 @@ supabase-export-*.json
 ._*
 .Spotlight-V100
 .Trashes
+
+# Local-only data scripts (not tracked)
+scripts/260624_add_partner_universities.sql

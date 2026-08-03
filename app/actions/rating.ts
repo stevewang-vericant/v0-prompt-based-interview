@@ -87,6 +87,7 @@ export async function getRatingInterviews(
         skip: offset,
         take: limit,
         where: {
+          interview_type: "student",
           video_url: { not: null },
           school: { level: "undergraduate" },
         },
@@ -106,6 +107,7 @@ export async function getRatingInterviews(
       }),
       prisma.interview.count({
         where: {
+          interview_type: "student",
           video_url: { not: null },
           school: { level: "undergraduate" },
         },

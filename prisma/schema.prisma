@@ -26,9 +26,12 @@ model School {
   updated_at          DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
   last_login_at       DateTime?           @db.Timestamptz(6)
   selected_prompt_ids String[]
+  // Parent interview questions are configured separately from student prompts.
+  parent_selected_prompt_ids String[]
   credit_transactions CreditTransaction[]
   interviews          Interview[]
   invitations         Invitation[]
+  parents             Parent[]
   prompts             Prompt[]
   admins              SchoolAdmin[]
 
@@ -128,19 +131,40 @@ model Prompt {
   response_time    Int?                @default(90)
   difficulty_level String?             @db.VarChar(50)
   is_active        Boolean?            @default(true)
+  // "student" (default) or "parent". Keeps parent questions from leaking into
+  // student prompt selection and vice versa.
+  prompt_type      String              @default("student") @db.VarChar(20)
+  // Cached translations of prompt_text keyed by language code, e.g. { "zh": "..." }.
+  translations     Json?
   school_id        String?             @db.Uuid
   created_at       DateTime            @default(now()) @db.Timestamptz(6)
   responses        InterviewResponse[]
   school           School?             @relation(fields: [school_id], references: [id])
 
+  @@index([prompt_type])
   @@map("prompts")
 }
 
 model Interview {
   id                     String              @id @default(uuid()) @db.Uuid
   interview_id           String?             @unique @db.VarChar(255)
-  student_id             String              @db.Uuid
+  // "student" (default) or "parent". Parent interviews reuse the same pipeline
+  // but are never scored/rated and are listed in a separate school tab.
+  interview_type         String              @default("student") @db.VarChar(20)
+  student_id             String?             @db.Uuid
+  parent_id              String?             @db.Uuid
   school_id              String              @db.Uuid
+  // Parent-only: the parent's preferred response language (drives bilingual
+  // question display and English caption generation).
+  response_language      String?             @db.VarChar(50)
+  // Parent-only: URL of the generated English speech-caption JSON (VTT-like).
+  caption_url            String?             @db.VarChar(500)
+  // Parent-only: interview_id of a matching student interview, when found.
+  matched_interview_id   String?             @db.VarChar(255)
+  // Parent-only: true when a school staff manually linked the student interview
+  // (as opposed to the automatic name+email/DOB match). Manual links are never
+  // overwritten by the automatic matcher.
+  matched_manually       Boolean             @default(false)
   status                 String?             @default("not_started") @db.VarChar(50)
   video_url              String?             @db.VarChar(500)
   video_with_prep_url    String?             @db.VarChar(500)
@@ -178,14 +202,40 @@ model Interview {
   school_code            String?             @db.VarChar(50)
   responses              InterviewResponse[]
   school                 School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student                Student             @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  student                Student?            @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  parent                 Parent?             @relation(fields: [parent_id], references: [id], onDelete: Cascade)
   transcription_jobs     TranscriptionJob[]
 
   @@index([student_id])
+  @@index([parent_id])
   @@index([school_id])
   @@index([school_code])
   @@index([status])
+  @@index([interview_type])
   @@map("interviews")
+}
+
+model Parent {
+  id                    String      @id @default(uuid()) @db.Uuid
+  school_id             String      @db.Uuid
+  name                  String      @db.VarChar(255)
+  email                 String      @db.VarChar(255)
+  phone                 String?     @db.VarChar(50)
+  relationship          String?     @db.VarChar(100) // e.g. "Mother", "Father", "Guardian"
+  preferred_language    String      @default("English") @db.VarChar(50)
+  // Student identity the parent provided, used to match an existing student interview.
+  student_name          String      @db.VarChar(255)
+  student_email         String?     @db.VarChar(255)
+  student_date_of_birth DateTime?   @db.Date
+  created_at            DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime    @default(now()) @updatedAt @db.Timestamptz(6)
+  school                School      @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  interviews            Interview[]
+
+  @@index([school_id])
+  @@index([email])
+  @@index([student_email])
+  @@map("parents")
 }
 
 model InterviewResponse {

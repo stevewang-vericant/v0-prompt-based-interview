@@ -1,12 +1,13 @@
 "use client"
 
 import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { VideoPlayerWithSubtitles } from '@/components/video-player-with-subtitles'
 import { TranscriptionDisplay } from '@/components/transcription/transcription-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Users } from 'lucide-react'
+import { getMatchedParentInterview, type MatchedParentInterview } from '@/app/actions/parent-interviews'
 
 function SchoolWatchPageContent() {
   const searchParams = useSearchParams()
@@ -31,6 +32,56 @@ function SchoolWatchPageContent() {
   // 老面试不会带这个参数，下面的链接面板就不会渲染。
   const videoWithPrepUrl = searchParams.get('videoWithPrepUrl')
   const finalScore = finalScoreParam && !Number.isNaN(Number(finalScoreParam)) ? Number(finalScoreParam) : null
+
+  // If a parent interview is linked to this student interview, surface a link
+  // back to the parent's video plus the parent's contact info.
+  const [matchedParent, setMatchedParent] = useState<MatchedParentInterview | null>(null)
+
+  useEffect(() => {
+    if (!interviewId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const result = await getMatchedParentInterview(interviewId)
+        if (!cancelled && result.success && result.parentInterview?.video_url) {
+          setMatchedParent(result.parentInterview)
+        }
+      } catch (err) {
+        console.error('[Watch] Failed to load matched parent interview:', err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [interviewId])
+
+  const openParentInterview = () => {
+    if (!matchedParent?.video_url) return
+    const params = new URLSearchParams({
+      videoUrl: `/api/proxy-video?url=${encodeURIComponent(matchedParent.video_url)}`,
+      interviewId: matchedParent.interview_id || '',
+    })
+    if (matchedParent.subtitle_url) {
+      params.append('subtitleUrl', `/api/proxy-json?url=${encodeURIComponent(matchedParent.subtitle_url)}`)
+    }
+    if (matchedParent.caption_url) {
+      params.append('captionUrl', `/api/proxy-json?url=${encodeURIComponent(matchedParent.caption_url)}`)
+    }
+    if (matchedParent.parent_name) params.append('parentName', matchedParent.parent_name)
+    if (matchedParent.parent_email) params.append('parentEmail', matchedParent.parent_email)
+    if (matchedParent.parent_relationship) params.append('relationship', matchedParent.parent_relationship)
+    if (matchedParent.response_language) params.append('language', matchedParent.response_language)
+    if (matchedParent.student_name) params.append('studentName', matchedParent.student_name)
+    if (matchedParent.student_email) params.append('studentEmail', matchedParent.student_email)
+    if (matchedParent.video_with_prep_url) params.append('videoWithPrepUrl', matchedParent.video_with_prep_url)
+    // Pass this student's video/id back so the parent page can link to it.
+    if (interviewId && b2VideoUrl) {
+      params.append('matchedInterviewId', interviewId)
+      params.append('matchedVideoUrl', b2VideoUrl)
+      if (studentName) params.append('matchedStudentName', studentName)
+    }
+    window.location.href = `/school/watch-parent?${params.toString()}`
+  }
 
   if (!videoUrl) {
     return (
@@ -183,6 +234,48 @@ function SchoolWatchPageContent() {
                         Open prep + response video
                         <ExternalLink className="ml-2 h-3.5 w-3.5" />
                       </a>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Linked parent interview (bidirectional link with the parent review page). */}
+                {matchedParent && (
+                  <Card className="border-indigo-200 bg-indigo-50">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div className="text-sm min-w-0">
+                          <p className="flex items-center gap-1.5 font-medium text-indigo-900">
+                            <Users className="h-4 w-4" />
+                            Linked parent interview
+                            {matchedParent.matched_manually && (
+                              <span className="rounded bg-indigo-200 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">
+                                manual
+                              </span>
+                            )}
+                          </p>
+                          <div className="mt-1 space-y-0.5 text-xs text-indigo-900/80">
+                            {matchedParent.parent_name && (
+                              <p className="truncate">
+                                <span className="font-medium">Parent:</span> {matchedParent.parent_name}
+                                {matchedParent.parent_relationship ? ` (${matchedParent.parent_relationship})` : ''}
+                              </p>
+                            )}
+                            {matchedParent.parent_email && (
+                              <p className="truncate">
+                                <span className="font-medium">Email:</span> {matchedParent.parent_email}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={openParentInterview}
+                          className="inline-flex items-center justify-center rounded-md border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-900 shadow-sm hover:bg-indigo-100 shrink-0"
+                        >
+                          Open parent interview
+                          <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
