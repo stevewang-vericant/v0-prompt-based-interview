@@ -103,6 +103,7 @@ export interface CurrentUser {
     code: string | null
     is_super_admin: boolean
     credits_balance: number
+    billing_mode: string
   }
 }
 
@@ -387,7 +388,8 @@ export async function getCurrentUser(): Promise<{
               name: admin.school.name,
               code: admin.school.code,
               is_super_admin: admin.is_super_admin,
-              credits_balance: admin.school.credits_balance
+              credits_balance: admin.school.credits_balance,
+              billing_mode: admin.school.billing_mode,
             }
           }
         }
@@ -404,6 +406,7 @@ export async function getCurrentUser(): Promise<{
           is_super_admin: true,
           is_rater: true,
           credits_balance: true,
+          billing_mode: true,
         }
       })
 
@@ -421,7 +424,8 @@ export async function getCurrentUser(): Promise<{
             name: school.name,
             code: school.code,
             is_super_admin: school.is_super_admin,
-            credits_balance: school.credits_balance
+            credits_balance: school.credits_balance,
+            billing_mode: school.billing_mode,
           }
         }
       }

@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { toClientError } from "@/lib/errors"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
+import { isStudentPayMode } from "@/lib/billing"
 
 const s3Client = new S3Client({
   endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
@@ -47,6 +48,7 @@ export async function uploadVideoToB2AndSave(
           select: {
             id: true,
             credits_balance: true,
+            billing_mode: true,
           },
         })
 
@@ -54,7 +56,19 @@ export async function uploadVideoToB2AndSave(
           return { success: false, error: 'School not found' }
         }
 
-        if (school.credits_balance <= 0) {
+        if (isStudentPayMode(school.billing_mode)) {
+          const payment = await prisma.interviewPayment.findUnique({
+            where: { interview_id: interviewId },
+            select: { status: true, school_id: true },
+          })
+
+          if (!payment || payment.status !== 'paid' || payment.school_id !== school.id) {
+            return {
+              success: false,
+              error: 'Payment is required before this interview can start.',
+            }
+          }
+        } else if (school.credits_balance <= 0) {
           return {
             success: false,
             error: 'This school has no interview credits remaining. Please contact the school administrator.',

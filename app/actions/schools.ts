@@ -8,13 +8,32 @@ import {
   sendLowCreditAlertEmail,
   LOW_CREDIT_ALERT_THRESHOLD,
 } from "@/lib/email"
+import {
+  BILLING_MODE_CREDITS,
+  BILLING_MODE_STUDENT_PAY,
+  normalizeBillingMode,
+  type BillingMode,
+} from "@/lib/billing"
 
 type SchoolLevel = "k12" | "undergraduate"
 
 const SCHOOL_LEVELS: SchoolLevel[] = ["k12", "undergraduate"]
+const BILLING_MODES: BillingMode[] = [BILLING_MODE_CREDITS, BILLING_MODE_STUDENT_PAY]
 
 // Default credit balance granted to a brand-new school created by a super admin.
 const DEFAULT_NEW_SCHOOL_CREDITS = 5
+
+const MANAGED_SCHOOL_SELECT = {
+  id: true,
+  code: true,
+  name: true,
+  level: true,
+  active: true,
+  credits_balance: true,
+  billing_mode: true,
+  created_at: true,
+  updated_at: true,
+} as const
 
 export interface ManagedSchool {
   id: string
@@ -23,8 +42,27 @@ export interface ManagedSchool {
   level: string
   active: boolean
   credits_balance: number
+  billing_mode: BillingMode
   created_at: Date | null
   updated_at: Date | null
+}
+
+function toManagedSchool(school: {
+  id: string
+  code: string | null
+  name: string
+  level: string
+  active: boolean
+  credits_balance: number
+  billing_mode: string
+  created_at: Date | null
+  updated_at: Date | null
+}): ManagedSchool {
+  return {
+    ...school,
+    code: school.code || "",
+    billing_mode: normalizeBillingMode(school.billing_mode),
+  }
 }
 
 async function ensureSuperAdmin() {
@@ -58,29 +96,12 @@ export async function listSchools(): Promise<{
       orderBy: {
         created_at: 'asc'
       },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        level: true,
-        active: true,
-        credits_balance: true,
-        created_at: true,
-        updated_at: true
-      }
+      select: MANAGED_SCHOOL_SELECT
     })
-
-    // 转换类型：Prisma code 是 nullable，但我们这里需要 string
-    const mappedSchools = schools.map(s => ({
-      ...s,
-      code: s.code || '',
-      // created_at 和 updated_at 是 Date，但在 Next.js Server Actions 传输中通常会自动序列化
-      // 这里的接口定义是 Date | null，所以没问题
-    }))
 
     return {
       success: true,
-      schools: mappedSchools,
+      schools: schools.map(toManagedSchool),
     }
   } catch (error) {
     return {
@@ -171,26 +192,14 @@ export async function createSchool({
         credits_balance: DEFAULT_NEW_SCHOOL_CREDITS, // New schools added by super admin start with default credits
         selected_prompt_ids: defaultPromptIds.length === 4 ? defaultPromptIds : [], // 只有正好4个才设置
       },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        level: true,
-        active: true,
-        credits_balance: true,
-        created_at: true,
-        updated_at: true
-      }
+      select: MANAGED_SCHOOL_SELECT
     })
 
     console.log(`[Auth] Created school ${normalizedCode} with a generated default password (not logged)`)
 
     return {
       success: true,
-      school: {
-        ...school,
-        code: school.code || ''
-      },
+      school: toManagedSchool(school),
     }
   } catch (error) {
     console.error("Create school error:", error)
@@ -232,24 +241,12 @@ export async function updateSchoolLevel(
     const school = await prisma.school.update({
       where: { id: schoolId },
       data: { level },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        level: true,
-        active: true,
-        credits_balance: true,
-        created_at: true,
-        updated_at: true,
-      },
+      select: MANAGED_SCHOOL_SELECT,
     })
 
     return {
       success: true,
-      school: {
-        ...school,
-        code: school.code || "",
-      },
+      school: toManagedSchool(school),
     }
   } catch (error) {
     return {
@@ -297,17 +294,8 @@ export async function setSchoolCredits(
       const updatedSchool = await tx.school.update({
         where: { id: schoolId },
         data: { credits_balance: creditsBalance },
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          level: true,
-          active: true,
-          credits_balance: true,
-          created_at: true,
-          updated_at: true,
-        },
-      })
+        select: MANAGED_SCHOOL_SELECT,
+        })
 
       if (amount !== 0) {
         await tx.creditTransaction.create({
@@ -342,10 +330,53 @@ export async function setSchoolCredits(
 
     return {
       success: true,
-      school: {
-        ...school.updatedSchool,
-        code: school.updatedSchool.code || "",
-      },
+      school: toManagedSchool(school.updatedSchool),
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: toClientError(error),
+    }
+  }
+}
+
+export async function updateSchoolBillingMode(
+  schoolId: string,
+  billingMode: string
+): Promise<{
+  success: boolean
+  school?: ManagedSchool
+  error?: string
+}> {
+  try {
+    await ensureSuperAdmin()
+
+    if (!BILLING_MODES.includes(billingMode as BillingMode)) {
+      return { success: false, error: "Billing mode must be credits or student_pay" }
+    }
+
+    const existing = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { id: true, code: true },
+    })
+
+    if (!existing) {
+      return { success: false, error: "School not found" }
+    }
+
+    if (existing.code === "_system") {
+      return { success: false, error: "System school billing mode cannot be changed" }
+    }
+
+    const school = await prisma.school.update({
+      where: { id: schoolId },
+      data: { billing_mode: billingMode },
+      select: MANAGED_SCHOOL_SELECT,
+    })
+
+    return {
+      success: true,
+      school: toManagedSchool(school),
     }
   } catch (error) {
     return {

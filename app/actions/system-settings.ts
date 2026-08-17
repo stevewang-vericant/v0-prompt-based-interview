@@ -3,6 +3,12 @@
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from './auth'
 import { toClientError } from '@/lib/errors'
+import {
+  DEFAULT_STUDENT_INTERVIEW_CURRENCY,
+  STUDENT_INTERVIEW_CURRENCY_KEY,
+  STUDENT_INTERVIEW_PRICE_CENTS_KEY,
+} from '@/lib/billing'
+import { getStudentInterviewPrice } from '@/lib/interview-payment'
 
 /**
  * 获取全局时间设置（准备时间和回答时间）
@@ -202,6 +208,76 @@ export async function updateParentTimingSettings(
     return { success: true }
   } catch (error) {
     console.error('[SystemSettings] Error updating parent timing settings:', error)
+    return { success: false, error: toClientError(error) }
+  }
+}
+
+export async function getStudentInterviewPriceSettings(): Promise<{
+  success: boolean
+  amountCents?: number
+  currency?: string
+  error?: string
+}> {
+  try {
+    const price = await getStudentInterviewPrice()
+    return {
+      success: true,
+      amountCents: price.amountCents,
+      currency: price.currency,
+    }
+  } catch (error) {
+    console.error('[SystemSettings] Error fetching student interview price:', error)
+    return { success: false, error: toClientError(error) }
+  }
+}
+
+export async function updateStudentInterviewPriceSettings(
+  amountDollars: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const userResult = await getCurrentUser()
+    if (!userResult.success || !userResult.user) {
+      return { success: false, error: 'Not authenticated' }
+    }
+    if (!userResult.user.school.is_super_admin) {
+      return { success: false, error: 'Not authorized. Only super admin can update student interview pricing.' }
+    }
+
+    if (!Number.isFinite(amountDollars) || amountDollars <= 0) {
+      return { success: false, error: 'Price must be a positive amount in USD' }
+    }
+
+    const amountCents = Math.round(amountDollars * 100)
+    if (amountCents < 50) {
+      return { success: false, error: 'Price must be at least $0.50' }
+    }
+    if (amountCents > 10_000_000) {
+      return { success: false, error: 'Price is too large' }
+    }
+
+    await prisma.systemSettings.upsert({
+      where: { key: STUDENT_INTERVIEW_PRICE_CENTS_KEY },
+      update: { value: amountCents.toString() },
+      create: {
+        key: STUDENT_INTERVIEW_PRICE_CENTS_KEY,
+        value: amountCents.toString(),
+        description: 'Global Stripe price for student-pay interviews, in cents',
+      },
+    })
+
+    await prisma.systemSettings.upsert({
+      where: { key: STUDENT_INTERVIEW_CURRENCY_KEY },
+      update: { value: DEFAULT_STUDENT_INTERVIEW_CURRENCY },
+      create: {
+        key: STUDENT_INTERVIEW_CURRENCY_KEY,
+        value: DEFAULT_STUDENT_INTERVIEW_CURRENCY,
+        description: 'Currency for student-pay interviews',
+      },
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('[SystemSettings] Error updating student interview price:', error)
     return { success: false, error: toClientError(error) }
   }
 }

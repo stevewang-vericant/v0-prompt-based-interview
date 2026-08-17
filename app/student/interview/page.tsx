@@ -24,6 +24,12 @@ import {
   clearAllSegments,
   getInterviewsWithPendingUploads
 } from "@/lib/indexeddb"
+import { BILLING_MODE_STUDENT_PAY, type PaidStudentInfo } from "@/lib/billing"
+import {
+  confirmInterviewPayment,
+  createInterviewCheckoutSession,
+  getInterviewPaymentStatus,
+} from "@/app/actions/payments"
 
 interface Prompt {
   id: string
@@ -38,6 +44,9 @@ type InterviewStage = "setup" | "student-info" | "interview" | "complete"
 function InterviewPageContent() {
   const searchParams = useSearchParams()
   const schoolCode = searchParams.get("school")
+  const urlInterviewId = searchParams.get("interviewId")
+  const checkoutSessionId = searchParams.get("session_id")
+  const paymentQuery = searchParams.get("payment")
   const [isUnsupportedDevice, setIsUnsupportedDevice] = useState(false)
   
   const [stage, setStage] = useState<InterviewStage>("student-info")
@@ -76,6 +85,11 @@ function InterviewPageContent() {
     usesCbo: boolean | null
     cboOrganization?: string | null
   } | null>(null)
+  const [billingMode, setBillingMode] = useState<string>("credits")
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false)
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(Boolean(checkoutSessionId))
+  const [initialStudentInfo, setInitialStudentInfo] = useState<PaidStudentInfo | null>(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -120,6 +134,9 @@ function InterviewPageContent() {
         }))
 
         setPrompts(formattedPrompts)
+        if (result.billingMode) {
+          setBillingMode(result.billingMode)
+        }
       } catch (err) {
         console.error('[Interview] Error loading prompts:', err)
         setPromptsError(err instanceof Error ? err.message : "Unknown error")
@@ -163,21 +180,91 @@ function InterviewPageContent() {
 
   // 初始化 interviewId（仅在客户端）
   useEffect(() => {
-    if (typeof window !== 'undefined' && !interviewId) {
-      // 尝试从 localStorage 恢复
-      const saved = localStorage.getItem('currentInterviewId')
-      if (saved) {
-        console.log('[v0] Restored interviewId from localStorage:', saved)
-        setInterviewId(saved)
-      } else {
-        // 生成新的 interviewId
-        const newId = `interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        localStorage.setItem('currentInterviewId', newId)
-        console.log('[v0] Generated new interviewId:', newId)
-        setInterviewId(newId)
+    if (typeof window === 'undefined' || interviewId) return
+
+    if (urlInterviewId) {
+      localStorage.setItem('currentInterviewId', urlInterviewId)
+      setInterviewId(urlInterviewId)
+      return
+    }
+
+    const saved = localStorage.getItem('currentInterviewId')
+    if (saved) {
+      console.log('[v0] Restored interviewId from localStorage:', saved)
+      setInterviewId(saved)
+    } else {
+      const newId = `interview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      localStorage.setItem('currentInterviewId', newId)
+      console.log('[v0] Generated new interviewId:', newId)
+      setInterviewId(newId)
+    }
+  }, [interviewId, urlInterviewId])
+
+  // Confirm Stripe payment or restore a paid interview before recording starts.
+  useEffect(() => {
+    if (!interviewId || !schoolCode) return
+
+    let cancelled = false
+    const requestedInterviewId = interviewId
+
+    const restorePaidInterview = (info: PaidStudentInfo) => {
+      if (cancelled) return
+      setStudentInfo((current) => current || info)
+      setIntroAcknowledged(true)
+      setPaymentError(null)
+      setStage((current) => (current === "student-info" ? "setup" : current))
+      if (typeof window !== "undefined") {
+        const nextUrl = `/student/interview?school=${encodeURIComponent(schoolCode)}&interviewId=${encodeURIComponent(requestedInterviewId)}`
+        window.history.replaceState({}, "", nextUrl)
       }
     }
-  }, [])
+
+    const run = async () => {
+      try {
+        if (checkoutSessionId) {
+          setIsConfirmingPayment(true)
+          const result = await confirmInterviewPayment({
+            interviewId: requestedInterviewId,
+            sessionId: checkoutSessionId,
+            schoolCode,
+          })
+          if (cancelled) return
+          if (result.success && result.paid && result.studentInfo) {
+            restorePaidInterview(result.studentInfo)
+          } else {
+            setPaymentError(result.error || "Payment was not completed. The interview cannot start.")
+          }
+          setIsConfirmingPayment(false)
+          return
+        }
+
+        const status = await getInterviewPaymentStatus(requestedInterviewId)
+        if (cancelled) return
+        if (status.success && status.paid && status.studentInfo) {
+          restorePaidInterview(status.studentInfo)
+          return
+        }
+
+        if (status.success && status.studentInfo) {
+          setInitialStudentInfo(status.studentInfo)
+        }
+
+        if (paymentQuery === "cancelled") {
+          setPaymentError("Payment was cancelled. Complete payment to start the interview.")
+        }
+      } catch (error) {
+        if (cancelled) return
+        console.error("[Interview] Failed to confirm payment:", error)
+        setPaymentError("Unable to confirm payment. Please try again.")
+        setIsConfirmingPayment(false)
+      }
+    }
+
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [interviewId, schoolCode, checkoutSessionId, paymentQuery])
 
   // Check for unfinished interview data when page loads.
   // Waits for both interviewId and prompts to be ready to avoid race conditions.
@@ -354,7 +441,7 @@ function InterviewPageContent() {
     checkPendingUploads()
   }, [interviewId, prompts, promptsLoading])
 
-  const handleStudentInfoComplete = (info: {
+  const handleStudentInfoComplete = async (info: {
     email: string
     name: string
     gender?: string | null
@@ -367,11 +454,42 @@ function InterviewPageContent() {
   }) => {
     console.log('[v0] Student info collected:', info)
     setStudentInfo(info)
-    // 确保 interviewId 已保存到 localStorage
+    setPaymentError(null)
     if (typeof window !== 'undefined') {
       localStorage.setItem('currentInterviewId', interviewId)
       console.log('[v0] Saved interviewId to localStorage:', interviewId)
     }
+
+    if (billingMode === BILLING_MODE_STUDENT_PAY) {
+      if (!schoolCode) {
+        setPaymentError("A school code is required before payment.")
+        return
+      }
+
+      setIsCreatingCheckout(true)
+      const result = await createInterviewCheckoutSession({
+        interviewId,
+        schoolCode,
+        studentInfo: info,
+      })
+
+      if (result.success && result.alreadyPaid) {
+        setIntroAcknowledged(true)
+        setStage("setup")
+        setIsCreatingCheckout(false)
+        return
+      }
+
+      if (result.success && result.url) {
+        window.location.href = result.url
+        return
+      }
+
+      setPaymentError(result.error || "Unable to start payment. Please try again.")
+      setIsCreatingCheckout(false)
+      return
+    }
+
     setStage("setup")
   }
 
@@ -756,6 +874,7 @@ function InterviewPageContent() {
                 {stage === "setup" && "System check and preparation"}
                 {stage === "interview" && prompts.length > 0 && `Question ${currentPromptIndex + 1} of ${prompts.length}`}
                 {stage === "complete" && "Interview completed"}
+                {isCreatingCheckout && "Redirecting to payment"}
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[rgba(0,0,0,0.48)] mt-1">
                 {schoolCode && (
@@ -883,10 +1002,33 @@ function InterviewPageContent() {
         )}
 
         {stage === "student-info" && (!branding.introVideoUrl || introAcknowledged) && (
-          <InterviewStudentInfo 
-            onSubmit={handleStudentInfoComplete}
-            schoolLevel={branding.level}
-          />
+          <>
+            {isConfirmingPayment ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent mx-auto"></div>
+                  <p className="mt-2 text-sm text-[rgba(0,0,0,0.56)]">Confirming payment...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {paymentError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Payment required</AlertTitle>
+                    <AlertDescription>{paymentError}</AlertDescription>
+                  </Alert>
+                )}
+                <InterviewStudentInfo 
+                  onSubmit={handleStudentInfoComplete}
+                  schoolLevel={branding.level}
+                  submitLabel={billingMode === BILLING_MODE_STUDENT_PAY ? "Continue to Payment" : "Continue to Interview"}
+                  submitting={isCreatingCheckout}
+                  initialValues={initialStudentInfo}
+                />
+              </div>
+            )}
+          </>
         )}
 
         {stage === "setup" && (

@@ -27,12 +27,21 @@ interface StudentInfo {
 }
 
 interface InterviewStudentInfoProps {
-  onSubmit: (info: StudentInfo) => void
+  onSubmit: (info: StudentInfo) => void | Promise<void>
   // School level ("k12" | "undergraduate"). CBO is only relevant to K-12 students.
   schoolLevel?: string | null
+  submitLabel?: string
+  submitting?: boolean
+  initialValues?: Partial<StudentInfo> | null
 }
 
-export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudentInfoProps) {
+export function InterviewStudentInfo({
+  onSubmit,
+  schoolLevel,
+  submitLabel = "Continue to Interview",
+  submitting = false,
+  initialValues = null,
+}: InterviewStudentInfoProps) {
   // Higher-ed schools don't collect CBO info; everything else defaults to K-12.
   const showCbo = schoolLevel !== "undergraduate"
   const [studentEmail, setStudentEmail] = useState("")
@@ -63,6 +72,31 @@ export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudent
   const [filteredCountries, setFilteredCountries] = useState<string[]>(COUNTRIES.slice(0, 20))
   const countryInputRef = useRef<HTMLInputElement>(null)
   const countryDropdownRef = useRef<HTMLDivElement>(null)
+  const appliedInitialValues = useRef(false)
+
+  useEffect(() => {
+    if (!initialValues || appliedInitialValues.current) return
+    appliedInitialValues.current = true
+
+    if (initialValues.email) setStudentEmail(initialValues.email)
+    if (initialValues.name) setStudentName(initialValues.name)
+    if (initialValues.gender) setGender(initialValues.gender)
+    if (initialValues.currentGrade) setCurrentGrade(initialValues.currentGrade)
+    if (initialValues.residencyCity) setResidencyCity(initialValues.residencyCity)
+    if (initialValues.residenceCountry) {
+      setResidenceCountry(initialValues.residenceCountry)
+      setCountrySearchQuery(initialValues.residenceCountry)
+    }
+    if (typeof initialValues.needFinancialAid === "boolean") {
+      setNeedFinancialAid(initialValues.needFinancialAid ? "yes" : "no")
+    }
+    if (typeof initialValues.usesCbo === "boolean") {
+      setUsesCbo(initialValues.usesCbo ? "yes" : "no")
+    }
+    if (initialValues.cboOrganization) {
+      setCboOrganization(initialValues.cboOrganization)
+    }
+  }, [initialValues])
 
   // Update filtered countries when search query changes
   useEffect(() => {
@@ -140,7 +174,8 @@ export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudent
     setResidenceCountryError("")
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (submitting) return
     setHasAttemptedSubmit(true)
     let hasError = false
 
@@ -236,7 +271,7 @@ export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudent
       cboOrganization: cboOrganizationValue,
     }
 
-    onSubmit(studentInfo)
+    await onSubmit(studentInfo)
   }
 
   return (
@@ -524,8 +559,9 @@ export function InterviewStudentInfo({ onSubmit, schoolLevel }: InterviewStudent
             onClick={handleSubmit} 
             className="w-full" 
             size="lg"
+            disabled={submitting}
           >
-            Continue to Interview
+            {submitting ? "Please wait..." : submitLabel}
           </Button>
         </CardContent>
       </Card>

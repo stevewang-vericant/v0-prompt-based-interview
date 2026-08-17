@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from './auth'
 import { toClientError } from '@/lib/errors'
+import { isStudentPayMode, normalizeBillingMode } from '@/lib/billing'
 
 export interface PromptRecord {
   id: string
@@ -288,6 +289,7 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
     preparationTime: number
     responseTime: number
   }>
+  billingMode?: string
   error?: string
 }> {
   try {
@@ -309,6 +311,7 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
       select: {
         selected_prompt_ids: true,
         credits_balance: true,
+        billing_mode: true,
       }
     })
 
@@ -316,7 +319,7 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
       return { success: false, error: 'School not found' }
     }
 
-    if (school.credits_balance <= 0) {
+    if (!isStudentPayMode(school.billing_mode) && school.credits_balance <= 0) {
       return {
         success: false,
         error: 'This school has no interview credits remaining. Please contact the school administrator.'
@@ -370,7 +373,8 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
 
     return {
       success: true,
-      prompts: formattedPrompts
+      prompts: formattedPrompts,
+      billingMode: normalizeBillingMode(school.billing_mode),
     }
   } catch (error) {
     console.error('[Prompts] Error fetching prompts by school code:', error)
