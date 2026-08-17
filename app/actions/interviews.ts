@@ -4,6 +4,28 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "./auth"
 import { requireSuperAdmin, requireUser } from "@/lib/auth-guards"
 import { toClientError } from "@/lib/errors"
+import { requirePaymentAccess } from "@/lib/payment-access"
+
+async function authorizePaidInterviewRead(interviewId: string): Promise<void> {
+  const payment = await prisma.interviewPayment.findFirst({
+    where: {
+      OR: [
+        { interview_id: interviewId },
+        { interviews: { some: { interview_id: interviewId } } },
+      ],
+    },
+    select: { id: true, interview_id: true },
+  })
+  if (!payment) return
+
+  const currentUser = await getCurrentUser()
+  if (currentUser.success && currentUser.user?.school.is_super_admin) return
+
+  await requirePaymentAccess({
+    paymentId: payment.id,
+    interviewId: payment.interview_id,
+  })
+}
 
 /**
  * 面试数据类型定义
@@ -274,6 +296,7 @@ export async function getInterviewById(interviewId: string): Promise<{
 }> {
   try {
     console.log("[DB] Fetching interview by ID:", interviewId)
+    await authorizePaidInterviewRead(interviewId)
     
     const interview = await prisma.interview.findUnique({
       where: { interview_id: interviewId },
@@ -444,7 +467,7 @@ export async function deleteIncompleteInterview(interviewId: string): Promise<{
 
     const interview = await prisma.interview.findUnique({
       where: { interview_id: interviewId },
-      select: { id: true, video_url: true }
+      select: { id: true, video_url: true, payment_id: true }
     })
 
     if (!interview) {
@@ -455,6 +478,19 @@ export async function deleteIncompleteInterview(interviewId: string): Promise<{
     if (interview.video_url) {
       console.log("[DB] Interview already has a merged video, refusing to delete")
       return { success: false, error: "Cannot delete a completed interview with a processed video" }
+    }
+
+    const paidInterview =
+      interview.payment_id ||
+      (await prisma.interviewPayment.findUnique({
+        where: { interview_id: interviewId },
+        select: { id: true },
+      }))?.id
+    if (paidInterview) {
+      return {
+        success: false,
+        error: "Paid interviews must be restarted through email verification.",
+      }
     }
 
     await prisma.interview.delete({

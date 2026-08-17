@@ -8,6 +8,9 @@
 -- via Stripe before an interview starts. Default remains credits.
 --
 -- Rollback:
+--   ALTER TABLE interviews DROP COLUMN IF EXISTS payment_id;
+--   ALTER TABLE interviews DROP COLUMN IF EXISTS attempt_number;
+--   DROP TABLE IF EXISTS payment_access_codes;
 --   DROP TABLE IF EXISTS interview_payments;
 --   ALTER TABLE schools DROP COLUMN IF EXISTS billing_mode;
 
@@ -33,3 +36,42 @@ CREATE TABLE IF NOT EXISTS interview_payments (
 
 CREATE INDEX IF NOT EXISTS interview_payments_school_id_idx ON interview_payments(school_id);
 CREATE INDEX IF NOT EXISTS interview_payments_status_idx ON interview_payments(status);
+
+ALTER TABLE interview_payments
+  ADD COLUMN IF NOT EXISTS entitlement_status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS restart_count INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMPTZ;
+
+UPDATE interview_payments
+SET entitlement_status = 'active'
+WHERE status = 'paid' AND entitlement_status = 'pending';
+
+CREATE INDEX IF NOT EXISTS interview_payments_entitlement_status_idx
+  ON interview_payments(entitlement_status);
+
+ALTER TABLE interviews
+  ADD COLUMN IF NOT EXISTS payment_id UUID REFERENCES interview_payments(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS attempt_number INTEGER NOT NULL DEFAULT 1;
+
+CREATE INDEX IF NOT EXISTS interviews_payment_id_idx ON interviews(payment_id);
+
+UPDATE interviews i
+SET payment_id = p.id
+FROM interview_payments p
+WHERE i.interview_id = p.interview_id
+  AND i.payment_id IS NULL;
+
+CREATE TABLE IF NOT EXISTS payment_access_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payment_id UUID NOT NULL REFERENCES interview_payments(id) ON DELETE CASCADE,
+  code_hash VARCHAR(64) NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS payment_access_codes_payment_id_idx
+  ON payment_access_codes(payment_id);
+CREATE INDEX IF NOT EXISTS payment_access_codes_expires_at_idx
+  ON payment_access_codes(expires_at);

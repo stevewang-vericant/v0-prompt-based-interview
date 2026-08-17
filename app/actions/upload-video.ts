@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { toClientError } from "@/lib/errors"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 import { isStudentPayMode } from "@/lib/billing"
+import { requirePaymentAccess } from "@/lib/payment-access"
 
 const s3Client = new S3Client({
   endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
@@ -36,43 +37,68 @@ export async function uploadVideoToB2AndSave(
     if (!process.env.B2_BUCKET_NAME) throw new Error("B2_BUCKET_NAME not configured")
     // ... (其他检查保持不变)
 
+    let verifiedPayment: {
+      id: string
+      school_id: string
+      student_email: string
+      student_name: string
+      restart_count: number
+    } | null = null
+
     if (schoolCode) {
       const existingInterview = await prisma.interview.findUnique({
         where: { interview_id: interviewId },
-        select: { id: true },
+        select: { id: true, payment_id: true },
       })
 
-      if (!existingInterview) {
-        const school = await prisma.school.findFirst({
-          where: { code: schoolCode },
+      const school = await prisma.school.findFirst({
+        where: { code: schoolCode },
+        select: {
+          id: true,
+          credits_balance: true,
+          billing_mode: true,
+        },
+      })
+
+      if (!school) {
+        return { success: false, error: 'School not found' }
+      }
+
+      if (isStudentPayMode(school.billing_mode)) {
+        const payment = await prisma.interviewPayment.findUnique({
+          where: { interview_id: interviewId },
           select: {
             id: true,
-            credits_balance: true,
-            billing_mode: true,
+            status: true,
+            entitlement_status: true,
+            school_id: true,
+            student_email: true,
+            student_name: true,
+            restart_count: true,
           },
         })
 
-        if (!school) {
-          return { success: false, error: 'School not found' }
-        }
-
-        if (isStudentPayMode(school.billing_mode)) {
-          const payment = await prisma.interviewPayment.findUnique({
-            where: { interview_id: interviewId },
-            select: { status: true, school_id: true },
-          })
-
-          if (!payment || payment.status !== 'paid' || payment.school_id !== school.id) {
-            return {
-              success: false,
-              error: 'Payment is required before this interview can start.',
-            }
-          }
-        } else if (school.credits_balance <= 0) {
+        if (
+          !payment ||
+          payment.status !== 'paid' ||
+          payment.entitlement_status !== 'active' ||
+          payment.school_id !== school.id
+        ) {
           return {
             success: false,
-            error: 'This school has no interview credits remaining. Please contact the school administrator.',
+            error: 'Payment is required before this interview can start.',
           }
+        }
+
+        await requirePaymentAccess({
+          paymentId: payment.id,
+          interviewId,
+        })
+        verifiedPayment = payment
+      } else if (!existingInterview && school.credits_balance <= 0) {
+        return {
+          success: false,
+          error: 'This school has no interview credits remaining. Please contact the school administrator.',
         }
       }
     }
@@ -133,9 +159,12 @@ export async function uploadVideoToB2AndSave(
          return { success: true, videoUrl, data: null, dbError: 'School not found' }
       }
 
+      const effectiveStudentEmail = verifiedPayment?.student_email || studentEmail
+      const effectiveStudentName = verifiedPayment?.student_name || studentName
+
       // 查找或创建 Student
       let student = await prisma.student.findUnique({
-        where: { email: studentEmail }
+        where: { email: effectiveStudentEmail }
       })
       
       if (!student) {
@@ -148,8 +177,8 @@ export async function uploadVideoToB2AndSave(
         
         student = await prisma.student.create({
           data: {
-            email: studentEmail,
-            name: studentName || studentEmail.split('@')[0],
+            email: effectiveStudentEmail,
+            name: effectiveStudentName || effectiveStudentEmail.split('@')[0],
             password_hash: tempPasswordHash,
             invitation_id: null // 允许为 null
           }
@@ -164,6 +193,8 @@ export async function uploadVideoToB2AndSave(
           school_id: school.id,
           school_code: schoolCode, // 也保存 school_code 方便查询
           student_id: student.id,
+          payment_id: verifiedPayment?.id || null,
+          attempt_number: verifiedPayment ? verifiedPayment.restart_count + 1 : 1,
           status: 'in_progress',
           started_at: new Date()
         }

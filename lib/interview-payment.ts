@@ -44,6 +44,10 @@ export async function markInterviewPaymentPaid(params: {
   }
 
   const paymentIntentId = getStripePaymentIntentId(session.payment_intent)
+  const stripeEmail =
+    session.customer_details?.email?.trim().toLowerCase() ||
+    session.customer_email?.trim().toLowerCase() ||
+    null
 
   const existing = await prisma.interviewPayment.findUnique({
     where: { stripe_checkout_session_id: session.id },
@@ -54,15 +58,14 @@ export async function markInterviewPaymentPaid(params: {
     return { success: false, studentInfo: null }
   }
 
-  if (existing.status === "paid") {
-    return { success: true, studentInfo: parsePaidStudentInfo(existing.student_info) }
-  }
-
   const updated = await prisma.interviewPayment.update({
     where: { id: existing.id },
     data: {
       status: "paid",
-      paid_at: new Date(),
+      entitlement_status:
+        existing.entitlement_status === "consumed" ? "consumed" : "active",
+      paid_at: existing.paid_at || new Date(),
+      ...(stripeEmail ? { student_email: stripeEmail } : {}),
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: paymentIntentId || existing.stripe_payment_intent_id,
     },

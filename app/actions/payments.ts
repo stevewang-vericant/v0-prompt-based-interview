@@ -11,6 +11,10 @@ import {
 import { getAppUrl, getStripe } from "@/lib/stripe"
 import { getStudentInterviewPrice, markInterviewPaymentPaid } from "@/lib/interview-payment"
 import { Prisma } from "@prisma/client"
+import {
+  issuePaymentAccessSession,
+  requirePaymentAccess,
+} from "@/lib/payment-access"
 
 export async function getInterviewPaymentStatus(interviewId: string): Promise<{
   success: boolean
@@ -36,11 +40,26 @@ export async function getInterviewPaymentStatus(interviewId: string): Promise<{
       return { success: true, paid: false, status: null, studentInfo: null }
     }
 
+    if (payment.status === "paid") {
+      const fullPayment = await prisma.interviewPayment.findUnique({
+        where: { interview_id: interviewId },
+        select: { id: true },
+      })
+      if (!fullPayment) {
+        return { success: false, error: "Payment record not found" }
+      }
+      await requirePaymentAccess({
+        paymentId: fullPayment.id,
+        interviewId,
+      })
+    }
+
     return {
       success: true,
       paid: payment.status === "paid",
       status: payment.status,
-      studentInfo: parsePaidStudentInfo(payment.student_info),
+      studentInfo:
+        payment.status === "paid" ? parsePaidStudentInfo(payment.student_info) : null,
     }
   } catch (error) {
     console.error("[Payments] Failed to load interview payment status:", error)
@@ -106,6 +125,10 @@ export async function createInterviewCheckoutSession(params: {
       if (existing.school_id !== school.id) {
         return { success: false, error: "This interview payment belongs to a different school." }
       }
+      await requirePaymentAccess({
+        paymentId: existing.id,
+        interviewId,
+      })
       return {
         success: true,
         alreadyPaid: true,
@@ -263,13 +286,14 @@ export async function confirmInterviewPayment(params: {
 
     const payment = await prisma.interviewPayment.findUnique({
       where: { interview_id: interviewId },
-      select: { school_id: true, student_info: true, status: true },
+      select: { id: true, school_id: true, student_info: true, status: true },
     })
 
     if (!payment || payment.school_id !== school.id || payment.status !== "paid") {
       return { success: false, error: "Payment could not be confirmed. Please contact support." }
     }
 
+    await issuePaymentAccessSession(payment.id, interviewId)
     return {
       success: true,
       paid: true,

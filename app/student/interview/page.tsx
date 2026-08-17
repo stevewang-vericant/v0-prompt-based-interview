@@ -2,6 +2,7 @@
 
 import { useState, Suspense, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -278,6 +279,12 @@ function InterviewPageContent() {
 
         // Clean up old interview and start a fresh one
         const startFresh = async (oldId: string) => {
+          if (billingMode === BILLING_MODE_STUDENT_PAY && schoolCode) {
+            await clearAllSegments(oldId)
+            window.location.href = `/student/interview/access?school=${encodeURIComponent(schoolCode)}`
+            return
+          }
+
           console.log('[v0] Starting fresh, cleaning up:', oldId)
           await clearAllSegments(oldId)
           try {
@@ -439,7 +446,7 @@ function InterviewPageContent() {
     }
 
     checkPendingUploads()
-  }, [interviewId, prompts, promptsLoading])
+  }, [interviewId, prompts, promptsLoading, billingMode, schoolCode])
 
   const handleStudentInfoComplete = async (info: {
     email: string
@@ -834,7 +841,7 @@ function InterviewPageContent() {
       needFinancialAid: studentInfo.needFinancialAid,
       usesCbo: studentInfo.usesCbo,
       cboOrganization: studentInfo.cboOrganization
-    })
+    }, interviewId)
     
     // 根据结果跳转到完成页面
     const params = new URLSearchParams({
@@ -1026,6 +1033,17 @@ function InterviewPageContent() {
                   submitting={isCreatingCheckout}
                   initialValues={initialStudentInfo}
                 />
+                {billingMode === BILLING_MODE_STUDENT_PAY && schoolCode && (
+                  <p className="text-center text-sm text-[rgba(0,0,0,0.56)]">
+                    Already paid?{" "}
+                    <Link
+                      href={`/student/interview/access?school=${encodeURIComponent(schoolCode)}`}
+                      className="font-medium text-[#0071e3] hover:underline"
+                    >
+                      Verify your email to continue or restart
+                    </Link>
+                  </p>
+                )}
               </div>
             )}
           </>

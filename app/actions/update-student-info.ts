@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { toClientError } from '@/lib/errors'
+import { requirePaymentAccess } from '@/lib/payment-access'
 
 interface AdditionalStudentInfo {
   gender?: string | null
@@ -16,18 +17,34 @@ interface AdditionalStudentInfo {
 
 export async function updateStudentInfo(
   studentEmail: string,
-  additionalInfo: AdditionalStudentInfo
+  additionalInfo: AdditionalStudentInfo,
+  interviewId?: string
 ) {
   try {
-    console.log('[v0] Updating student info for:', studentEmail)
+    let authorizedEmail = studentEmail
+    if (interviewId) {
+      const payment = await prisma.interviewPayment.findUnique({
+        where: { interview_id: interviewId },
+        select: { id: true, student_email: true },
+      })
+      if (payment) {
+        await requirePaymentAccess({
+          paymentId: payment.id,
+          interviewId,
+        })
+        authorizedEmail = payment.student_email
+      }
+    }
+
+    console.log('[v0] Updating student info for:', authorizedEmail)
     console.log('[v0] Additional info:', additionalInfo)
 
     const student = await prisma.student.findUnique({
-      where: { email: studentEmail }
+      where: { email: authorizedEmail }
     })
 
     if (!student) {
-      console.error('[v0] Student not found:', studentEmail)
+      console.error('[v0] Student not found:', authorizedEmail)
       return { success: false, error: 'Student not found' }
     }
 
@@ -56,7 +73,7 @@ export async function updateStudentInfo(
     // Update student with additional information
     // Explicitly set fields to null if they are null/undefined to clear old data
     await prisma.student.update({
-      where: { email: studentEmail },
+      where: { email: authorizedEmail },
       data: {
         gender: additionalInfo.gender === undefined ? undefined : (additionalInfo.gender || null),
         current_grade: additionalInfo.currentGrade === undefined ? undefined : (additionalInfo.currentGrade || null),

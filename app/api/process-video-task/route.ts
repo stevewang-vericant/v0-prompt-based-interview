@@ -722,6 +722,7 @@ async function processVideoMergeTaskInner(taskId: string) {
               id: true,
               school_id: true,
               interview_id: true,
+              payment_id: true,
               metadata: true,
               interview_type: true,
               school: {
@@ -797,7 +798,7 @@ async function processVideoMergeTaskInner(taskId: string) {
                 const paidStudentInterview = interview.interview_id
                   ? await tx.interviewPayment.findUnique({
                       where: { interview_id: interview.interview_id },
-                      select: { status: true },
+                      select: { id: true, status: true },
                     })
                   : null
                 const skipCreditDeduction =
@@ -837,6 +838,21 @@ async function processVideoMergeTaskInner(taskId: string) {
                             amount: -1,
                             transaction_type: 'usage',
                             payment_status: 'completed',
+                        },
+                    })
+                }
+
+                const completedPaymentId =
+                  interview.payment_id || paidStudentInterview?.id || null
+                if (completedPaymentId && !isParent) {
+                    await tx.interviewPayment.updateMany({
+                        where: {
+                            id: completedPaymentId,
+                            entitlement_status: { not: 'consumed' },
+                        },
+                        data: {
+                            entitlement_status: 'consumed',
+                            consumed_at: new Date(),
                         },
                     })
                 }
