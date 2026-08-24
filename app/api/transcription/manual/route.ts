@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { prisma } from '@/lib/prisma'
 import { requireUserApi } from '@/lib/auth-guards'
+import { generateEnglishCaptionsFromVideoUrl } from '@/lib/english-captions'
 
 // AssemblyAI API 配置
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLY_AI_API_KEY
 const ASSEMBLYAI_API_URL = "https://api.assemblyai.com/v2"
+
+const s3Client = new S3Client({
+  endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
+  region: process.env.B2_BUCKET_REGION!,
+  credentials: {
+    accessKeyId: process.env.B2_APPLICATION_KEY_ID!,
+    secretAccessKey: process.env.B2_APPLICATION_KEY!,
+  },
+  forcePathStyle: true,
+})
 
 /**
  * 提交视频到 AssemblyAI 进行转录
@@ -98,7 +110,11 @@ export async function POST(request: NextRequest) {
 
     // 获取面试记录
     const interview = await prisma.interview.findUnique({
-      where: { interview_id: interviewId }
+      where: { interview_id: interviewId },
+      include: {
+        school: { select: { name: true } },
+        parent: { select: { student_name: true } },
+      },
     })
 
     if (!interview) {
@@ -111,6 +127,92 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Manual Transcription] Video URL: ${videoUrl}`)
+
+    // Parent interviews use AssemblyAI + GPT so reviewers still get English,
+    // with school/student names as keywords.
+    if (interview.interview_type === 'parent') {
+      await prisma.interview.update({
+        where: { id: interview.id },
+        data: { transcription_status: 'processing' },
+      })
+
+      const captions = await generateEnglishCaptionsFromVideoUrl(videoUrl, {
+        schoolName: interview.school?.name,
+        studentName: interview.parent?.student_name,
+      })
+
+      if (!captions) {
+        await prisma.interview.update({
+          where: { id: interview.id },
+          data: { transcription_status: 'failed' },
+        })
+        return NextResponse.json({ success: false, error: 'Parent caption generation failed' }, { status: 500 })
+      }
+
+      const captionPayload = {
+        interviewId,
+        language: 'en',
+        sourceLanguage: captions.sourceLanguage,
+        totalDuration: captions.totalDuration,
+        segments: captions.segments,
+        srt: captions.srt,
+        createdAt: new Date().toISOString(),
+      }
+      const stamp = Date.now()
+      const captionKey = `interviews/${interviewId}/english-captions-${stamp}.json`
+      const srtKey = `interviews/${interviewId}/english-captions-${stamp}.srt`
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: process.env.B2_BUCKET_NAME!,
+          Key: captionKey,
+          Body: Buffer.from(JSON.stringify(captionPayload, null, 2), 'utf-8'),
+          ContentType: 'application/json',
+        }),
+      )
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: process.env.B2_BUCKET_NAME!,
+          Key: srtKey,
+          Body: Buffer.from(captions.srt, 'utf-8'),
+          ContentType: 'application/x-subrip',
+        }),
+      )
+      const captionUrl = `https://f001.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${captionKey}`
+      const srtUrl = `https://f001.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${srtKey}`
+
+      await prisma.interview.update({
+        where: { id: interview.id },
+        data: {
+          caption_url: captionUrl,
+          transcription_status: 'completed',
+          transcription_text: captions.text,
+          transcription_metadata: {
+            model: 'assemblyai+gpt-4o-mini',
+            language: 'en',
+            sourceLanguage: captions.sourceLanguage,
+            duration: captions.totalDuration,
+            segments: captions.segments,
+            sourceText: captions.sourceText,
+            srtUrl,
+            keywords: captions.keywords,
+            wordBoost: captions.wordBoost,
+            createdAt: new Date().toISOString(),
+          } as any,
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        transcription: captions.text,
+        metadata: {
+          model: 'assemblyai+gpt-4o-mini',
+          language: 'en',
+          sourceLanguage: captions.sourceLanguage,
+          keywords: captions.keywords,
+          wordBoost: captions.wordBoost,
+        },
+      })
+    }
 
     if (!ASSEMBLYAI_API_KEY) {
       return NextResponse.json({ success: false, error: 'AssemblyAI API key not configured' }, { status: 500 })
