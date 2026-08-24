@@ -6,7 +6,7 @@ import { evaluateInterviewWithCathoven } from '@/lib/cathoven'
 import { sendInterviewCompletionEmail, sendLowCreditAlertEmail, LOW_CREDIT_ALERT_THRESHOLD } from '@/lib/email'
 import { notifyRatersAfterScoring } from '@/lib/rater-notifications'
 import { requireInternalOrSuperAdminApi } from '@/lib/auth-guards'
-import { generateEnglishCaptionsFromFile } from '@/lib/english-captions'
+import { generateEnglishCaptionsFromVideoUrl } from '@/lib/english-captions'
 import { findMatchingStudentInterviewId } from '@/app/actions/parent-interviews'
 import { exec } from 'child_process'
 import { promisify } from 'util'
@@ -187,8 +187,9 @@ async function runPostMergeProcessing(params: {
  * Post-merge processing for PARENT interviews.
  *
  * Parent interviews are never scored/rated. Instead we:
- *  1. Generate English captions from the (possibly non-English) response audio
- *     via Whisper translation, store them as caption_url + transcription_text.
+ *  1. Transcribe spoken audio with AssemblyAI, then translate to English with GPT.
+ *     School name and student name are used as ASR/translation keywords.
+ *     Results are stored as caption_url + transcription_text.
  *  2. Try to match the parent-provided student identity to an existing student
  *     interview and store the matched interview_id for the playback page.
  */
@@ -196,21 +197,24 @@ async function runParentPostMergeProcessing(params: {
   taskId: string
   interviewId: string
   interviewDbId: string
-  mergedVideoBuffer: Buffer
+  mergedVideoUrl: string
 }) {
-  const { taskId, interviewId, interviewDbId, mergedVideoBuffer } = params
+  const { taskId, interviewId, interviewDbId, mergedVideoUrl } = params
 
-  // 1) English captions
+  // 1) English captions via AssemblyAI + GPT
   try {
-    console.log(`[Task ${taskId}] (parent) Generating English captions...`)
-    const tmpVideo = join(tmpdir(), `parent_caption_src_${Date.now()}.mp4`)
-    writeFileSync(tmpVideo, mergedVideoBuffer as any)
-    let captions
-    try {
-      captions = await generateEnglishCaptionsFromFile(tmpVideo)
-    } finally {
-      try { if (existsSync(tmpVideo)) unlinkSync(tmpVideo) } catch {}
-    }
+    console.log(`[Task ${taskId}] (parent) Generating English captions (AssemblyAI + GPT)...`)
+    const interviewInfo = await prisma.interview.findUnique({
+      where: { id: interviewDbId },
+      select: {
+        school: { select: { name: true } },
+        parent: { select: { student_name: true } },
+      },
+    })
+    const captions = await generateEnglishCaptionsFromVideoUrl(mergedVideoUrl, {
+      schoolName: interviewInfo?.school?.name,
+      studentName: interviewInfo?.parent?.student_name,
+    })
 
     if (captions) {
       const captionPayload = {
@@ -219,9 +223,12 @@ async function runParentPostMergeProcessing(params: {
         sourceLanguage: captions.sourceLanguage,
         totalDuration: captions.totalDuration,
         segments: captions.segments,
+        srt: captions.srt,
         createdAt: new Date().toISOString(),
       }
-      const captionKey = `interviews/${interviewId}/english-captions-${Date.now()}.json`
+      const stamp = Date.now()
+      const captionKey = `interviews/${interviewId}/english-captions-${stamp}.json`
+      const srtKey = `interviews/${interviewId}/english-captions-${stamp}.srt`
       await s3Client.send(
         new PutObjectCommand({
           Bucket: process.env.B2_BUCKET_NAME!,
@@ -230,7 +237,16 @@ async function runParentPostMergeProcessing(params: {
           ContentType: 'application/json',
         }),
       )
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: process.env.B2_BUCKET_NAME!,
+          Key: srtKey,
+          Body: Buffer.from(captions.srt, 'utf-8'),
+          ContentType: 'application/x-subrip',
+        }),
+      )
       const captionUrl = `https://f001.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${captionKey}`
+      const srtUrl = `https://f001.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${srtKey}`
 
       await prisma.interview.update({
         where: { id: interviewDbId },
@@ -239,11 +255,15 @@ async function runParentPostMergeProcessing(params: {
           transcription_status: 'completed',
           transcription_text: captions.text,
           transcription_metadata: {
-            model: 'whisper-1-translate',
+            model: 'assemblyai+gpt-4o-mini',
             language: 'en',
             sourceLanguage: captions.sourceLanguage,
             duration: captions.totalDuration,
             segments: captions.segments,
+            sourceText: captions.sourceText,
+            srtUrl,
+            keywords: captions.keywords,
+            wordBoost: captions.wordBoost,
             createdAt: new Date().toISOString(),
           } as any,
         },
@@ -885,7 +905,7 @@ async function processVideoMergeTaskInner(taskId: string) {
           taskId,
           interviewId,
           interviewDbId,
-          mergedVideoBuffer: mergedBuffer,
+          mergedVideoUrl,
         })
       } else {
         void runPostMergeProcessing({

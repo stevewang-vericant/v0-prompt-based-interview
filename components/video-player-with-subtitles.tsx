@@ -40,6 +40,7 @@ interface VideoPlayerWithSubtitlesProps {
   subtitleUrl?: string
   // Parent interviews: English speech captions generated from the spoken audio.
   captionUrl?: string
+  interviewId?: string
   autoPlay?: boolean
   debug?: boolean
 }
@@ -59,6 +60,7 @@ export function VideoPlayerWithSubtitles({
   videoUrl, 
   subtitleUrl,
   captionUrl,
+  interviewId,
   autoPlay = false,
   debug = false,
 }: VideoPlayerWithSubtitlesProps) {
@@ -162,23 +164,46 @@ export function VideoPlayerWithSubtitles({
 
   // Load English speech captions (parent interviews)
   useEffect(() => {
-    if (!captionUrl) return
+    let cancelled = false
 
     const loadCaptions = async () => {
       try {
+        if (interviewId) {
+          const response = await fetch(`/api/transcription/status?interviewId=${encodeURIComponent(interviewId)}`)
+          if (response.ok) {
+            const data = await response.json()
+            const segments = data?.metadata?.segments
+            if (data?.success && Array.isArray(segments) && segments.length > 0) {
+              if (!cancelled) {
+                setCaptions({
+                  language: data.metadata?.language,
+                  sourceLanguage: data.metadata?.sourceLanguage,
+                  totalDuration: data.metadata?.duration,
+                  segments,
+                })
+              }
+              return
+            }
+          }
+        }
+
+        if (!captionUrl) return
         const response = await fetch(captionUrl)
         if (!response.ok) {
           throw new Error(`Failed to load captions: ${response.status}`)
         }
         const data = await response.json()
-        setCaptions(data)
+        if (!cancelled) setCaptions(data)
       } catch (err) {
         console.error("[Player] Failed to load captions:", err)
       }
     }
 
     loadCaptions()
-  }, [captionUrl])
+    return () => {
+      cancelled = true
+    }
+  }, [interviewId, captionUrl])
 
   // Track the active English caption segment
   useEffect(() => {
@@ -434,20 +459,17 @@ export function VideoPlayerWithSubtitles({
               onClick={togglePlay}
             />
 
-            {/* 字幕覆盖层 */}
+            {/* Question overlay stays at the top so it does not cover the speaker's face */}
             {currentSubtitle && (
-              <div className="absolute bottom-16 left-0 right-0 px-4 pointer-events-none">
+              <div className="absolute top-3 left-0 right-0 px-4 pointer-events-none">
                 <div className="max-w-3xl mx-auto flex flex-col items-center gap-2">
-                  {/* Question 标签 */}
                   <div className="bg-black/80 px-3 py-1 rounded">
                     <p className="text-white text-xs font-semibold">
                       Question {currentSubtitle.questionNumber}
                     </p>
                   </div>
-                  
-                  {/* 问题文本 */}
                   <div className="bg-black/80 px-4 py-2 rounded max-w-full">
-                    <p className="text-white text-sm leading-snug">
+                    <p className="text-white text-sm leading-snug text-center">
                       {currentSubtitle.text}
                     </p>
                   </div>
@@ -460,7 +482,7 @@ export function VideoPlayerWithSubtitles({
               <div className="absolute bottom-4 left-0 right-0 px-4 pointer-events-none">
                 <div className="max-w-3xl mx-auto flex justify-center">
                   <div className="bg-black/80 px-4 py-2 rounded max-w-full">
-                    <p className="text-white text-base leading-snug text-center">
+                    <p className="text-white text-base leading-snug text-center line-clamp-2 break-words">
                       {currentCaption.text}
                     </p>
                   </div>
