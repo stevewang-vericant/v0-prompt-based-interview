@@ -10,6 +10,7 @@
 -- Rollback:
 --   ALTER TABLE interviews DROP COLUMN IF EXISTS payment_id;
 --   ALTER TABLE interviews DROP COLUMN IF EXISTS attempt_number;
+--   DROP TABLE IF EXISTS payment_audit_logs;
 --   DROP TABLE IF EXISTS payment_access_codes;
 --   DROP TABLE IF EXISTS interview_payments;
 --   ALTER TABLE schools DROP COLUMN IF EXISTS billing_mode;
@@ -75,3 +76,18 @@ CREATE INDEX IF NOT EXISTS payment_access_codes_payment_id_idx
   ON payment_access_codes(payment_id);
 CREATE INDEX IF NOT EXISTS payment_access_codes_expires_at_idx
   ON payment_access_codes(expires_at);
+
+CREATE TABLE IF NOT EXISTS payment_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payment_id UUID NOT NULL REFERENCES interview_payments(id) ON DELETE CASCADE,
+  action VARCHAR(50) NOT NULL,
+  actor_email VARCHAR(255) NOT NULL,
+  reason VARCHAR(500),
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS payment_audit_logs_payment_id_idx
+  ON payment_audit_logs(payment_id);
+CREATE INDEX IF NOT EXISTS payment_audit_logs_created_at_idx
+  ON payment_audit_logs(created_at);

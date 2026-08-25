@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { storeInterviewId } from "@/lib/interview-storage"
 
 function AccessPageContent() {
   const searchParams = useSearchParams()
@@ -47,7 +48,7 @@ function AccessPageContent() {
       restart,
     })
     if (result.success && result.interviewId) {
-      localStorage.setItem("currentInterviewId", result.interviewId)
+      storeInterviewId(schoolCode, result.interviewId)
       window.location.href =
         `/student/interview?school=${encodeURIComponent(schoolCode)}` +
         `&interviewId=${encodeURIComponent(result.interviewId)}`

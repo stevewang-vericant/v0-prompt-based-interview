@@ -211,3 +211,61 @@ export async function verifyInterviewAccessCode(params: {
     return { success: false, error: toClientError(error, "Unable to verify access.") }
   }
 }
+
+export async function requestInterviewAccessCodeByInterviewId(params: {
+  schoolCode: string
+  interviewId: string
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const payment = await prisma.interviewPayment.findFirst({
+      where: {
+        interview_id: params.interviewId.trim(),
+        status: "paid",
+        entitlement_status: "active",
+        school: { code: params.schoolCode.trim() },
+      },
+      select: { student_email: true },
+    })
+    if (!payment) {
+      return { success: false, error: "This paid interview is no longer available." }
+    }
+    return requestInterviewAccessCode({
+      schoolCode: params.schoolCode,
+      email: payment.student_email,
+    })
+  } catch (error) {
+    console.error("[PaymentAccess] Failed to request code by interview:", error)
+    return { success: false, error: toClientError(error, "Unable to send verification code.") }
+  }
+}
+
+export async function verifyInterviewAccessCodeByInterviewId(params: {
+  schoolCode: string
+  interviewId: string
+  code: string
+  restart: boolean
+}): Promise<{ success: boolean; interviewId?: string; error?: string }> {
+  try {
+    const payment = await prisma.interviewPayment.findFirst({
+      where: {
+        interview_id: params.interviewId.trim(),
+        status: "paid",
+        entitlement_status: "active",
+        school: { code: params.schoolCode.trim() },
+      },
+      select: { student_email: true },
+    })
+    if (!payment) {
+      return { success: false, error: "This paid interview is no longer available." }
+    }
+    return verifyInterviewAccessCode({
+      schoolCode: params.schoolCode,
+      email: payment.student_email,
+      code: params.code,
+      restart: params.restart,
+    })
+  } catch (error) {
+    console.error("[PaymentAccess] Failed to verify code by interview:", error)
+    return { success: false, error: toClientError(error, "Unable to verify access.") }
+  }
+}

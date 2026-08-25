@@ -2,10 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { CreditCard, ExternalLink, RefreshCw, Search } from "lucide-react"
+import { Ban, CreditCard, ExternalLink, KeyRound, Pencil, RefreshCw, RotateCcw, Search } from "lucide-react"
 import {
   listInterviewPayments,
+  resendPaymentAccessCode,
+  restartPaidInterviewAsAdmin,
   type AdminPaymentRecord,
+  updatePaymentRecoveryEmail,
+  voidTestPayment,
 } from "@/app/actions/admin-payments"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -44,6 +48,8 @@ export default function PaymentsPage() {
   const [query, setQuery] = useState("")
   const [paymentStatus, setPaymentStatus] = useState("all")
   const [interviewStatus, setInterviewStatus] = useState("all")
+  const [actionPaymentId, setActionPaymentId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const loadPayments = async () => {
     setLoading(true)
@@ -60,6 +66,68 @@ export default function PaymentsPage() {
   useEffect(() => {
     loadPayments()
   }, [])
+
+  const finishAction = async (
+    paymentId: string,
+    action: () => Promise<{ success: boolean; error?: string }>,
+    successMessage: string,
+  ) => {
+    setActionPaymentId(paymentId)
+    setError(null)
+    setNotice(null)
+    const result = await action()
+    setActionPaymentId(null)
+    if (!result.success) {
+      setError(result.error || "The payment action failed.")
+      return
+    }
+    setNotice(successMessage)
+    await loadPayments()
+  }
+
+  const changeRecoveryEmail = async (payment: AdminPaymentRecord) => {
+    const email = window.prompt("New recovery email:", payment.studentEmail)?.trim()
+    if (!email) return
+    const reason = window.prompt("Reason for changing the payment email:")?.trim()
+    if (!reason) return
+    await finishAction(
+      payment.id,
+      () => updatePaymentRecoveryEmail({ paymentId: payment.id, email, reason }),
+      "Recovery email updated and recorded in the audit log.",
+    )
+  }
+
+  const resendCode = async (payment: AdminPaymentRecord) => {
+    const reason = window.prompt("Reason for resending the verification code:")?.trim()
+    if (!reason) return
+    await finishAction(
+      payment.id,
+      () => resendPaymentAccessCode({ paymentId: payment.id, reason }),
+      "Verification code sent and recorded in the audit log.",
+    )
+  }
+
+  const restartInterview = async (payment: AdminPaymentRecord) => {
+    const reason = window.prompt("Reason for restarting this interview:")?.trim()
+    if (!reason) return
+    if (!window.confirm("This will invalidate the student's current incomplete attempt. Continue?")) return
+    await finishAction(
+      payment.id,
+      () => restartPaidInterviewAsAdmin({ paymentId: payment.id, reason }),
+      "A fresh interview attempt was created and recorded in the audit log.",
+    )
+  }
+
+  const voidPayment = async (payment: AdminPaymentRecord) => {
+    const reason = window.prompt("Reason for voiding this test payment:")?.trim()
+    if (!reason) return
+    if (!window.confirm("Void this test entitlement? This does not issue a Stripe refund.")) return
+    await finishAction(
+      payment.id,
+      () => voidTestPayment({ paymentId: payment.id, reason }),
+      "Test payment entitlement voided and recorded in the audit log.",
+    )
+  }
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -100,6 +168,11 @@ export default function PaymentsPage() {
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {notice && (
+        <Alert>
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
 
@@ -148,7 +221,7 @@ export default function PaymentsPage() {
           </div>
 
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[1280px] text-sm">
               <thead className="bg-black/[0.03] text-left text-xs uppercase tracking-wide text-[rgba(0,0,0,0.48)]">
                 <tr>
                   <th className="px-4 py-3">Student</th>
@@ -199,8 +272,14 @@ export default function PaymentsPage() {
                           {payment.restartCount} restart{payment.restartCount === 1 ? "" : "s"}
                         </p>
                       )}
+                      {payment.lastAdminAction && (
+                        <p className="mt-2 text-xs text-[rgba(0,0,0,0.48)]">
+                          Admin: {payment.lastAdminAction.replaceAll("_", " ")}
+                          {payment.lastAdminActionAt ? ` · ${formatDate(payment.lastAdminActionAt)}` : ""}
+                        </p>
+                      )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 space-y-2">
                       {payment.videoUrl ? (
                         <Link
                           className="inline-flex items-center text-[#0071e3] hover:underline"
@@ -211,6 +290,44 @@ export default function PaymentsPage() {
                       ) : (
                         <span className="text-xs text-[rgba(0,0,0,0.4)]">No completed video</span>
                       )}
+                      {payment.paymentStatus === "paid" &&
+                        payment.entitlementStatus === "active" &&
+                        !["processing", "completed"].includes(payment.interviewStatus) && (
+                          <div className="flex max-w-[260px] flex-wrap gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => resendCode(payment)}
+                              disabled={actionPaymentId === payment.id}
+                            >
+                              <KeyRound className="mr-1 h-3 w-3" /> Resend code
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => changeRecoveryEmail(payment)}
+                              disabled={actionPaymentId === payment.id}
+                            >
+                              <Pencil className="mr-1 h-3 w-3" /> Email
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => restartInterview(payment)}
+                              disabled={actionPaymentId === payment.id}
+                            >
+                              <RotateCcw className="mr-1 h-3 w-3" /> Restart
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => voidPayment(payment)}
+                              disabled={actionPaymentId === payment.id}
+                            >
+                              <Ban className="mr-1 h-3 w-3" /> Void test
+                            </Button>
+                          </div>
+                        )}
                     </td>
                   </tr>
                 ))}

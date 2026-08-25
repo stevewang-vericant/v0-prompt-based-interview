@@ -16,10 +16,24 @@ import {
   requirePaymentAccess,
 } from "@/lib/payment-access"
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@")
+  if (!local || !domain) return "your payment email"
+  const visible =
+    local.length <= 2
+      ? `${local[0] || "*"}*`
+      : `${local[0]}${"*".repeat(Math.min(local.length - 2, 6))}${local[local.length - 1]}`
+  return `${visible}@${domain}`
+}
+
 export async function getInterviewPaymentStatus(interviewId: string): Promise<{
   success: boolean
   paid?: boolean
   status?: string | null
+  entitlementStatus?: string | null
+  interviewStatus?: string | null
+  requiresVerification?: boolean
+  maskedEmail?: string | null
   studentInfo?: PaidStudentInfo | null
   error?: string
 }> {
@@ -31,8 +45,16 @@ export async function getInterviewPaymentStatus(interviewId: string): Promise<{
     const payment = await prisma.interviewPayment.findUnique({
       where: { interview_id: interviewId },
       select: {
+        id: true,
         status: true,
+        entitlement_status: true,
+        student_email: true,
         student_info: true,
+        interviews: {
+          where: { interview_id: interviewId },
+          select: { status: true },
+          take: 1,
+        },
       },
     })
 
@@ -41,23 +63,35 @@ export async function getInterviewPaymentStatus(interviewId: string): Promise<{
     }
 
     if (payment.status === "paid") {
-      const fullPayment = await prisma.interviewPayment.findUnique({
-        where: { interview_id: interviewId },
-        select: { id: true },
-      })
-      if (!fullPayment) {
-        return { success: false, error: "Payment record not found" }
+      try {
+        await requirePaymentAccess({
+          paymentId: payment.id,
+          interviewId,
+        })
+      } catch {
+        return {
+          success: true,
+          paid: true,
+          status: payment.status,
+          entitlementStatus: payment.entitlement_status,
+          interviewStatus:
+            payment.interviews[0]?.status ||
+            (payment.entitlement_status === "consumed" ? "completed" : "not_started"),
+          requiresVerification: payment.entitlement_status === "active",
+          maskedEmail: maskEmail(payment.student_email),
+          studentInfo: null,
+        }
       }
-      await requirePaymentAccess({
-        paymentId: fullPayment.id,
-        interviewId,
-      })
     }
 
     return {
       success: true,
       paid: payment.status === "paid",
       status: payment.status,
+      entitlementStatus: payment.entitlement_status,
+      interviewStatus: payment.interviews[0]?.status || "not_started",
+      requiresVerification: false,
+      maskedEmail: null,
       studentInfo:
         payment.status === "paid" ? parsePaidStudentInfo(payment.student_info) : null,
     }
