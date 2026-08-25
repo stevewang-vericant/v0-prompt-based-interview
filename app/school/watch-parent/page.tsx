@@ -126,6 +126,7 @@ function WatchParentContent() {
               videoUrl={videoUrl}
               subtitleUrl={subtitleUrl || undefined}
               captionUrl={captionUrl || undefined}
+              interviewId={interviewId || undefined}
             />
 
             {/* Matched student interview */}

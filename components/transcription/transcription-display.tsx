@@ -18,6 +18,26 @@ import {
 import { toast } from "sonner"
 import { AISummary } from "./ai-summary"
 
+function splitTranscriptionForDisplay(text: string): string[] {
+  const trimmed = (text || "").trim()
+  if (!trimmed) return []
+
+  const paragraphs = trimmed.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean)
+  if (paragraphs.length > 1) {
+    return paragraphs
+  }
+
+  const lines = trimmed.split(/\n/).map((part) => part.trim()).filter(Boolean)
+  if (lines.length > 1) {
+    return lines
+  }
+
+  return trimmed
+    .split(/(?<=[.!?])\s+(?=[A-Z“"'])/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
 interface TranscriptionDisplayProps {
   interviewId: string
   className?: string
@@ -396,18 +416,11 @@ export function TranscriptionDisplay({ interviewId, className }: TranscriptionDi
                 {/* 转录文本 */}
                 <div className="bg-muted p-4 rounded-lg max-h-[500px] overflow-y-auto">
                   <div className="text-sm leading-relaxed space-y-3">
-                    {transcriptionData.transcription
-                      ?.split(/[.!?]+/)
-                      .filter(sentence => sentence.trim().length > 0)
-                      .map((sentence, index) => (
-                        <p key={index} className="text-[#1d1d1f]">
-                          {sentence.trim()}
-                          {!sentence.trim().endsWith('.') && 
-                           !sentence.trim().endsWith('!') && 
-                           !sentence.trim().endsWith('?') && '.'}
-                        </p>
-                      ))
-                    }
+                    {splitTranscriptionForDisplay(transcriptionData.transcription).map((paragraph, index) => (
+                      <p key={index} className="text-[#1d1d1f] whitespace-pre-wrap">
+                        {paragraph}
+                      </p>
+                    ))}
                   </div>
                 </div>
           </div>
