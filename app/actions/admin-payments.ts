@@ -257,7 +257,13 @@ export async function resendPaymentAccessCode(params: {
 export async function restartPaidInterviewAsAdmin(params: {
   paymentId: string
   reason: string
-}): Promise<{ success: boolean; interviewId?: string; error?: string }> {
+}): Promise<{
+  success: boolean
+  interviewId?: string
+  notificationSent?: boolean
+  warning?: string
+  error?: string
+}> {
   try {
     const user = await requireSuperAdmin()
     const reason = params.reason.trim()
@@ -265,7 +271,9 @@ export async function restartPaidInterviewAsAdmin(params: {
 
     const payment = await prisma.interviewPayment.findUnique({
       where: { id: params.paymentId },
-      include: { interviews: { select: { attempt_number: true } } },
+      include: {
+        school: { select: { code: true } },
+      },
     })
     if (!payment || payment.status !== "paid" || payment.entitlement_status !== "active") {
       return { success: false, error: "Only an active paid interview can be restarted." }
@@ -312,6 +320,10 @@ export async function restartPaidInterviewAsAdmin(params: {
           restart_count: { increment: 1 },
         },
       })
+      await tx.paymentAccessCode.updateMany({
+        where: { payment_id: payment.id, consumed_at: null },
+        data: { consumed_at: new Date() },
+      })
       await tx.paymentAuditLog.create({
         data: {
           payment_id: payment.id,
@@ -322,7 +334,22 @@ export async function restartPaidInterviewAsAdmin(params: {
         },
       })
     })
-    return { success: true, interviewId }
+
+    const notification = payment.school.code
+      ? await requestInterviewAccessCodeByInterviewId({
+          interviewId,
+          schoolCode: payment.school.code,
+        })
+      : { success: false, error: "The school does not have an interview code." }
+
+    return {
+      success: true,
+      interviewId,
+      notificationSent: notification.success,
+      warning: notification.success
+        ? undefined
+        : `The interview was restarted, but the access email could not be sent: ${notification.error || "unknown error"}`,
+    }
   } catch (error) {
     console.error("[AdminPayments] Failed to restart interview:", error)
     return { success: false, error: toClientError(error) }

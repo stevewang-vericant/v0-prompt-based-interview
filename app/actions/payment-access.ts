@@ -91,6 +91,7 @@ export async function requestInterviewAccessCode(params: {
       to: payment.student_email,
       code,
       schoolName: payment.school.name,
+      schoolCode: payment.school.code || schoolCode,
     })
     return genericSuccess
   } catch (error) {

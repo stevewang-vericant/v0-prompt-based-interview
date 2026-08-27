@@ -84,7 +84,7 @@ export default function PaymentsPage() {
 
   const finishAction = async (
     paymentId: string,
-    action: () => Promise<{ success: boolean; error?: string }>,
+    action: () => Promise<{ success: boolean; error?: string; warning?: string }>,
     successMessage: string,
   ) => {
     setActionPaymentId(paymentId)
@@ -96,7 +96,7 @@ export default function PaymentsPage() {
       setError(result.error || "The payment action failed.")
       return
     }
-    setNotice(successMessage)
+    setNotice(result.warning || successMessage)
     await loadPayments()
   }
 
@@ -129,7 +129,7 @@ export default function PaymentsPage() {
     await finishAction(
       payment.id,
       () => restartPaidInterviewAsAdmin({ paymentId: payment.id, reason }),
-      "A fresh interview attempt was created and recorded in the audit log.",
+      "A fresh interview attempt was created. The student received a verification code and interview link by email.",
     )
   }
 
