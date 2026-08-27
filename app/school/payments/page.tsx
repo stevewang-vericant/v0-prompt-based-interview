@@ -2,16 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Ban, CreditCard, ExternalLink, KeyRound, Pencil, RefreshCw, RotateCcw, Search } from "lucide-react"
+import { Ban, CreditCard, ExternalLink, History, KeyRound, Pencil, RefreshCw, RotateCcw, Search } from "lucide-react"
 import {
   listInterviewPayments,
+  listPaymentAuditLogs,
   resendPaymentAccessCode,
   restartPaidInterviewAsAdmin,
+  type AdminPaymentAuditLog,
   type AdminPaymentRecord,
   updatePaymentRecoveryEmail,
   voidTestPayment,
 } from "@/app/actions/admin-payments"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -50,6 +61,10 @@ export default function PaymentsPage() {
   const [interviewStatus, setInterviewStatus] = useState("all")
   const [actionPaymentId, setActionPaymentId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [auditPayment, setAuditPayment] = useState<AdminPaymentRecord | null>(null)
+  const [auditLogs, setAuditLogs] = useState<AdminPaymentAuditLog[]>([])
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [auditError, setAuditError] = useState<string | null>(null)
 
   const loadPayments = async () => {
     setLoading(true)
@@ -127,6 +142,20 @@ export default function PaymentsPage() {
       () => voidTestPayment({ paymentId: payment.id, reason }),
       "Test payment entitlement voided and recorded in the audit log.",
     )
+  }
+
+  const viewAuditLog = async (payment: AdminPaymentRecord) => {
+    setAuditPayment(payment)
+    setAuditLogs([])
+    setAuditError(null)
+    setAuditLoading(true)
+    const result = await listPaymentAuditLogs(payment.id)
+    setAuditLoading(false)
+    if (!result.success) {
+      setAuditError(result.error || "Unable to load the audit log.")
+      return
+    }
+    setAuditLogs(result.logs || [])
   }
 
   const filtered = useMemo(() => {
@@ -290,6 +319,15 @@ export default function PaymentsPage() {
                       ) : (
                         <span className="text-xs text-[rgba(0,0,0,0.4)]">No completed video</span>
                       )}
+                      <div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => viewAuditLog(payment)}
+                        >
+                          <History className="mr-1 h-3 w-3" /> View Audit Log
+                        </Button>
+                      </div>
                       {payment.paymentStatus === "paid" &&
                         payment.entitlementStatus === "active" &&
                         !["processing", "completed"].includes(payment.interviewStatus) && (
@@ -308,7 +346,7 @@ export default function PaymentsPage() {
                               onClick={() => changeRecoveryEmail(payment)}
                               disabled={actionPaymentId === payment.id}
                             >
-                              <Pencil className="mr-1 h-3 w-3" /> Email
+                              <Pencil className="mr-1 h-3 w-3" /> Change Email
                             </Button>
                             <Button
                               size="sm"
@@ -343,6 +381,76 @@ export default function PaymentsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(auditPayment)}
+        onOpenChange={(open) => {
+          if (!open) setAuditPayment(null)
+        }}
+      >
+        <AlertDialogContent className="max-h-[80vh] max-w-2xl overflow-hidden">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Payment Audit Log</AlertDialogTitle>
+            <AlertDialogDescription>
+              {auditPayment
+                ? `${auditPayment.studentName} · ${auditPayment.studentEmail} · ${auditPayment.interviewId}`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="max-h-[55vh] overflow-y-auto rounded-lg border">
+            {auditLoading && (
+              <p className="px-4 py-8 text-center text-sm text-[rgba(0,0,0,0.48)]">
+                Loading audit log...
+              </p>
+            )}
+            {auditError && (
+              <Alert variant="destructive" className="m-4">
+                <AlertDescription>{auditError}</AlertDescription>
+              </Alert>
+            )}
+            {!auditLoading && !auditError && auditLogs.length === 0 && (
+              <p className="px-4 py-8 text-center text-sm text-[rgba(0,0,0,0.48)]">
+                No administrator actions have been recorded for this payment.
+              </p>
+            )}
+            {!auditLoading && auditLogs.length > 0 && (
+              <div className="divide-y">
+                {auditLogs.map((log) => (
+                  <div key={log.id} className="space-y-2 px-4 py-4">
+                    <div className="flex flex-col justify-between gap-1 sm:flex-row">
+                      <p className="font-medium capitalize">
+                        {log.action.replaceAll("_", " ")}
+                      </p>
+                      <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                        {formatDate(log.createdAt)}
+                      </p>
+                    </div>
+                    <p className="text-sm text-[rgba(0,0,0,0.64)]">
+                      By {log.actorEmail}
+                    </p>
+                    {log.reason && (
+                      <p className="text-sm">
+                        <span className="text-[rgba(0,0,0,0.48)]">Reason: </span>
+                        {log.reason}
+                      </p>
+                    )}
+                    {log.metadata !== null && (
+                      <pre className="overflow-x-auto rounded-md bg-black/[0.03] p-2 text-xs text-[rgba(0,0,0,0.64)]">
+                        {JSON.stringify(log.metadata, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

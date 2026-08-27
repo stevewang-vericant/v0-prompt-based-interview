@@ -31,6 +31,51 @@ export interface AdminPaymentRecord {
   lastAdminActionAt: string | null
 }
 
+export interface AdminPaymentAuditLog {
+  id: string
+  action: string
+  actorEmail: string
+  reason: string | null
+  metadata: unknown
+  createdAt: string
+}
+
+export async function listPaymentAuditLogs(paymentId: string): Promise<{
+  success: boolean
+  logs?: AdminPaymentAuditLog[]
+  error?: string
+}> {
+  try {
+    await requireSuperAdmin()
+    if (!paymentId) return { success: false, error: "Payment ID is required." }
+
+    const payment = await prisma.interviewPayment.findUnique({
+      where: { id: paymentId },
+      select: {
+        audit_logs: {
+          orderBy: { created_at: "desc" },
+        },
+      },
+    })
+    if (!payment) return { success: false, error: "Payment record not found." }
+
+    return {
+      success: true,
+      logs: payment.audit_logs.map((log) => ({
+        id: log.id,
+        action: log.action,
+        actorEmail: log.actor_email,
+        reason: log.reason,
+        metadata: log.metadata,
+        createdAt: log.created_at.toISOString(),
+      })),
+    }
+  } catch (error) {
+    console.error("[AdminPayments] Failed to list payment audit logs:", error)
+    return { success: false, error: toClientError(error) }
+  }
+}
+
 export async function listInterviewPayments(): Promise<{
   success: boolean
   payments?: AdminPaymentRecord[]
