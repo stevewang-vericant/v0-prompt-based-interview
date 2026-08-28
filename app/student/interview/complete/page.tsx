@@ -1,11 +1,12 @@
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle2, XCircle, Video, Mail, ArrowRight, RefreshCcw } from "lucide-react"
+import { getSchoolBrandingByCode } from "@/app/actions/school-branding"
 
 function InterviewCompleteContent() {
   const searchParams = useSearchParams()
@@ -14,8 +15,27 @@ function InterviewCompleteContent() {
   const errorMessage = searchParams.get("error")
   const studentEmail = searchParams.get("email")
   const interviewId = searchParams.get("interviewId")
+  const [schoolName, setSchoolName] = useState<string | null>(null)
 
   const isSuccess = status === "success"
+
+  useEffect(() => {
+    if (!schoolCode) return
+
+    let cancelled = false
+    getSchoolBrandingByCode(schoolCode)
+      .then((result) => {
+        if (cancelled) return
+        setSchoolName(result.branding?.name?.trim() || schoolCode)
+      })
+      .catch(() => {
+        if (!cancelled) setSchoolName(schoolCode)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [schoolCode])
 
   // 构建重新面试的链接
   const retryUrl = schoolCode 
@@ -80,11 +100,11 @@ function InterviewCompleteContent() {
                       <strong>Video uploaded:</strong> Your video segments have been uploaded successfully. Video processing and merging will continue in the background.
                     </p>
                   </div>
-                  {schoolCode && (
+                  {schoolName && (
                     <div className="flex items-start gap-2">
                       <ArrowRight className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <p className="text-sm">
-                        <strong>Sent to:</strong> {schoolCode.charAt(0).toUpperCase() + schoolCode.slice(1)} University
+                        <strong>Sent to:</strong> {schoolName}
                       </p>
                     </div>
                   )}

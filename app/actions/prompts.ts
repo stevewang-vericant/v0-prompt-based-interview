@@ -341,16 +341,20 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
     }
 
     const prompts = await prisma.prompt.findMany({
-      where: { id: { in: promptIds } },
-      orderBy: { created_at: 'asc' }
+      where: { id: { in: promptIds } }
     })
 
+    // Preserve the school's configured interview order instead of created_at.
+    const orderedPrompts = promptIds
+      .map((id) => prompts.find((p) => p.id === id))
+      .filter((p): p is (typeof prompts)[number] => Boolean(p))
+
     // 如果数量不足4个，返回错误（除非是默认题目就只有这么多）
-    if (prompts.length !== 4 && promptIds.length === 4) {
+    if (orderedPrompts.length !== 4 && promptIds.length === 4) {
       return { success: false, error: 'School must have exactly 4 prompts configured' }
     }
 
-    const formattedPrompts = prompts.map((p: { id: string; category: string; prompt_text: string; preparation_time: number | null; response_time: number | null }) => ({
+    const formattedPrompts = orderedPrompts.map((p: { id: string; category: string; prompt_text: string; preparation_time: number | null; response_time: number | null }) => ({
       id: p.id,
       category: p.category,
       text: p.prompt_text,

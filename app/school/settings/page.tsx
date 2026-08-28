@@ -29,7 +29,7 @@ import {
   uploadSchoolIntroVideo,
   removeSchoolBrandingAsset,
 } from "@/app/actions/school-branding"
-import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText, Image as ImageIcon, Video, Upload, Users } from "lucide-react"
+import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText, Image as ImageIcon, Video, Upload, Users, ChevronUp, ChevronDown } from "lucide-react"
 import { ParentQuestionsSettings } from "@/components/settings/parent-questions-settings"
 
 // B2-hosted assets must be served same-origin because the app sends a
@@ -41,7 +41,7 @@ const MAX_INTRO_VIDEO_BYTES = 50 * 1024 * 1024 // 50 MB
 
 export default function SettingsPage() {
   const [prompts, setPrompts] = useState<PromptRecord[]>([])
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [promptsLoading, setPromptsLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -188,7 +188,7 @@ export default function SettingsPage() {
       // Load selected IDs
       const selectedResult = await getSelectedPromptIds()
       if (selectedResult.success && selectedResult.promptIds) {
-        setSelectedIds(new Set(selectedResult.promptIds))
+        setSelectedIds(selectedResult.promptIds)
       }
     } catch (err) {
       console.error("[Settings] Error loading prompts:", err)
@@ -386,25 +386,33 @@ export default function SettingsPage() {
   }
 
   const handleTogglePrompt = (promptId: string) => {
-    const newSelected = new Set(selectedIds)
-    
-    if (newSelected.has(promptId)) {
-      newSelected.delete(promptId)
-    } else {
-      if (newSelected.size >= 4) {
-        setError("You can only select exactly 4 prompts")
-        setTimeout(() => setError(null), 3000)
-        return
-      }
-      newSelected.add(promptId)
+    if (selectedIds.includes(promptId)) {
+      setSelectedIds(selectedIds.filter((id) => id !== promptId))
+      setError(null)
+      return
     }
-    
-    setSelectedIds(newSelected)
+
+    if (selectedIds.length >= 4) {
+      setError("You can only select exactly 4 prompts")
+      setTimeout(() => setError(null), 3000)
+      return
+    }
+
+    setSelectedIds([...selectedIds, promptId])
     setError(null)
   }
 
+  const handleMovePrompt = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction
+    if (nextIndex < 0 || nextIndex >= selectedIds.length) return
+    const next = [...selectedIds]
+    const [moved] = next.splice(index, 1)
+    next.splice(nextIndex, 0, moved)
+    setSelectedIds(next)
+  }
+
   const handleSave = async () => {
-    if (selectedIds.size !== 4) {
+    if (selectedIds.length !== 4) {
       setError("You must select exactly 4 prompts")
       return
     }
@@ -414,7 +422,7 @@ export default function SettingsPage() {
       setError(null)
       setSuccess(false)
 
-      const result = await updateSelectedPrompts(Array.from(selectedIds))
+      const result = await updateSelectedPrompts(selectedIds)
       
       if (!result.success) {
         setError(result.error || "Failed to save prompts")
@@ -493,12 +501,7 @@ export default function SettingsPage() {
       // Reload prompts
       await loadPrompts()
       
-      // Remove from selected if it was selected
-      setSelectedIds(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(promptId)
-        return newSet
-      })
+      setSelectedIds((prev) => prev.filter((id) => id !== promptId))
     } catch (err) {
       console.error("[Settings] Error deleting prompt:", err)
       setError(err instanceof Error ? err.message : "Unknown error")
@@ -509,6 +512,9 @@ export default function SettingsPage() {
 
   const defaultPrompts = prompts.filter(p => !p.school_id)
   const customPrompts = prompts.filter(p => p.school_id)
+  const selectedPrompts = selectedIds
+    .map((id) => prompts.find((prompt) => prompt.id === id))
+    .filter((prompt): prompt is PromptRecord => Boolean(prompt))
 
   return (
     <div className="space-y-6">
@@ -764,12 +770,12 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-xl font-bold text-[#1d1d1f]">Interview Prompts</h3>
               <p className="text-sm text-[rgba(0,0,0,0.56)] mt-1">
-                Select exactly 4 prompts for student interviews. You can choose from default prompts or create your own.
+                Select exactly 4 prompts and set the order students will answer them.
               </p>
             </div>
             <Button
               onClick={handleSave}
-              disabled={selectedIds.size !== 4 || saving}
+              disabled={selectedIds.length !== 4 || saving}
               className="gap-2"
             >
               <Save className="h-4 w-4" />
@@ -804,19 +810,69 @@ export default function SettingsPage() {
             <>
               {/* Selection status */}
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-[rgba(0,0,0,0.56)]">
-                      Selected: <strong className="text-[#1d1d1f]">{selectedIds.size} / 4</strong>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle>Interview order</CardTitle>
+                      <CardDescription>
+                        Students answer these questions in this order. Use the arrows to rearrange.
+                      </CardDescription>
+                    </div>
+                    <span className="text-sm text-[rgba(0,0,0,0.56)] shrink-0">
+                      Selected: <strong className="text-[#1d1d1f]">{selectedIds.length} / 4</strong>
                     </span>
-                    {selectedIds.size !== 4 && (
-                      <span className="text-xs text-amber-600">
-                        {selectedIds.size < 4 
-                          ? `Select ${4 - selectedIds.size} more prompt${4 - selectedIds.size > 1 ? 's' : ''}`
-                          : "You must select exactly 4 prompts"}
-                      </span>
-                    )}
                   </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {selectedPrompts.length === 0 ? (
+                    <p className="text-sm text-[rgba(0,0,0,0.48)]">
+                      Select 4 prompts below, then arrange them here.
+                    </p>
+                  ) : (
+                    selectedPrompts.map((prompt, index) => (
+                      <div
+                        key={prompt.id}
+                        className="flex items-start gap-3 rounded-lg border border-black/[0.08] px-3 py-3"
+                      >
+                        <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1d1d1f] text-xs font-medium text-white">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-xs text-[rgba(0,0,0,0.48)]">{prompt.category}</span>
+                          <p className="text-sm text-[#1d1d1f] mt-0.5">{prompt.prompt_text}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-col">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleMovePrompt(index, -1)}
+                            disabled={index === 0}
+                            aria-label={`Move question ${index + 1} up`}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleMovePrompt(index, 1)}
+                            disabled={index === selectedPrompts.length - 1}
+                            aria-label={`Move question ${index + 1} down`}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {selectedIds.length !== 4 && (
+                    <p className="text-xs text-amber-600">
+                      {selectedIds.length < 4
+                        ? `Select ${4 - selectedIds.length} more prompt${4 - selectedIds.length > 1 ? "s" : ""}`
+                        : "You must select exactly 4 prompts"}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -833,18 +889,25 @@ export default function SettingsPage() {
                     {defaultPrompts.length === 0 ? (
                       <p className="text-sm text-[rgba(0,0,0,0.48)]">No default prompts available</p>
                     ) : (
-                      defaultPrompts.map((prompt) => (
+                      defaultPrompts.map((prompt) => {
+                        const order = selectedIds.indexOf(prompt.id) + 1
+                        return (
                         <div
                           key={prompt.id}
                           className="flex items-start gap-3 p-3 border rounded-lg hover:bg-black/[0.04]"
                         >
                           <Checkbox
-                            checked={selectedIds.has(prompt.id)}
+                            checked={order > 0}
                             onCheckedChange={() => handleTogglePrompt(prompt.id)}
-                            disabled={selectedIds.size >= 4 && !selectedIds.has(prompt.id)}
+                            disabled={selectedIds.length >= 4 && order === 0}
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
+                              {order > 0 && (
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1d1d1f] px-1.5 text-[11px] font-medium text-white">
+                                  {order}
+                                </span>
+                              )}
                               <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
                                 {prompt.category}
                               </span>
@@ -860,7 +923,8 @@ export default function SettingsPage() {
                             </p>
                           </div>
                         </div>
-                      ))
+                        )
+                      })
                     )}
                   </div>
                 </CardContent>
@@ -962,18 +1026,25 @@ export default function SettingsPage() {
                     {customPrompts.length === 0 ? (
                       <p className="text-sm text-[rgba(0,0,0,0.48)]">No custom prompts yet. Create one above!</p>
                     ) : (
-                      customPrompts.map((prompt) => (
+                      customPrompts.map((prompt) => {
+                        const order = selectedIds.indexOf(prompt.id) + 1
+                        return (
                         <div
                           key={prompt.id}
                           className="flex items-start gap-3 p-3 border rounded-lg hover:bg-black/[0.04]"
                         >
                           <Checkbox
-                            checked={selectedIds.has(prompt.id)}
+                            checked={order > 0}
                             onCheckedChange={() => handleTogglePrompt(prompt.id)}
-                            disabled={selectedIds.size >= 4 && !selectedIds.has(prompt.id)}
+                            disabled={selectedIds.length >= 4 && order === 0}
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
+                              {order > 0 && (
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1d1d1f] px-1.5 text-[11px] font-medium text-white">
+                                  {order}
+                                </span>
+                              )}
                               <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700">
                                 {prompt.category}
                               </span>
@@ -995,9 +1066,9 @@ export default function SettingsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeletePrompt(prompt.id)}
-                            disabled={deletingPromptId === prompt.id || selectedIds.has(prompt.id)}
+                            disabled={deletingPromptId === prompt.id || order > 0}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            title={selectedIds.has(prompt.id) ? "Cannot delete selected prompt. Deselect it first." : "Delete this custom prompt"}
+                            title={order > 0 ? "Cannot delete selected prompt. Deselect it first." : "Delete this custom prompt"}
                           >
                             {deletingPromptId === prompt.id ? (
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
@@ -1006,7 +1077,8 @@ export default function SettingsPage() {
                             )}
                           </Button>
                         </div>
-                      ))
+                        )
+                      })
                     )}
                   </div>
                 </CardContent>
