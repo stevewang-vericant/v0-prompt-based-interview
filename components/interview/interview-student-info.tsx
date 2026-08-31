@@ -342,6 +342,7 @@ export function InterviewStudentInfo({
                 <SelectValue placeholder="Select grade" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="8th Grade">8th Grade</SelectItem>
                 <SelectItem value="9th Grade">9th Grade</SelectItem>
                 <SelectItem value="10th Grade">10th Grade</SelectItem>
                 <SelectItem value="11th Grade">11th Grade</SelectItem>
