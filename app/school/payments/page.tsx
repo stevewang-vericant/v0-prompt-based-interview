@@ -289,7 +289,7 @@ export default function PaymentsPage() {
                       <span className={`rounded-full px-2 py-1 text-xs font-medium ${statusClass(payment.interviewStatus)}`}>
                         {payment.interviewStatus.replace("_", " ")}
                       </span>
-                      <p className="mt-2 max-w-[180px] truncate font-mono text-xs text-[rgba(0,0,0,0.48)]">
+                      <p className="mt-2 max-w-[220px] break-all font-mono text-xs text-[rgba(0,0,0,0.48)]">
                         {payment.interviewId}
                       </p>
                     </td>
