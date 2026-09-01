@@ -76,9 +76,21 @@ export async function listPaymentAuditLogs(paymentId: string): Promise<{
   }
 }
 
+// Voiding an entitlement bypasses Stripe entirely, so it stays limited to the
+// test/staging environments where payments aren't real money.
+function isTestPaymentEnvironment(): boolean {
+  const key = process.env.STRIPE_SECRET_KEY || ""
+  return (
+    key.startsWith("sk_test_") ||
+    key.startsWith("rk_test_") ||
+    Boolean(process.env.APP_URL?.includes("staging."))
+  )
+}
+
 export async function listInterviewPayments(): Promise<{
   success: boolean
   payments?: AdminPaymentRecord[]
+  canVoidTestPayments?: boolean
   error?: string
 }> {
   try {
@@ -121,6 +133,7 @@ export async function listInterviewPayments(): Promise<{
 
     return {
       success: true,
+      canVoidTestPayments: isTestPaymentEnvironment(),
       payments: payments.map((payment) => {
         const currentInterview =
           payment.interviews.find(
@@ -363,10 +376,7 @@ export async function voidTestPayment(params: {
   try {
     const user = await requireSuperAdmin()
     const reason = params.reason.trim()
-    const isTestEnvironment =
-      process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_") ||
-      process.env.APP_URL?.includes("staging.")
-    if (!isTestEnvironment) {
+    if (!isTestPaymentEnvironment()) {
       return { success: false, error: "Test payments can only be voided in staging/test mode." }
     }
     if (!reason) return { success: false, error: "A reason is required." }
