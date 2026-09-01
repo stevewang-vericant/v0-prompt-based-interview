@@ -127,6 +127,11 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # ===== 其他可选配置 =====
 # NEXT_PUBLIC_APP_URL=https://your-domain.com
+
+# ===== Stripe (学生支付面试) =====
+# STRIPE_SECRET_KEY=sk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_...
+# APP_URL=http://localhost:3000
 ```
 
 ## 常见问题

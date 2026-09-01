@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
-import { Building2, Video, Settings, LogOut, Menu, X, Users, ClipboardCheck, UsersRound } from "lucide-react"
+import { Building2, Video, Settings, LogOut, Menu, X, Users, ClipboardCheck, UsersRound, CreditCard } from "lucide-react"
 import Link from "next/link"
 
 function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
@@ -83,6 +83,11 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                 name: "Users",
                 href: "/school/users",
                 icon: Users,
+              },
+              {
+                name: "Payments",
+                href: "/school/payments",
+                icon: CreditCard,
               },
             ]
           : []),

@@ -13,6 +13,7 @@ import {
   deleteSchool,
   updateSchoolLevel,
   setSchoolCredits,
+  updateSchoolBillingMode,
   type ManagedSchool,
 } from "@/app/actions/schools"
 import { AlertCircle, PlusCircle, Trash2 } from "lucide-react"
@@ -34,6 +35,7 @@ export default function SchoolsPage() {
   const [deletingSchoolId, setDeletingSchoolId] = useState<string | null>(null)
   const [updatingLevelId, setUpdatingLevelId] = useState<string | null>(null)
   const [updatingCreditsId, setUpdatingCreditsId] = useState<string | null>(null)
+  const [updatingBillingId, setUpdatingBillingId] = useState<string | null>(null)
   const [creditTargets, setCreditTargets] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
@@ -153,6 +155,24 @@ export default function SchoolsPage() {
       setSchoolActionError(error instanceof Error ? error.message : "Failed to save credits")
     } finally {
       setUpdatingCreditsId(null)
+    }
+  }
+
+  const handleChangeBillingMode = async (schoolId: string, billingMode: string) => {
+    setUpdatingBillingId(schoolId)
+    setSchoolActionError(null)
+    try {
+      const result = await updateSchoolBillingMode(schoolId, billingMode)
+      if (result.success) {
+        await fetchManagedSchools()
+      } else {
+        setSchoolActionError(result.error || "Failed to update billing mode")
+      }
+    } catch (error) {
+      console.error("[Schools] Error updating billing mode:", error)
+      setSchoolActionError(error instanceof Error ? error.message : "Failed to update billing mode")
+    } finally {
+      setUpdatingBillingId(null)
     }
   }
 
@@ -326,7 +346,29 @@ export default function SchoolsPage() {
                     )}
                   </div>
 
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(190px,0.9fr)_minmax(150px,0.7fr)]">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(180px,0.8fr)_minmax(0,1.35fr)_minmax(190px,0.9fr)_minmax(150px,0.7fr)]">
+                    <div className="rounded-md border bg-white p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[rgba(0,0,0,0.48)]">Billing</p>
+                      <Select
+                        value={school.billing_mode}
+                        onValueChange={(value) => handleChangeBillingMode(school.id, value)}
+                        disabled={updatingBillingId === school.id}
+                      >
+                        <SelectTrigger className="mt-2 h-9 w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="credits">School credits</SelectItem>
+                          <SelectItem value="student_pay">Student pays</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="mt-2 text-xs text-[rgba(0,0,0,0.48)]">
+                        {school.billing_mode === "student_pay"
+                          ? "Students pay via Stripe before recording."
+                          : "Students use this school's credit balance."}
+                      </p>
+                    </div>
+
                     <div className="rounded-md border bg-white p-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-[rgba(0,0,0,0.48)]">Credits</p>
                       <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -361,7 +403,9 @@ export default function SchoolsPage() {
                         </div>
                       </div>
                       <p className="mt-2 text-xs text-[rgba(0,0,0,0.48)]">
-                        Set the total available credits for this school.
+                        {school.billing_mode === "student_pay"
+                          ? "Credits are unused while this school is in student-pay mode."
+                          : "Set the total available credits for this school."}
                       </p>
                     </div>
 

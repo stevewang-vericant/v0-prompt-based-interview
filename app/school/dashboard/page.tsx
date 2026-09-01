@@ -24,6 +24,7 @@ function SchoolDashboardContent() {
     name: string
     is_super_admin: boolean
     credits_balance: number
+    billing_mode: string
   } | null>(null)
   const [currentUser, setCurrentUser] = useState<{
     email: string
@@ -52,13 +53,15 @@ function SchoolDashboardContent() {
             code: result.user.school.code,
             name: result.user.school.name,
             is_super_admin: result.user.school.is_super_admin,
-            credits_balance: result.user.school.credits_balance
+            credits_balance: result.user.school.credits_balance,
+            billing_mode: result.user.school.billing_mode || "credits",
           })
           return {
             code: result.user.school.code,
             name: result.user.school.name,
             is_super_admin: result.user.school.is_super_admin,
-            credits_balance: result.user.school.credits_balance
+            credits_balance: result.user.school.credits_balance,
+            billing_mode: result.user.school.billing_mode || "credits",
           }
         } else {
           setAuthError("School code is missing")
@@ -543,32 +546,40 @@ function SchoolDashboardContent() {
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               <div className={`rounded-lg border px-4 py-3 ${
-                (schoolInfo?.credits_balance ?? 0) > 0
+                schoolInfo?.billing_mode === "student_pay" || (schoolInfo?.credits_balance ?? 0) > 0
                   ? "bg-white border-blue-200"
                   : "bg-amber-50 border-amber-200"
               }`}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`rounded-full p-2 ${
-                      (schoolInfo?.credits_balance ?? 0) > 0
+                      schoolInfo?.billing_mode === "student_pay" || (schoolInfo?.credits_balance ?? 0) > 0
                         ? "bg-blue-100 text-[#0071e3]"
                         : "bg-amber-100 text-amber-700"
                     }`}>
                       <CreditCard className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-[#1d1d1f]">Interview credits remaining</p>
+                      <p className="text-sm font-medium text-[#1d1d1f]">
+                        {schoolInfo?.billing_mode === "student_pay"
+                          ? "Students pay individually"
+                          : "Interview credits remaining"}
+                      </p>
                       <p className="text-xs text-[rgba(0,0,0,0.56)]">
-                        One credit is used when a student interview finishes processing.
+                        {schoolInfo?.billing_mode === "student_pay"
+                          ? "Students complete Stripe payment after entering their information, before recording starts."
+                          : "One credit is used when a student interview finishes processing."}
                       </p>
                     </div>
                   </div>
-                  <div className="text-left sm:text-right">
-                    <p className="text-2xl font-semibold text-[#1d1d1f]">{schoolInfo?.credits_balance ?? 0}</p>
-                    <p className="text-xs text-[rgba(0,0,0,0.48)]">available</p>
-                  </div>
+                  {schoolInfo?.billing_mode !== "student_pay" && (
+                    <div className="text-left sm:text-right">
+                      <p className="text-2xl font-semibold text-[#1d1d1f]">{schoolInfo?.credits_balance ?? 0}</p>
+                      <p className="text-xs text-[rgba(0,0,0,0.48)]">available</p>
+                    </div>
+                  )}
                 </div>
-                {(schoolInfo?.credits_balance ?? 0) <= 0 && (
+                {schoolInfo?.billing_mode !== "student_pay" && (schoolInfo?.credits_balance ?? 0) <= 0 && (
                   <p className="mt-3 text-xs text-amber-800">
                     Students cannot start a new interview until more credits are added by a super administrator.
                   </p>

@@ -13,6 +13,44 @@ const transporter = nodemailer.createTransport({
 // balance drops from this threshold to just below it (5 -> 4), an alert is sent.
 export const LOW_CREDIT_ALERT_THRESHOLD = 5
 
+export async function sendInterviewAccessCodeEmail(params: {
+  to: string
+  code: string
+  schoolName: string
+  schoolCode: string
+}): Promise<void> {
+  const safeSchoolName = escapeHtml(params.schoolName)
+  const appUrl = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "")
+  const accessUrl = `${appUrl}/student/interview/access?school=${encodeURIComponent(params.schoolCode)}`
+  const safeAccessUrl = escapeHtml(accessUrl)
+  const mailOptions = {
+    from: process.env.GMAIL_USER,
+    to: params.to,
+    subject: `Your ${params.schoolName} interview verification code`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h2 style="margin-top: 0;">Verify your interview access</h2>
+          <p>Use this code to continue or restart your paid interview for ${safeSchoolName}:</p>
+          <p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; text-align: center; margin: 28px 0;">${params.code}</p>
+          <p style="text-align: center; margin: 24px 0;">
+            <a href="${safeAccessUrl}" style="display: inline-block; background: #0071e3; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: 600;">Open your interview</a>
+          </p>
+          <p>This code expires in 10 minutes. Do not share it with anyone.</p>
+          <p style="color: #666; font-size: 13px;">If you did not request this code, you can ignore this email.</p>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `Your ${params.schoolName} interview verification code is ${params.code}. It expires in 10 minutes. Open your interview: ${accessUrl}`,
+  }
+
+  await transporter.sendMail(mailOptions)
+  console.log("[Email] Interview access code sent to:", params.to)
+}
+
 // Default recipient for low-credit alerts. Can be overridden per environment via
 // LOW_CREDIT_ALERT_RECIPIENTS (comma/semicolon separated) — useful for sending
 // staging test alerts to a QA inbox instead of the production recipient.

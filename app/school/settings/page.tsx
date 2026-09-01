@@ -21,7 +21,9 @@ import {
   getGlobalTimingSettings,
   updateGlobalTimingSettings,
   getParentTimingSettings,
-  updateParentTimingSettings
+  updateParentTimingSettings,
+  getStudentInterviewPriceSettings,
+  updateStudentInterviewPriceSettings,
 } from "@/app/actions/system-settings"
 import {
   getSchoolBranding,
@@ -29,7 +31,7 @@ import {
   uploadSchoolIntroVideo,
   removeSchoolBrandingAsset,
 } from "@/app/actions/school-branding"
-import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText, Image as ImageIcon, Video, Upload, Users } from "lucide-react"
+import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText, Image as ImageIcon, Video, Upload, Users, CreditCard } from "lucide-react"
 import { ParentQuestionsSettings } from "@/components/settings/parent-questions-settings"
 
 // B2-hosted assets must be served same-origin because the app sends a
@@ -87,6 +89,12 @@ export default function SettingsPage() {
   const [parentTimingSuccess, setParentTimingSuccess] = useState(false)
   const [parentTimingError, setParentTimingError] = useState<string | null>(null)
 
+  const [priceInput, setPriceInput] = useState("49.00")
+  const [savingPrice, setSavingPrice] = useState(false)
+  const [priceSuccess, setPriceSuccess] = useState(false)
+  const [priceError, setPriceError] = useState<string | null>(null)
+  const [priceLoading, setPriceLoading] = useState(true)
+
   // Branding (logo + intro video) state
   const [branding, setBranding] = useState<{ logoUrl: string | null; introVideoUrl: string | null }>({
     logoUrl: null,
@@ -104,6 +112,7 @@ export default function SettingsPage() {
     loadPrompts()
     loadGlobalTimingSettings()
     loadParentTimingSettings()
+    loadStudentInterviewPrice()
     loadBranding()
   }, [])
 
@@ -218,6 +227,20 @@ export default function SettingsPage() {
       console.error("[Settings] Error loading global timing settings:", err)
     } finally {
       setTimingLoading(false)
+    }
+  }
+
+  const loadStudentInterviewPrice = async () => {
+    try {
+      setPriceLoading(true)
+      const result = await getStudentInterviewPriceSettings()
+      if (result.success && typeof result.amountCents === "number") {
+        setPriceInput((result.amountCents / 100).toFixed(2))
+      }
+    } catch (err) {
+      console.error("[Settings] Error loading student interview price:", err)
+    } finally {
+      setPriceLoading(false)
     }
   }
 
@@ -382,6 +405,35 @@ export default function SettingsPage() {
       setError(err instanceof Error ? err.message : "Unknown error")
     } finally {
       setSavingTiming(false)
+    }
+  }
+
+  const handleSaveStudentInterviewPrice = async () => {
+    try {
+      setSavingPrice(true)
+      setPriceError(null)
+      setPriceSuccess(false)
+
+      const amountDollars = parseFloat(priceInput)
+      if (isNaN(amountDollars) || amountDollars <= 0) {
+        setPriceError("Enter a valid price greater than 0")
+        return
+      }
+
+      const result = await updateStudentInterviewPriceSettings(amountDollars)
+      if (!result.success) {
+        setPriceError(result.error || "Failed to save student interview price")
+        return
+      }
+
+      setPriceInput(amountDollars.toFixed(2))
+      setPriceSuccess(true)
+      setTimeout(() => setPriceSuccess(false), 3000)
+    } catch (err) {
+      console.error("[Settings] Error saving student interview price:", err)
+      setPriceError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setSavingPrice(false)
     }
   }
 
@@ -666,6 +718,78 @@ export default function SettingsPage() {
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         <AlertDescription className="text-green-800">
                           Global timing settings saved successfully! These settings will apply to all new interviews.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Student interview price (Super Admin Only) */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
+                  <div>
+                    <CardTitle>Student Interview Price</CardTitle>
+                    <CardDescription>
+                      Global USD price charged through Stripe when a school is set to student-pay mode.
+                      Credit-mode schools are not affected.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {priceLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#0071e3] border-t-transparent"></div>
+                  </div>
+                ) : (
+                  <>
+                    {priceError && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{priceError}</AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="space-y-2 max-w-xs">
+                      <Label htmlFor="student-interview-price">Price (USD)</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(0,0,0,0.48)]">$</span>
+                        <Input
+                          id="student-interview-price"
+                          type="text"
+                          inputMode="decimal"
+                          value={priceInput}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+                              setPriceInput(value)
+                            }
+                          }}
+                          className="pl-7"
+                        />
+                      </div>
+                      <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                        Charged once per student interview before recording starts.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-end pt-2">
+                      <Button
+                        onClick={handleSaveStudentInterviewPrice}
+                        disabled={savingPrice}
+                        className="gap-2"
+                      >
+                        <Save className="h-4 w-4" />
+                        {savingPrice ? "Saving..." : "Save Price"}
+                      </Button>
+                    </div>
+                    {priceSuccess && (
+                      <Alert className="bg-green-50 border-green-200">
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <AlertDescription className="text-green-800">
+                          Student interview price saved. It applies to new Stripe checkouts immediately.
                         </AlertDescription>
                       </Alert>
                     )}

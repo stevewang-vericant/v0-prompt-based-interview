@@ -8,49 +8,52 @@ datasource db {
 }
 
 model School {
-  id                  String              @id @default(uuid()) @db.Uuid
-  code                String?             @unique @db.VarChar(50)
-  name                String              @db.VarChar(255)
-  level               String              @default("k12") @db.VarChar(20) // "k12" | "undergraduate"; controls rating gate
-  email               String?             @unique @db.VarChar(255) // Deprecated: kept for backward compatibility, use SchoolAdmin instead
-  password_hash       String?             @db.VarChar(255) // Deprecated: kept for backward compatibility, use SchoolAdmin instead
-  contact_person      String?             @db.VarChar(255)
-  phone               String?             @db.VarChar(50)
-  active              Boolean             @default(true)
-  is_super_admin      Boolean             @default(false)
-  is_rater            Boolean             @default(false)
-  credits_balance     Int                 @default(5)
-  logo_url            String?             @db.VarChar(500) // School logo shown on the student interview page
-  intro_video_url     String?             @db.VarChar(500) // School intro video played before the interview starts
-  created_at          DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
-  last_login_at       DateTime?           @db.Timestamptz(6)
-  selected_prompt_ids String[]
+  id                         String              @id @default(uuid()) @db.Uuid
+  code                       String?             @unique @db.VarChar(50)
+  name                       String              @db.VarChar(255)
+  level                      String              @default("k12") @db.VarChar(20) // "k12" | "undergraduate"; controls rating gate
+  email                      String?             @unique @db.VarChar(255) // Deprecated: kept for backward compatibility, use SchoolAdmin instead
+  password_hash              String?             @db.VarChar(255) // Deprecated: kept for backward compatibility, use SchoolAdmin instead
+  contact_person             String?             @db.VarChar(255)
+  phone                      String?             @db.VarChar(50)
+  active                     Boolean             @default(true)
+  is_super_admin             Boolean             @default(false)
+  is_rater                   Boolean             @default(false)
+  credits_balance            Int                 @default(5)
+  // "credits" (school balance) or "student_pay" (student pays via Stripe before recording).
+  billing_mode               String              @default("credits") @db.VarChar(20)
+  logo_url                   String?             @db.VarChar(500) // School logo shown on the student interview page
+  intro_video_url            String?             @db.VarChar(500) // School intro video played before the interview starts
+  created_at                 DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+  last_login_at              DateTime?           @db.Timestamptz(6)
+  selected_prompt_ids        String[]
   // Parent interview questions are configured separately from student prompts.
   parent_selected_prompt_ids String[]
-  credit_transactions CreditTransaction[]
-  interviews          Interview[]
-  invitations         Invitation[]
-  parents             Parent[]
-  prompts             Prompt[]
-  admins              SchoolAdmin[]
+  credit_transactions        CreditTransaction[]
+  interview_payments         InterviewPayment[]
+  interviews                 Interview[]
+  invitations                Invitation[]
+  parents                    Parent[]
+  prompts                    Prompt[]
+  admins                     SchoolAdmin[]
 
   @@map("schools")
 }
 
 model SchoolAdmin {
-  id                  String    @id @default(uuid()) @db.Uuid
-  school_id           String    @db.Uuid
-  email               String    @unique @db.VarChar(255)
-  password_hash       String    @db.VarChar(255)
-  name                String?   @db.VarChar(255)
-  active              Boolean   @default(false) // New registrations require approval
-  is_super_admin      Boolean   @default(false)
-  is_rater            Boolean   @default(false)
-  created_at          DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
-  last_login_at       DateTime? @db.Timestamptz(6)
-  school              School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  id             String    @id @default(uuid()) @db.Uuid
+  school_id      String    @db.Uuid
+  email          String    @unique @db.VarChar(255)
+  password_hash  String    @db.VarChar(255)
+  name           String?   @db.VarChar(255)
+  active         Boolean   @default(false) // New registrations require approval
+  is_super_admin Boolean   @default(false)
+  is_rater       Boolean   @default(false)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  last_login_at  DateTime? @db.Timestamptz(6)
+  school         School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
 
   @@unique([school_id, email])
   @@index([school_id])
@@ -73,6 +76,65 @@ model CreditTransaction {
 
   @@index([school_id])
   @@map("credit_transactions")
+}
+
+model InterviewPayment {
+  id                         String              @id @default(uuid()) @db.Uuid
+  interview_id               String              @unique @db.VarChar(255)
+  school_id                  String              @db.Uuid
+  student_email              String              @db.VarChar(255)
+  student_name               String              @db.VarChar(255)
+  student_info               Json?
+  amount_cents               Int
+  currency                   String              @db.VarChar(10)
+  stripe_checkout_session_id String              @unique @db.VarChar(255)
+  stripe_payment_intent_id   String?             @db.VarChar(255)
+  status                     String              @default("pending") @db.VarChar(50) // pending | paid | expired | failed
+  entitlement_status         String              @default("pending") @db.VarChar(50) // pending | active | consumed
+  restart_count              Int                 @default(0)
+  consumed_at                DateTime?           @db.Timestamptz(6)
+  paid_at                    DateTime?           @db.Timestamptz(6)
+  created_at                 DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+  school                     School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  interviews                 Interview[]
+  access_codes               PaymentAccessCode[]
+  audit_logs                 PaymentAuditLog[]
+
+  @@index([school_id])
+  @@index([status])
+  @@index([entitlement_status])
+  @@map("interview_payments")
+}
+
+model PaymentAuditLog {
+  id          String           @id @default(uuid()) @db.Uuid
+  payment_id  String           @db.Uuid
+  action      String           @db.VarChar(50)
+  actor_email String           @db.VarChar(255)
+  reason      String?          @db.VarChar(500)
+  metadata    Json?
+  created_at  DateTime         @default(now()) @db.Timestamptz(6)
+  payment     InterviewPayment @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+
+  @@index([payment_id])
+  @@index([created_at])
+  @@map("payment_audit_logs")
+}
+
+model PaymentAccessCode {
+  id          String           @id @default(uuid()) @db.Uuid
+  payment_id  String           @db.Uuid
+  code_hash   String           @db.VarChar(64)
+  attempts    Int              @default(0)
+  expires_at  DateTime         @db.Timestamptz(6)
+  consumed_at DateTime?        @db.Timestamptz(6)
+  created_at  DateTime         @default(now()) @db.Timestamptz(6)
+  payment     InterviewPayment @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+
+  @@index([payment_id])
+  @@index([expires_at])
+  @@map("payment_access_codes")
 }
 
 model Invitation {
@@ -146,69 +208,73 @@ model Prompt {
 }
 
 model Interview {
-  id                     String              @id @default(uuid()) @db.Uuid
-  interview_id           String?             @unique @db.VarChar(255)
+  id                        String              @id @default(uuid()) @db.Uuid
+  interview_id              String?             @unique @db.VarChar(255)
   // "student" (default) or "parent". Parent interviews reuse the same pipeline
   // but are never scored/rated and are listed in a separate school tab.
-  interview_type         String              @default("student") @db.VarChar(20)
-  student_id             String?             @db.Uuid
-  parent_id              String?             @db.Uuid
-  school_id              String              @db.Uuid
+  interview_type            String              @default("student") @db.VarChar(20)
+  student_id                String?             @db.Uuid
+  parent_id                 String?             @db.Uuid
+  school_id                 String              @db.Uuid
+  payment_id                String?             @db.Uuid
+  attempt_number            Int                 @default(1)
   // Parent-only: the parent's preferred response language (drives bilingual
   // question display and English caption generation).
-  response_language      String?             @db.VarChar(50)
+  response_language         String?             @db.VarChar(50)
   // Parent-only: URL of the generated English speech-caption JSON (VTT-like).
-  caption_url            String?             @db.VarChar(500)
+  caption_url               String?             @db.VarChar(500)
   // Parent-only: interview_id of a matching student interview, when found.
-  matched_interview_id   String?             @db.VarChar(255)
+  matched_interview_id      String?             @db.VarChar(255)
   // Parent-only: true when a school staff manually linked the student interview
   // (as opposed to the automatic name+email/DOB match). Manual links are never
   // overwritten by the automatic matcher.
-  matched_manually       Boolean             @default(false)
-  status                 String?             @default("not_started") @db.VarChar(50)
-  video_url              String?             @db.VarChar(500)
-  video_with_prep_url    String?             @db.VarChar(500)
-  subtitle_url           String?             @db.VarChar(500)
-  total_duration         Int?
-  metadata               Json?
-  started_at             DateTime?           @db.Timestamptz(6)
-  completed_at           DateTime?           @db.Timestamptz(6)
-  submitted_at           DateTime?           @db.Timestamptz(6)
-  transcription_status   String?             @default("pending") @db.VarChar(50)
-  transcription_text     String?
-  transcription_metadata Json?
-  transcription_job_id   String?             @db.VarChar(255)
-  ai_summary             String?
-  total_score            Decimal?            @db.Decimal(5, 2)
-  fluency_score          Decimal?            @db.Decimal(5, 2)
-  coherence_score        Decimal?            @db.Decimal(5, 2)
-  vocabulary_score       Decimal?            @db.Decimal(5, 2)
-  grammar_score          Decimal?            @db.Decimal(5, 2)
-  pronunciation_score    Decimal?            @db.Decimal(5, 2)
+  matched_manually          Boolean             @default(false)
+  status                    String?             @default("not_started") @db.VarChar(50)
+  video_url                 String?             @db.VarChar(500)
+  video_with_prep_url       String?             @db.VarChar(500)
+  subtitle_url              String?             @db.VarChar(500)
+  total_duration            Int?
+  metadata                  Json?
+  started_at                DateTime?           @db.Timestamptz(6)
+  completed_at              DateTime?           @db.Timestamptz(6)
+  submitted_at              DateTime?           @db.Timestamptz(6)
+  transcription_status      String?             @default("pending") @db.VarChar(50)
+  transcription_text        String?
+  transcription_metadata    Json?
+  transcription_job_id      String?             @db.VarChar(255)
+  ai_summary                String?
+  total_score               Decimal?            @db.Decimal(5, 2)
+  fluency_score             Decimal?            @db.Decimal(5, 2)
+  coherence_score           Decimal?            @db.Decimal(5, 2)
+  vocabulary_score          Decimal?            @db.Decimal(5, 2)
+  grammar_score             Decimal?            @db.Decimal(5, 2)
+  pronunciation_score       Decimal?            @db.Decimal(5, 2)
   // Score approval workflow
-  score_approved              Boolean    @default(false)
-  score_approved_at           DateTime?  @db.Timestamptz(6)
-  score_approved_by           String?    @db.VarChar(255)
+  score_approved            Boolean             @default(false)
+  score_approved_at         DateTime?           @db.Timestamptz(6)
+  score_approved_by         String?             @db.VarChar(255)
   // Rater override scores (null = use Cathoven scores)
-  rater_total_score           Decimal?   @db.Decimal(5, 2)
-  rater_fluency_score         Decimal?   @db.Decimal(5, 2)
-  rater_coherence_score       Decimal?   @db.Decimal(5, 2)
-  rater_vocabulary_score      Decimal?   @db.Decimal(5, 2)
-  rater_grammar_score         Decimal?   @db.Decimal(5, 2)
-  rater_pronunciation_score   Decimal?   @db.Decimal(5, 2)
-  verification_status    String?             @default("pending") @db.VarChar(50)
-  created_at             DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
-  school_code            String?             @db.VarChar(50)
-  responses              InterviewResponse[]
-  school                 School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student                Student?            @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  parent                 Parent?             @relation(fields: [parent_id], references: [id], onDelete: Cascade)
-  transcription_jobs     TranscriptionJob[]
+  rater_total_score         Decimal?            @db.Decimal(5, 2)
+  rater_fluency_score       Decimal?            @db.Decimal(5, 2)
+  rater_coherence_score     Decimal?            @db.Decimal(5, 2)
+  rater_vocabulary_score    Decimal?            @db.Decimal(5, 2)
+  rater_grammar_score       Decimal?            @db.Decimal(5, 2)
+  rater_pronunciation_score Decimal?            @db.Decimal(5, 2)
+  verification_status       String?             @default("pending") @db.VarChar(50)
+  created_at                DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+  school_code               String?             @db.VarChar(50)
+  responses                 InterviewResponse[]
+  school                    School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student                   Student?            @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  parent                    Parent?             @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  payment                   InterviewPayment?   @relation(fields: [payment_id], references: [id], onDelete: SetNull)
+  transcription_jobs        TranscriptionJob[]
 
   @@index([student_id])
   @@index([parent_id])
   @@index([school_id])
+  @@index([payment_id])
   @@index([school_code])
   @@index([status])
   @@index([interview_type])
@@ -295,25 +361,25 @@ model VideoProcessingTask {
 }
 
 model SystemSettings {
-  id                String    @id @default(uuid()) @db.Uuid
-  key               String    @unique @db.VarChar(100)
-  value             String    @db.Text
-  description       String?   @db.VarChar(500)
-  created_at        DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique @db.VarChar(100)
+  value       String   @db.Text
+  description String?  @db.VarChar(500)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@map("system_settings")
 }
 
 model PasswordResetToken {
-  id          String   @id @default(uuid()) @db.Uuid
-  token       String   @unique @db.VarChar(64)
-  email       String   @db.VarChar(255)
-  user_type   String   @db.VarChar(20)  // "school_admin" or "school"
-  user_id     String   @db.Uuid
-  expires_at  DateTime @db.Timestamptz(6)
-  used        Boolean  @default(false)
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  id         String   @id @default(uuid()) @db.Uuid
+  token      String   @unique @db.VarChar(64)
+  email      String   @db.VarChar(255)
+  user_type  String   @db.VarChar(20) // "school_admin" or "school"
+  user_id    String   @db.Uuid
+  expires_at DateTime @db.Timestamptz(6)
+  used       Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([token])
   @@index([email])
