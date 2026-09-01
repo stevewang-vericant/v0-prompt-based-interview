@@ -61,6 +61,7 @@ export default function PaymentsPage() {
   const [interviewStatus, setInterviewStatus] = useState("all")
   const [actionPaymentId, setActionPaymentId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [canVoidTestPayments, setCanVoidTestPayments] = useState(false)
   const [auditPayment, setAuditPayment] = useState<AdminPaymentRecord | null>(null)
   const [auditLogs, setAuditLogs] = useState<AdminPaymentAuditLog[]>([])
   const [auditLoading, setAuditLoading] = useState(false)
@@ -72,6 +73,7 @@ export default function PaymentsPage() {
     const result = await listInterviewPayments()
     if (result.success && result.payments) {
       setPayments(result.payments)
+      setCanVoidTestPayments(Boolean(result.canVoidTestPayments))
     } else {
       setError(result.error || "Failed to load payment records")
     }
@@ -356,14 +358,16 @@ export default function PaymentsPage() {
                             >
                               <RotateCcw className="mr-1 h-3 w-3" /> Restart
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => voidPayment(payment)}
-                              disabled={actionPaymentId === payment.id}
-                            >
-                              <Ban className="mr-1 h-3 w-3" /> Void test
-                            </Button>
+                            {canVoidTestPayments && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => voidPayment(payment)}
+                                disabled={actionPaymentId === payment.id}
+                              >
+                                <Ban className="mr-1 h-3 w-3" /> Void test
+                              </Button>
+                            )}
                           </div>
                         )}
                     </td>
