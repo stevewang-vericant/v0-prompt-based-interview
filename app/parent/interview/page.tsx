@@ -13,6 +13,7 @@ import { InterviewIntro } from "@/components/interview/interview-intro"
 import { uploadParentVideoToB2AndSave, saveParentInterview } from "@/app/actions/parent-interviews"
 import { getParentPromptsBySchoolCode } from "@/app/actions/parent-prompts"
 import { getSchoolBrandingByCode } from "@/app/actions/school-branding"
+import { supportsParentInterviews } from "@/lib/school-level"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { parentT, type ParentUILang, PARENT_UI_LANGUAGES, DEFAULT_PARENT_UI_LANG } from "@/lib/parent-i18n"
@@ -40,6 +41,8 @@ function ParentInterviewContent() {
     introVideoUrl: null,
     name: null,
   })
+  // University-level schools do not run parent interviews, so their link is dead.
+  const [parentInterviewsUnavailable, setParentInterviewsUnavailable] = useState(false)
   const [introAcknowledged, setIntroAcknowledged] = useState(false)
   const [brandingLoading, setBrandingLoading] = useState(true)
 
@@ -91,6 +94,7 @@ function ParentInterviewContent() {
             introVideoUrl: result.branding.introVideoUrl,
             name: result.branding.name,
           })
+          setParentInterviewsUnavailable(!supportsParentInterviews(result.branding.level))
         }
       } finally {
         setBrandingLoading(false)
@@ -324,6 +328,14 @@ function ParentInterviewContent() {
           </Alert>
         )}
 
+        {parentInterviewsUnavailable && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{t.page.unavailableTitle}</AlertTitle>
+            <AlertDescription>{t.page.unavailableBody}</AlertDescription>
+          </Alert>
+        )}
+
         {isUnsupportedDevice && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
@@ -346,7 +358,7 @@ function ParentInterviewContent() {
           </div>
         )}
 
-        {!isUnsupportedDevice && !brandingLoading && (
+        {!isUnsupportedDevice && !brandingLoading && !parentInterviewsUnavailable && (
           <>
             {stage === "parent-info" && branding.introVideoUrl && !introAcknowledged && (
               <InterviewIntro

@@ -101,6 +101,7 @@ export interface CurrentUser {
     id: string
     name: string
     code: string | null
+    level: string
     is_super_admin: boolean
     credits_balance: number
     billing_mode: string
@@ -387,6 +388,7 @@ export async function getCurrentUser(): Promise<{
               id: admin.school.id,
               name: admin.school.name,
               code: admin.school.code,
+              level: admin.school.level,
               is_super_admin: admin.is_super_admin,
               credits_balance: admin.school.credits_balance,
               billing_mode: admin.school.billing_mode,
@@ -402,6 +404,7 @@ export async function getCurrentUser(): Promise<{
           id: true,
           name: true,
           code: true,
+          level: true,
           email: true,
           is_super_admin: true,
           is_rater: true,
@@ -423,6 +426,7 @@ export async function getCurrentUser(): Promise<{
             id: school.id,
             name: school.name,
             code: school.code,
+            level: school.level,
             is_super_admin: school.is_super_admin,
             credits_balance: school.credits_balance,
             billing_mode: school.billing_mode,

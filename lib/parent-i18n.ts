@@ -27,6 +27,8 @@ interface ParentStrings {
     uiLanguageLabel: string
     missingSchoolTitle: string
     missingSchoolBody: string
+    unavailableTitle: string
+    unavailableBody: string
     unsupportedTitle: string
     unsupportedBody: string
     unableTitle: string
@@ -158,6 +160,9 @@ const en: ParentStrings = {
     missingSchoolTitle: "Missing School Code",
     missingSchoolBody:
       "This interview link is missing a school code. Please use the link provided by the school.",
+    unavailableTitle: "Parent Interview Not Available",
+    unavailableBody:
+      "This school does not offer parent interviews. Please contact the school if you believe this is a mistake.",
     unsupportedTitle: "Device Not Supported for Recording",
     unsupportedBody:
       "Video recording is only available on a PC or Mac. Please reopen this link on a desktop or laptop computer.",
@@ -301,6 +306,8 @@ const zh: ParentStrings = {
     uiLanguageLabel: "界面语言",
     missingSchoolTitle: "缺少学校代码",
     missingSchoolBody: "此面试链接缺少学校代码。请使用学校提供的链接。",
+    unavailableTitle: "该学校不提供家长面试",
+    unavailableBody: "此学校未开设家长面试。如有疑问，请联系学校。",
     unsupportedTitle: "该设备不支持录制",
     unsupportedBody: "视频录制仅支持 PC 或 Mac。请在台式机或笔记本电脑上重新打开此链接。",
     unableTitle: "无法开始面试",
