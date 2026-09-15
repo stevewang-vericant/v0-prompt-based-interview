@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { toClientError } from "@/lib/errors"
 import { requireUser } from "@/lib/auth-guards"
+import { supportsParentInterviews } from "@/lib/school-level"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 
 const s3Client = new S3Client({
@@ -78,6 +79,9 @@ export async function uploadParentVideoToB2AndSave(
       const school = await prisma.school.findFirst({ where: { code: schoolCode } })
       if (!school) {
         return { success: true, videoUrl, data: null, dbError: "School not found" }
+      }
+      if (!supportsParentInterviews(school.level)) {
+        return { success: true, videoUrl, data: null, dbError: "Parent interviews are not available for this school" }
       }
 
       const parent = await prisma.parent.create({
@@ -230,6 +234,9 @@ export async function getParentInterviewsBySchoolCode(
     const user = await requireUser()
     if (!user.school.is_super_admin && user.school.code !== schoolCode) {
       throw new Error("Not authorized")
+    }
+    if (!supportsParentInterviews(user.school.level)) {
+      throw new Error("Parent interviews are not available for university-level schools")
     }
 
     // Super admins view every school's parent interviews; regular admins are

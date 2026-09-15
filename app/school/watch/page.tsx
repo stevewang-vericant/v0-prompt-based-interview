@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, ExternalLink, Users } from 'lucide-react'
 import { getMatchedParentInterview, type MatchedParentInterview } from '@/app/actions/parent-interviews'
+import { supportsParentInterviews } from '@/lib/school-level'
 
 function SchoolWatchPageContent() {
   const searchParams = useSearchParams()
@@ -39,6 +40,8 @@ function SchoolWatchPageContent() {
 
   useEffect(() => {
     if (!interviewId) return
+    // University-level schools do not run parent interviews.
+    if (!supportsParentInterviews(schoolLevel)) return
     let cancelled = false
     ;(async () => {
       try {
@@ -53,7 +56,7 @@ function SchoolWatchPageContent() {
     return () => {
       cancelled = true
     }
-  }, [interviewId])
+  }, [interviewId, schoolLevel])
 
   const openParentInterview = () => {
     if (!matchedParent?.video_url) return

@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
+import { supportsParentInterviews } from "@/lib/school-level"
 import { Button } from "@/components/ui/button"
 import { Building2, Video, Settings, LogOut, Menu, X, Users, ClipboardCheck, UsersRound, CreditCard } from "lucide-react"
 import Link from "next/link"
@@ -14,6 +15,7 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
   const [schoolInfo, setSchoolInfo] = useState<{
     code: string | null
     name: string
+    level: string
     is_super_admin: boolean
   } | null>(null)
   const [currentUser, setCurrentUser] = useState<{
@@ -58,11 +60,15 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
           href: "/school/dashboard",
           icon: Video,
         },
-        {
-          name: "Parent Interviews",
-          href: "/school/parent-interviews",
-          icon: UsersRound,
-        },
+        ...(supportsParentInterviews(schoolInfo.level)
+          ? [
+              {
+                name: "Parent Interviews",
+                href: "/school/parent-interviews",
+                icon: UsersRound,
+              },
+            ]
+          : []),
         ...(currentUser?.is_rater || schoolInfo.is_super_admin
           ? [
               {

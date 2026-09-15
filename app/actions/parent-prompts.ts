@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from './auth'
 import { toClientError } from '@/lib/errors'
 import { translateText } from '@/lib/translate'
+import { supportsParentInterviews } from '@/lib/school-level'
 
 export interface ParentPromptRecord {
   id: string
@@ -19,6 +20,10 @@ export interface ParentPromptRecord {
 const MIN_PARENT_PROMPTS = 1
 const MAX_PARENT_PROMPTS = 8
 
+// University-level schools have no parent interview, so every parent-question
+// entry point rejects them (the UI is hidden, but server actions are callable).
+const PARENT_INTERVIEWS_UNAVAILABLE = 'Parent interviews are not available for this school'
+
 /**
  * Get the school's parent-interview questions (custom + any system defaults).
  */
@@ -28,6 +33,14 @@ export async function getSchoolParentPrompts(schoolId: string): Promise<{
   error?: string
 }> {
   try {
+    const school = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { level: true },
+    })
+    if (school && !supportsParentInterviews(school.level)) {
+      return { success: false, error: PARENT_INTERVIEWS_UNAVAILABLE }
+    }
+
     const customPrompts = await prisma.prompt.findMany({
       where: { school_id: schoolId, prompt_type: 'parent' },
       orderBy: { created_at: 'desc' },
@@ -74,6 +87,9 @@ export async function getSelectedParentPromptIds(): Promise<{
     const userResult = await getCurrentUser()
     if (!userResult.success || !userResult.user) {
       return { success: false, error: 'Not authenticated' }
+    }
+    if (!supportsParentInterviews(userResult.user.school.level)) {
+      return { success: false, error: PARENT_INTERVIEWS_UNAVAILABLE }
     }
 
     const school = await prisma.school.findUnique({
@@ -133,6 +149,9 @@ export async function updateSelectedParentPrompts(promptIds: string[]): Promise<
     if (!userResult.success || !userResult.user) {
       return { success: false, error: 'Not authenticated' }
     }
+    if (!supportsParentInterviews(userResult.user.school.level)) {
+      return { success: false, error: PARENT_INTERVIEWS_UNAVAILABLE }
+    }
 
     // Verify all selected prompts exist and are parent-type.
     const prompts = await prisma.prompt.findMany({
@@ -171,6 +190,9 @@ export async function createParentPrompt(data: {
     const userResult = await getCurrentUser()
     if (!userResult.success || !userResult.user) {
       return { success: false, error: 'Not authenticated' }
+    }
+    if (!supportsParentInterviews(userResult.user.school.level)) {
+      return { success: false, error: PARENT_INTERVIEWS_UNAVAILABLE }
     }
 
     const prompt = await prisma.prompt.create({
@@ -214,6 +236,9 @@ export async function deleteParentPrompt(promptId: string): Promise<{
     const userResult = await getCurrentUser()
     if (!userResult.success || !userResult.user) {
       return { success: false, error: 'Not authenticated' }
+    }
+    if (!supportsParentInterviews(userResult.user.school.level)) {
+      return { success: false, error: PARENT_INTERVIEWS_UNAVAILABLE }
     }
 
     const prompt = await prisma.prompt.findUnique({ where: { id: promptId } })
@@ -280,11 +305,15 @@ export async function getParentPromptsBySchoolCode(
 
     const school = await prisma.school.findUnique({
       where: { code: schoolCode },
-      select: { parent_selected_prompt_ids: true },
+      select: { parent_selected_prompt_ids: true, level: true },
     })
 
     if (!school) {
       return { success: false, error: 'School not found' }
+    }
+
+    if (!supportsParentInterviews(school.level)) {
+      return { success: false, error: PARENT_INTERVIEWS_UNAVAILABLE }
     }
 
     // Parent interviews use their own question set (never the student prompts).

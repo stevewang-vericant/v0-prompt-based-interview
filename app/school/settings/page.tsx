@@ -33,6 +33,7 @@ import {
 } from "@/app/actions/school-branding"
 import { Plus, Save, AlertCircle, CheckCircle2, Trash2, Clock, Settings, FileText, Image as ImageIcon, Video, Upload, Users, CreditCard } from "lucide-react"
 import { ParentQuestionsSettings } from "@/components/settings/parent-questions-settings"
+import { supportsParentInterviews } from "@/lib/school-level"
 
 // B2-hosted assets must be served same-origin because the app sends a
 // Cross-Origin-Embedder-Policy: require-corp header.
@@ -63,6 +64,10 @@ export default function SettingsPage() {
   
   // Global timing settings (super admin only)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  // University-level schools do not run parent interviews, so their parent
+  // question / timing settings are hidden. Defaults to false until the school
+  // level loads so the tab never flashes for them.
+  const [parentInterviewsEnabled, setParentInterviewsEnabled] = useState(false)
   const [globalTimingSettings, setGlobalTimingSettings] = useState({
     preparationTime: 20,
     responseTime: 90
@@ -185,6 +190,7 @@ export default function SettingsPage() {
 
       const schoolId = userResult.user.school.id
       setIsSuperAdmin(userResult.user.school.is_super_admin)
+      setParentInterviewsEnabled(supportsParentInterviews(userResult.user.school.level))
       
       // Load prompts
       const promptsResult = await getSchoolPrompts(schoolId)
@@ -585,10 +591,12 @@ export default function SettingsPage() {
             <FileText className="h-4 w-4" />
             Prompts
           </TabsTrigger>
-          <TabsTrigger value="parent-questions" className="gap-2">
-            <Users className="h-4 w-4" />
-            Parent Questions
-          </TabsTrigger>
+          {parentInterviewsEnabled && (
+            <TabsTrigger value="parent-questions" className="gap-2">
+              <Users className="h-4 w-4" />
+              Parent Questions
+            </TabsTrigger>
+          )}
           <TabsTrigger value="branding" className="gap-2">
             <ImageIcon className="h-4 w-4" />
             Branding
@@ -799,85 +807,87 @@ export default function SettingsPage() {
             </Card>
 
             {/* Parent Interview Structure (Super Admin Only) */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
-                  <div>
-                    <CardTitle>Parent Interview Structure</CardTitle>
-                    <CardDescription>
-                      Parent interviews default to the same structure as student interviews. The number of
-                      questions is controlled in the <strong>Parent Questions</strong> tab (when no parent
-                      questions are selected, the parent interview mirrors the student prompts). Override the
-                      parent-specific preparation and response times below, or leave a field blank to use the
-                      student default.
-                    </CardDescription>
+            {parentInterviewsEnabled && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
+                    <div>
+                      <CardTitle>Parent Interview Structure</CardTitle>
+                      <CardDescription>
+                        Parent interviews default to the same structure as student interviews. The number of
+                        questions is controlled in the <strong>Parent Questions</strong> tab (when no parent
+                        questions are selected, the parent interview mirrors the student prompts). Override the
+                        parent-specific preparation and response times below, or leave a field blank to use the
+                        student default.
+                      </CardDescription>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {parentTimingError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{parentTimingError}</AlertDescription>
-                  </Alert>
-                )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="parent-preparation-time">Preparation Time (seconds)</Label>
-                    <Input
-                      id="parent-preparation-time"
-                      type="text"
-                      inputMode="numeric"
-                      value={parentTimingInputs.preparationTime}
-                      placeholder={`Student default: ${parentTiming.defaultPreparationTime}s`}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        if (value === "" || /^\d+$/.test(value)) {
-                          setParentTimingInputs({ ...parentTimingInputs, preparationTime: value })
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
-                      Leave blank to use the student default ({parentTiming.defaultPreparationTime}s). 1-300 seconds.
-                    </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {parentTimingError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{parentTimingError}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="parent-preparation-time">Preparation Time (seconds)</Label>
+                      <Input
+                        id="parent-preparation-time"
+                        type="text"
+                        inputMode="numeric"
+                        value={parentTimingInputs.preparationTime}
+                        placeholder={`Student default: ${parentTiming.defaultPreparationTime}s`}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === "" || /^\d+$/.test(value)) {
+                            setParentTimingInputs({ ...parentTimingInputs, preparationTime: value })
+                          }
+                        }}
+                      />
+                      <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                        Leave blank to use the student default ({parentTiming.defaultPreparationTime}s). 1-300 seconds.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="parent-response-time">Response Time (seconds)</Label>
+                      <Input
+                        id="parent-response-time"
+                        type="text"
+                        inputMode="numeric"
+                        value={parentTimingInputs.responseTime}
+                        placeholder={`Student default: ${parentTiming.defaultResponseTime}s`}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === "" || /^\d+$/.test(value)) {
+                            setParentTimingInputs({ ...parentTimingInputs, responseTime: value })
+                          }
+                        }}
+                      />
+                      <p className="text-xs text-[rgba(0,0,0,0.48)]">
+                        Leave blank to use the student default ({parentTiming.defaultResponseTime}s). 1-600 seconds.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="parent-response-time">Response Time (seconds)</Label>
-                    <Input
-                      id="parent-response-time"
-                      type="text"
-                      inputMode="numeric"
-                      value={parentTimingInputs.responseTime}
-                      placeholder={`Student default: ${parentTiming.defaultResponseTime}s`}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        if (value === "" || /^\d+$/.test(value)) {
-                          setParentTimingInputs({ ...parentTimingInputs, responseTime: value })
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-[rgba(0,0,0,0.48)]">
-                      Leave blank to use the student default ({parentTiming.defaultResponseTime}s). 1-600 seconds.
-                    </p>
+                  <div className="flex items-center justify-end pt-2">
+                    <Button onClick={handleSaveParentTiming} disabled={savingParentTiming} className="gap-2">
+                      <Save className="h-4 w-4" />
+                      {savingParentTiming ? "Saving..." : "Save Parent Timing"}
+                    </Button>
                   </div>
-                </div>
-                <div className="flex items-center justify-end pt-2">
-                  <Button onClick={handleSaveParentTiming} disabled={savingParentTiming} className="gap-2">
-                    <Save className="h-4 w-4" />
-                    {savingParentTiming ? "Saving..." : "Save Parent Timing"}
-                  </Button>
-                </div>
-                {parentTimingSuccess && (
-                  <Alert className="bg-green-50 border-green-200">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-800">
-                      Parent interview timing saved successfully! Applies to new parent interviews.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
+                  {parentTimingSuccess && (
+                    <Alert className="bg-green-50 border-green-200">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-800">
+                        Parent interview timing saved successfully! Applies to new parent interviews.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         )}
 
@@ -1140,9 +1150,11 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Parent Questions Tab */}
-        <TabsContent value="parent-questions" className="space-y-6 mt-6">
-          <ParentQuestionsSettings />
-        </TabsContent>
+        {parentInterviewsEnabled && (
+          <TabsContent value="parent-questions" className="space-y-6 mt-6">
+            <ParentQuestionsSettings />
+          </TabsContent>
+        )}
 
         {/* Branding Tab */}
         <TabsContent value="branding" className="space-y-6 mt-6">

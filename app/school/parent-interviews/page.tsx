@@ -13,6 +13,7 @@ import {
   type ParentInterviewRecord,
   type StudentInterviewOption,
 } from "@/app/actions/parent-interviews"
+import { supportsParentInterviews } from "@/lib/school-level"
 import {
   Video,
   Calendar,
@@ -40,6 +41,7 @@ function ParentInterviewsContent() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [schoolInfo, setSchoolInfo] = useState<{ code: string; name: string; is_super_admin: boolean } | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [redirecting, setRedirecting] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [linkCopied, setLinkCopied] = useState(false)
 
@@ -64,6 +66,14 @@ function ParentInterviewsContent() {
         setTimeout(() => (window.location.href = "/school/login"), 2000)
         return
       }
+      // University-level schools do not run parent interviews; the nav entry is
+      // hidden for them, so a direct URL hit goes back to the dashboard.
+      if (!supportsParentInterviews(userResult.user.school.level)) {
+        setRedirecting(true)
+        window.location.replace("/school/dashboard")
+        return
+      }
+
       const code = userResult.user.school.code
       if (!code) {
         setAuthError("School code is missing")
@@ -242,6 +252,14 @@ function ParentInterviewsContent() {
       (interview.interview_id || "").toLowerCase().includes(q)
     )
   })
+
+  if (redirecting) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0071e3] border-t-transparent"></div>
+      </div>
+    )
+  }
 
   if (authError) {
     return (
