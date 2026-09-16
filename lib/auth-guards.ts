@@ -92,6 +92,8 @@ export async function requireInternalOrSuperAdminApi(
       )
       return { ok: true }
     }
+    const adminCheck = await requireSuperAdminApi()
+    if (adminCheck.ok) return { ok: true }
     return {
       ok: false,
       response: denied(
