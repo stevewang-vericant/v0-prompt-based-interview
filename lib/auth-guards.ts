@@ -76,11 +76,9 @@ export async function requireSuperAdminApi(): Promise<ApiGuardResult> {
  * Guard for internal worker / background-processing endpoints that have no
  * legitimate browser caller (e.g. video merge, transcription processing).
  *
- * Opt-in by design so we never break an existing scheduler/cron: the lockdown
- * only activates once `INTERNAL_API_SECRET` is configured. Callers then must
- * either present the matching `x-internal-secret` header, or be a logged-in
- * super admin. When the secret is unset, access is allowed but a warning is
- * logged so the gap is visible.
+ * Production fails closed when `INTERNAL_API_SECRET` is missing. Development
+ * remains open for local worker testing. When configured, callers must present
+ * the matching `x-internal-secret` header or be a logged-in super admin.
  */
 export async function requireInternalOrSuperAdminApi(
   request: Request
@@ -88,10 +86,19 @@ export async function requireInternalOrSuperAdminApi(
   const configured = process.env.INTERNAL_API_SECRET
 
   if (!configured) {
-    console.warn(
-      "[Security] INTERNAL_API_SECRET is not set — worker endpoint is reachable without authentication. Set INTERNAL_API_SECRET to lock it down."
-    )
-    return { ok: true }
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(
+        "[Security] INTERNAL_API_SECRET is not set — allowing worker endpoint in development only."
+      )
+      return { ok: true }
+    }
+    return {
+      ok: false,
+      response: denied(
+        "Internal API is unavailable because its secret is not configured.",
+        503
+      ),
+    }
   }
 
   const provided = request.headers.get("x-internal-secret")
