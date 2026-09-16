@@ -125,17 +125,14 @@ function ResumeUploadContent() {
 
         console.log(`[Resume] Uploading segment ${i + 1}/${pendingSegments.length}: ${segment.questionText.substring(0, 50)}...`)
 
-        // 只在第一个分段时传递学生信息（从数据库获取）
-        // 这里我们需要从 URL 或 localStorage 获取学生信息
-        // 为了简化，我们假设第一个分段会创建 interview 记录
         const result = await uploadVideoToB2AndSave(
           segment.blob,
           interviewId,
           segment.promptId,
           segment.sequenceNumber,
-          i === 0 ? schoolCode : null,
-          undefined, // studentEmail - 需要从数据库获取
-          undefined, // studentName - 需要从数据库获取
+          schoolCode,
+          undefined, // studentEmail - existing interview already has student
+          undefined, // studentName
           segment.questionText,
           segment.category,
           segment.responseTime
@@ -177,6 +174,7 @@ function ResumeUploadContent() {
 
       const mergeResult = await fetch('/api/merge-videos', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

@@ -28,7 +28,18 @@ export async function POST(req: Request) {
       case "checkout.session.async_payment_succeeded": {
         const session = event.data.object
         if (session.payment_status === "paid") {
-          await markInterviewPaymentPaid({ checkoutSession: session })
+          const marked = await markInterviewPaymentPaid({ checkoutSession: session })
+          if (!marked.success) {
+            // Ask Stripe to retry until the payment row can be found/updated.
+            console.error(
+              "[Stripe webhook] Paid session could not be persisted:",
+              session.id
+            )
+            return NextResponse.json(
+              { error: "Payment record not updated" },
+              { status: 500 }
+            )
+          }
         }
         break
       }

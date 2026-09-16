@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { processVideoMergeTask } from '../process-video-task/route'
+import { authorizeMergeVideosApi } from '@/lib/auth-guards'
 
 export async function POST(request: NextRequest) {
   try {
-    const { interviewId, segments } = await request.json()
+    const body = await request.json()
+    const { interviewId, segments } = body
+
+    const auth = await authorizeMergeVideosApi(request, interviewId, segments)
+    if (!auth.ok) return auth.response
 
     console.log('[Merge] Creating async task for interview:', interviewId)
     console.log('[Merge] Segments count:', segments?.length)
-
-    if (!segments || segments.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'No segments provided'
-      })
-    }
 
     const task = await prisma.videoProcessingTask.create({
       data: {

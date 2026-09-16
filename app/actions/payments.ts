@@ -189,40 +189,100 @@ export async function createInterviewCheckoutSession(params: {
       `&interviewId=${encodeURIComponent(interviewId)}` +
       `&payment=cancelled`
 
-    if (existing?.stripe_checkout_session_id) {
+    // Serialize checkout creation for the same interviewId so concurrent tabs
+    // cannot create two live Stripe sessions while only one session id is stored.
+    type LockedPayment = {
+      id: string
+      status: string
+      school_id: string
+      student_info: Prisma.JsonValue | null
+      stripe_checkout_session_id: string
+      restart_count: number
+    }
+
+    const locked = await prisma.$transaction(async (tx) => {
+      // Lock even when the payment row does not exist yet (first checkout).
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${interviewId}))`
+      return tx.interviewPayment.findUnique({
+        where: { interview_id: interviewId },
+        select: {
+          id: true,
+          status: true,
+          school_id: true,
+          student_info: true,
+          stripe_checkout_session_id: true,
+          restart_count: true,
+        },
+      })
+    })
+
+    const current: LockedPayment | null = locked
+
+    if (current?.status === "paid") {
+      if (current.school_id !== school.id) {
+        return { success: false, error: "This interview payment belongs to a different school." }
+      }
+      await requirePaymentAccess({
+        paymentId: current.id,
+        interviewId,
+      })
+      return {
+        success: true,
+        alreadyPaid: true,
+        studentInfo: parsePaidStudentInfo(current.student_info) || studentInfo,
+      }
+    }
+
+    if (current?.stripe_checkout_session_id && !current.stripe_checkout_session_id.startsWith("pending:")) {
       try {
-        await stripe.checkout.sessions.expire(existing.stripe_checkout_session_id)
+        const prior = await stripe.checkout.sessions.retrieve(current.stripe_checkout_session_id)
+        if (prior.status === "open" && prior.url) {
+          return { success: true, url: prior.url }
+        }
+      } catch (error) {
+        console.warn("[Payments] Could not retrieve previous Stripe session:", error)
+      }
+      try {
+        await stripe.checkout.sessions.expire(current.stripe_checkout_session_id)
       } catch (error) {
         console.warn("[Payments] Could not expire previous Stripe session:", error)
       }
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer_email: studentInfo.email.trim(),
-      client_reference_id: interviewId,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency,
-            unit_amount: amountCents,
-            product_data: {
-              name: "Guided Interview",
-              description: `Video interview for ${school.name}`,
+    const restartCount = current?.restart_count ?? 0
+    // Include prior session id so replacing an expired session gets a fresh Stripe
+    // idempotency key, while concurrent creators with the same prior id still collapse.
+    const idempotencyKey = `gi-checkout:${interviewId}:r${restartCount}:${current?.stripe_checkout_session_id ?? "none"}`
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        customer_email: studentInfo.email.trim(),
+        client_reference_id: interviewId,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency,
+              unit_amount: amountCents,
+              product_data: {
+                name: "Guided Interview",
+                description: `Video interview for ${school.name}`,
+              },
             },
           },
+        ],
+        metadata: {
+          interviewId,
+          schoolId: school.id,
+          schoolCode: school.code || schoolCode,
         },
-      ],
-      metadata: {
-        interviewId,
-        schoolId: school.id,
-        schoolCode: school.code || schoolCode,
       },
-    })
+      { idempotencyKey }
+    )
 
     if (!session.url) {
       return { success: false, error: "Failed to create Stripe checkout session" }
@@ -241,18 +301,47 @@ export async function createInterviewCheckoutSession(params: {
       stripe_payment_intent_id: null,
     }
 
-    if (existing) {
-      await prisma.interviewPayment.update({
-        where: { id: existing.id },
-        data: paymentData,
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${interviewId}))`
+      const latest = await tx.interviewPayment.findUnique({
+        where: { interview_id: interviewId },
+        select: { id: true, status: true },
       })
-    } else {
-      await prisma.interviewPayment.create({
-        data: {
-          interview_id: interviewId,
-          ...paymentData,
-        },
+
+      if (latest?.status === "paid") {
+        return
+      }
+
+      if (latest) {
+        await tx.interviewPayment.update({
+          where: { id: latest.id },
+          data: paymentData,
+        })
+      } else {
+        await tx.interviewPayment.create({
+          data: {
+            interview_id: interviewId,
+            ...paymentData,
+          },
+        })
+      }
+    })
+
+    // If another request marked paid while we created a session, prefer already-paid.
+    const afterWrite = await prisma.interviewPayment.findUnique({
+      where: { interview_id: interviewId },
+      select: { id: true, status: true, student_info: true, school_id: true },
+    })
+    if (afterWrite?.status === "paid") {
+      await requirePaymentAccess({
+        paymentId: afterWrite.id,
+        interviewId,
       })
+      return {
+        success: true,
+        alreadyPaid: true,
+        studentInfo: parsePaidStudentInfo(afterWrite.student_info) || studentInfo,
+      }
     }
 
     return { success: true, url: session.url }

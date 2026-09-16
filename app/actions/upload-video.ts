@@ -45,11 +45,84 @@ export async function uploadVideoToB2AndSave(
       restart_count: number
     } | null = null
 
-    if (schoolCode) {
-      const existingInterview = await prisma.interview.findUnique({
-        where: { interview_id: interviewId },
-        select: { id: true, payment_id: true },
-      })
+    // Authorize BEFORE uploading to B2 so later segments cannot skip payment/OTP.
+    const existingInterview = await prisma.interview.findUnique({
+      where: { interview_id: interviewId },
+      select: {
+        id: true,
+        payment_id: true,
+        interview_type: true,
+        school: {
+          select: {
+            id: true,
+            code: true,
+            credits_balance: true,
+            billing_mode: true,
+          },
+        },
+      },
+    })
+
+    if (existingInterview) {
+      if (existingInterview.interview_type !== "parent") {
+        const payment =
+          (existingInterview.payment_id
+            ? await prisma.interviewPayment.findUnique({
+                where: { id: existingInterview.payment_id },
+                select: {
+                  id: true,
+                  status: true,
+                  entitlement_status: true,
+                  school_id: true,
+                  student_email: true,
+                  student_name: true,
+                  restart_count: true,
+                  interview_id: true,
+                },
+              })
+            : null) ||
+          (await prisma.interviewPayment.findUnique({
+            where: { interview_id: interviewId },
+            select: {
+              id: true,
+              status: true,
+              entitlement_status: true,
+              school_id: true,
+              student_email: true,
+              student_name: true,
+              restart_count: true,
+              interview_id: true,
+            },
+          }))
+
+        if (payment || isStudentPayMode(existingInterview.school?.billing_mode)) {
+          if (
+            !payment ||
+            payment.status !== "paid" ||
+            payment.entitlement_status !== "active" ||
+            payment.interview_id !== interviewId ||
+            payment.school_id !== existingInterview.school?.id
+          ) {
+            return {
+              success: false,
+              error: "Payment is required before this interview can continue.",
+            }
+          }
+
+          await requirePaymentAccess({
+            paymentId: payment.id,
+            interviewId,
+          })
+          verifiedPayment = payment
+        }
+      }
+    } else {
+      if (!schoolCode) {
+        return {
+          success: false,
+          error: "School code is required to start an interview upload.",
+        }
+      }
 
       const school = await prisma.school.findFirst({
         where: { code: schoolCode },
@@ -61,7 +134,7 @@ export async function uploadVideoToB2AndSave(
       })
 
       if (!school) {
-        return { success: false, error: 'School not found' }
+        return { success: false, error: "School not found" }
       }
 
       if (isStudentPayMode(school.billing_mode)) {
@@ -80,13 +153,13 @@ export async function uploadVideoToB2AndSave(
 
         if (
           !payment ||
-          payment.status !== 'paid' ||
-          payment.entitlement_status !== 'active' ||
+          payment.status !== "paid" ||
+          payment.entitlement_status !== "active" ||
           payment.school_id !== school.id
         ) {
           return {
             success: false,
-            error: 'Payment is required before this interview can start.',
+            error: "Payment is required before this interview can start.",
           }
         }
 
@@ -95,10 +168,11 @@ export async function uploadVideoToB2AndSave(
           interviewId,
         })
         verifiedPayment = payment
-      } else if (!existingInterview && school.credits_balance <= 0) {
+      } else if (school.credits_balance <= 0) {
         return {
           success: false,
-          error: 'This school has no interview credits remaining. Please contact the school administrator.',
+          error:
+            "This school has no interview credits remaining. Please contact the school administrator.",
         }
       }
     }

@@ -49,9 +49,27 @@ export async function markInterviewPaymentPaid(params: {
     session.customer_email?.trim().toLowerCase() ||
     null
 
-  const existing = await prisma.interviewPayment.findUnique({
+  let existing = await prisma.interviewPayment.findUnique({
     where: { stripe_checkout_session_id: session.id },
   })
+
+  // Fallback: concurrent checkout races may leave DB on an older session id while
+  // the student paid a sibling session that still carries interviewId metadata.
+  if (!existing) {
+    const interviewId = session.metadata?.interviewId?.trim()
+    if (interviewId) {
+      existing = await prisma.interviewPayment.findUnique({
+        where: { interview_id: interviewId },
+      })
+      if (existing?.status === "paid" && existing.stripe_checkout_session_id !== session.id) {
+        // Already marked paid via another session for the same interview.
+        return {
+          success: true,
+          studentInfo: parsePaidStudentInfo(existing.student_info),
+        }
+      }
+    }
+  }
 
   if (!existing) {
     console.error("[Payments] No interview payment found for Stripe session", session.id)

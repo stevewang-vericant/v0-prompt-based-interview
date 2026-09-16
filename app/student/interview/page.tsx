@@ -687,16 +687,16 @@ function InterviewPageContent() {
         
         console.log(`[v0] Uploading segment ${i + 1}/${segments.length}: ${prompt.text.substring(0, 50)}...`)
         
-        // 只在第一个分段时传递学生信息（创建 interview 记录）
-        // 后续分段只上传视频，不重复创建记录
+        // Prefer schoolCode on every segment so server auth/create gates stay consistent
+        // (especially resume flows where the first pending segment is not sequence 1).
         const result = await uploadVideoToB2AndSave(
           blob,
           interviewId,
           prompt.id,
           i + 1, // sequence number (1-based)
-          i === 0 ? schoolCode : null, // 只在第一个分段传递
-          i === 0 ? studentEmail : undefined, // 只在第一个分段传递
-          i === 0 ? studentName : undefined, // 只在第一个分段传递
+          schoolCode,
+          studentEmail,
+          studentName,
           // 传入文本和分类，便于服务端解析真实 prompts UUID
           prompt.text,
           prompt.category,
@@ -787,6 +787,7 @@ function InterviewPageContent() {
       // 异步触发合并任务，不等待结果
       fetch('/api/merge-videos', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

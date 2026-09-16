@@ -235,6 +235,7 @@ function ParentInterviewContent() {
       setUploadStatus("Starting background video processing...")
       fetch("/api/merge-videos", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ interviewId, segments: uploadedSegments }),
       }).catch((err) => console.error("[ParentInterview] Failed to start merge:", err))

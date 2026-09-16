@@ -4,10 +4,14 @@ import { promisify } from 'util'
 import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { requireSuperAdminApi } from '@/lib/auth-guards'
 
 const execAsync = promisify(exec)
 
 export async function POST(request: NextRequest) {
+  const auth = await requireSuperAdminApi()
+  if (!auth.ok) return auth.response
+
   const formData = await request.formData()
   const video = formData.get('video') as File
 

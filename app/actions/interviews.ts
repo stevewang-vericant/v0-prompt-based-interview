@@ -5,6 +5,7 @@ import { getCurrentUser } from "./auth"
 import { requireSuperAdmin, requireUser } from "@/lib/auth-guards"
 import { toClientError } from "@/lib/errors"
 import { requirePaymentAccess } from "@/lib/payment-access"
+import { isStudentPayMode } from "@/lib/billing"
 
 async function authorizePaidInterviewRead(interviewId: string): Promise<void> {
   const payment = await prisma.interviewPayment.findFirst({
@@ -141,6 +142,44 @@ export async function saveInterview(data: InterviewData): Promise<{
 }> {
   try {
     console.log("[DB] Saving interview to database:", data.interview_id)
+
+    const existingForAuth = await prisma.interview.findUnique({
+      where: { interview_id: data.interview_id },
+      select: {
+        payment_id: true,
+        interview_type: true,
+        school: { select: { billing_mode: true, id: true } },
+      },
+    })
+
+    if (existingForAuth && existingForAuth.interview_type !== "parent") {
+      const payment =
+        (existingForAuth.payment_id
+          ? await prisma.interviewPayment.findUnique({
+              where: { id: existingForAuth.payment_id },
+              select: { id: true, interview_id: true, status: true, entitlement_status: true },
+            })
+          : null) ||
+        (await prisma.interviewPayment.findUnique({
+          where: { interview_id: data.interview_id },
+          select: { id: true, interview_id: true, status: true, entitlement_status: true },
+        }))
+
+      if (payment || isStudentPayMode(existingForAuth.school?.billing_mode)) {
+        if (
+          !payment ||
+          payment.status !== "paid" ||
+          payment.entitlement_status !== "active" ||
+          payment.interview_id !== data.interview_id
+        ) {
+          return { success: false, error: "Payment access is required to save this interview." }
+        }
+        await requirePaymentAccess({
+          paymentId: payment.id,
+          interviewId: data.interview_id,
+        })
+      }
+    }
     
     // 准备插入数据
     const interviewStatus = data.video_url ? 'completed' : 'processing'

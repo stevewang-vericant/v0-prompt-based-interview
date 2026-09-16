@@ -313,12 +313,8 @@ export async function processTranscriptionJob(
     console.log("[Transcription] Generating AI summary...")
     let aiSummary = null
     try {
-      const summaryResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/ai-summary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcription: result.text }),
-      })
-      const summaryData = await summaryResponse.json()
+      const { generateInterviewAiSummary } = await import("@/lib/ai-summary")
+      const summaryData = await generateInterviewAiSummary(result.text)
       if (summaryData.success) {
         aiSummary = summaryData.summary
       }

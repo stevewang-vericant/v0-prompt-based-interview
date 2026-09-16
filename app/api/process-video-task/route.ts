@@ -827,6 +827,8 @@ async function processVideoMergeTaskInner(taskId: string) {
                   paidStudentInterview?.status === 'paid'
 
                 if (!creditAlreadyDeducted && !skipCreditDeduction) {
+                    // TD-001: decrement is not conditional on credits_balance >= 1.
+                    // See docs/TECH_DEBT.md — accepted low-priority race until reserved credits.
                     const updatedSchool = await tx.school.update({
                         where: { id: interview.school_id },
                         data: {

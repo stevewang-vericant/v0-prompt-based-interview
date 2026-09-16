@@ -8,6 +8,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import * as https from 'https'
 import * as http from 'http'
+import { requireInternalOrSuperAdminApi } from '@/lib/auth-guards'
 
 export const dynamic = "force-dynamic"
 
@@ -45,6 +46,9 @@ function downloadFile(url: string): Promise<Buffer> {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireInternalOrSuperAdminApi(request)
+    if (!auth.ok) return auth.response
+
     const { interviewId } = await request.json()
     
     if (!interviewId) {
