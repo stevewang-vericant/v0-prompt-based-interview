@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { prisma } from '@/lib/prisma'
-import { requireUserApi } from '@/lib/auth-guards'
+import { authorizeSchoolResourceApi, requireUserApi } from '@/lib/auth-guards'
 import { generateEnglishCaptionsFromVideoUrl } from '@/lib/english-captions'
 
 // AssemblyAI API 配置
@@ -120,6 +120,9 @@ export async function POST(request: NextRequest) {
     if (!interview) {
       return NextResponse.json({ success: false, error: 'Interview not found' }, { status: 404 })
     }
+
+    const ownership = authorizeSchoolResourceApi(auth.user, interview.school_id)
+    if (!ownership.ok) return ownership.response
 
     const videoUrl = interview.video_url
     if (!videoUrl) {

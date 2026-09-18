@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { evaluateInterviewWithCathoven } from "@/lib/cathoven"
 import { notifyRatersAfterScoring } from "@/lib/rater-notifications"
-import { requireUserApi } from "@/lib/auth-guards"
+import { authorizeSchoolResourceApi, requireUserApi } from "@/lib/auth-guards"
 
 function extractQuestionsFromMetadata(metadata: Record<string, any> | null): string[] {
   if (!metadata) return []
@@ -58,6 +58,9 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       )
     }
+
+    const ownership = authorizeSchoolResourceApi(auth.user, interview.school_id)
+    if (!ownership.ok) return ownership.response
 
     // Rating gate: K-12 schools never get AI scoring, so block manual retries too.
     if (interview.school?.level !== "undergraduate") {

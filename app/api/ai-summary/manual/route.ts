@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import OpenAI from 'openai'
-import { requireUserApi } from '@/lib/auth-guards'
+import { authorizeSchoolResourceApi, requireUserApi } from '@/lib/auth-guards'
 
 // 初始化 OpenAI 客户端
 const openai = new OpenAI({
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // 获取面试记录
     const interview = await prisma.interview.findUnique({
       where: { interview_id: interviewId },
-      select: { id: true, transcription_text: true }
+      select: { id: true, school_id: true, transcription_text: true }
     })
 
     if (!interview) {
@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
         error: 'Interview not found'
       }, { status: 404 })
     }
+
+    const ownership = authorizeSchoolResourceApi(auth.user, interview.school_id)
+    if (!ownership.ok) return ownership.response
 
     const transcriptionText = interview.transcription_text
     if (!transcriptionText) {

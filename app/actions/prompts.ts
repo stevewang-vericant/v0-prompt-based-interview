@@ -26,15 +26,26 @@ export async function getSchoolPrompts(schoolId: string): Promise<{
   error?: string
 }> {
   try {
+    const userResult = await getCurrentUser()
+    if (!userResult.success || !userResult.user) {
+      return { success: false, error: 'Not authenticated' }
+    }
+    if (
+      userResult.user.school.id !== schoolId &&
+      !userResult.user.school.is_super_admin
+    ) {
+      return { success: false, error: 'Not authorized' }
+    }
+
     // 获取学校自定义的题目
     const customPrompts = await prisma.prompt.findMany({
-      where: { school_id: schoolId },
+      where: { school_id: schoolId, prompt_type: 'student' },
       orderBy: { created_at: 'desc' }
     })
 
     // 获取系统默认题目（school_id 为 null）
     const defaultPrompts = await prisma.prompt.findMany({
-      where: { school_id: null },
+      where: { school_id: null, prompt_type: 'student' },
       orderBy: { created_at: 'desc' }
     })
 
@@ -83,12 +94,33 @@ export async function getSelectedPromptIds(): Promise<{
       return { success: false, error: 'School not found' }
     }
 
-    let selectedIds = school.selected_prompt_ids || []
+    const configuredIds = school.selected_prompt_ids || []
+    let selectedIds: string[] = []
+
+    if (configuredIds.length > 0) {
+      const validPrompts = await prisma.prompt.findMany({
+        where: {
+          id: { in: configuredIds },
+          prompt_type: 'student',
+          OR: [
+            { school_id: null },
+            { school_id: userResult.user.school.id },
+          ],
+        },
+        select: { id: true },
+      })
+      const validIds = new Set(validPrompts.map((prompt) => prompt.id))
+      selectedIds = configuredIds.filter((id) => validIds.has(id))
+    }
 
     // 如果没有选中任何题目，自动选择默认的 4 个
     if (selectedIds.length === 0) {
       const defaultPrompts = await prisma.prompt.findMany({
-        where: { school_id: null, is_active: true },
+        where: {
+          school_id: null,
+          prompt_type: 'student',
+          is_active: true,
+        },
         take: 4,
         select: { id: true },
         orderBy: { created_at: 'asc' }
@@ -131,13 +163,23 @@ export async function updateSelectedPrompts(promptIds: string[]): Promise<{
       return { success: false, error: 'Not authenticated' }
     }
 
-    // 验证所有题目ID都存在
+    // 验证题目存在、属于学生题库，并且只能选择系统默认题或本校题目。
     const prompts = await prisma.prompt.findMany({
-      where: { id: { in: promptIds } }
+      where: {
+        id: { in: promptIds },
+        prompt_type: 'student',
+        OR: [
+          { school_id: null },
+          { school_id: userResult.user.school.id },
+        ],
+      }
     })
 
     if (prompts.length !== 4) {
-      return { success: false, error: 'Some prompts not found' }
+      return {
+        success: false,
+        error: 'Selections must contain exactly 4 student prompts available to this school',
+      }
     }
 
     // 更新学校配置
@@ -184,6 +226,7 @@ export async function createPrompt(data: {
         preparation_time: data.preparation_time || 20,
         response_time: data.response_time || 90,
         difficulty_level: data.difficulty_level || 'medium',
+        prompt_type: 'student',
         is_active: true
       }
     })
@@ -309,6 +352,7 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
     const school = await prisma.school.findUnique({
       where: { code: schoolCode },
       select: {
+        id: true,
         selected_prompt_ids: true,
         credits_balance: true,
         billing_mode: true,
@@ -331,7 +375,11 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
     // 如果没有选中的题目，尝试使用默认题目
     if (promptIds.length === 0) {
        const defaultPrompts = await prisma.prompt.findMany({
-        where: { school_id: null, is_active: true },
+        where: {
+          school_id: null,
+          prompt_type: 'student',
+          is_active: true,
+        },
         take: 4,
         select: { id: true },
         orderBy: { created_at: 'asc' }
@@ -344,7 +392,14 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
     }
 
     const prompts = await prisma.prompt.findMany({
-      where: { id: { in: promptIds } },
+      where: {
+        id: { in: promptIds },
+        prompt_type: 'student',
+        OR: [
+          { school_id: null },
+          { school_id: school.id },
+        ],
+      },
       orderBy: { created_at: 'asc' }
     })
 

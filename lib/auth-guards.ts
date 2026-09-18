@@ -72,6 +72,20 @@ export async function requireSuperAdminApi(): Promise<ApiGuardResult> {
   return result
 }
 
+/** Enforce school-level object ownership after a route loads a resource. */
+export function authorizeSchoolResourceApi(
+  user: CurrentUser,
+  schoolId: string
+): { ok: true } | { ok: false; response: NextResponse } {
+  if (user.school.is_super_admin || user.school.id === schoolId) {
+    return { ok: true }
+  }
+  return {
+    ok: false,
+    response: denied("Not authorized to access this school's resource.", 403),
+  }
+}
+
 /**
  * Guard for internal worker / background-processing endpoints that have no
  * legitimate browser caller (e.g. video merge, transcription processing).

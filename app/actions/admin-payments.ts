@@ -304,7 +304,7 @@ export async function restartPaidInterviewAsAdmin(params: {
     const submitted =
       currentInterview?.status === "processing" ||
       currentInterview?.status === "completed" ||
-      currentInterview?.video_url !== null ||
+      currentInterview?.video_url != null ||
       metadata.status === "uploaded" ||
       metadata.merged === true
     if (submitted) {

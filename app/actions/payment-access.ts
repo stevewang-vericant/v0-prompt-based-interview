@@ -171,7 +171,7 @@ export async function verifyInterviewAccessCode(params: {
       const processingStarted =
         currentInterview?.status === "processing" ||
         currentInterview?.status === "completed" ||
-        currentInterview?.video_url !== null ||
+        currentInterview?.video_url != null ||
         metadata.status === "uploaded" ||
         metadata.merged === true
 

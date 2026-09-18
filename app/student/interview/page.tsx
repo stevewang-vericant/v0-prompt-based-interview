@@ -979,9 +979,9 @@ function InterviewPageContent() {
       {/* Header */}
       <header className="bg-white border-b border-black/[0.06]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-[#1d1d1f]">Video Interview Assessment</h1>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-bold text-[#1d1d1f] sm:text-2xl">Video Interview Assessment</h1>
               <p className="text-sm text-[rgba(0,0,0,0.56)]">
                 {stage === "student-info" && "Student information"}
                 {stage === "setup" && "System check and preparation"}
@@ -996,19 +996,19 @@ function InterviewPageContent() {
                   </p>
                 )}
                 {interviewId && (
-                <p className="font-mono">
+                <p className="break-all font-mono">
                   ID: <span className="font-medium">{interviewId}</span>
                 </p>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex w-full min-w-0 items-center justify-between gap-3 sm:w-auto sm:shrink-0 sm:justify-end">
               {branding.logoUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={`/api/proxy-video?url=${encodeURIComponent(branding.logoUrl)}`}
                   alt={branding.name ? `${branding.name} logo` : "School logo"}
-                  className="h-12 w-auto max-w-[220px] object-contain"
+                  className="h-10 w-auto min-w-0 max-w-[180px] object-contain sm:h-12 sm:max-w-[220px]"
                 />
               ) : (
                 (stage === "student-info" || stage === "setup") && (
@@ -1017,13 +1017,13 @@ function InterviewPageContent() {
                     alt="Vericant Logo"
                     width={210}
                     height={40}
-                    className="h-10 w-auto"
+                    className="h-9 w-auto min-w-0 max-w-[180px] object-contain sm:h-10 sm:max-w-[210px]"
                     priority
                   />
                 )
               )}
               {(stage === "student-info" || stage === "setup") && (
-                <Button variant="outline" onClick={() => (window.location.href = "/")}>
+                <Button className="shrink-0" variant="outline" onClick={() => (window.location.href = "/")}>
                   Exit
                 </Button>
               )}
