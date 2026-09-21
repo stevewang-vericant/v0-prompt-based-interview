@@ -1,10 +1,20 @@
 import { cookies } from "next/headers"
 import { SignJWT, jwtVerify } from "jose"
+import { createHash } from "node:crypto"
 import { prisma } from "@/lib/prisma"
 
-const COOKIE_NAME = "student_interview_access"
+const LEGACY_COOKIE_NAME = "student_interview_access"
+const COOKIE_PREFIX = "student_interview_access_"
 const ALG = "HS256"
 const SESSION_TTL_SECONDS = 12 * 60 * 60
+
+function getCookieName(interviewId: string): string {
+  const suffix = createHash("sha256")
+    .update(interviewId)
+    .digest("base64url")
+    .slice(0, 24)
+  return `${COOKIE_PREFIX}${suffix}`
+}
 
 function getSecretKey(): Uint8Array {
   const secret = process.env.AUTH_SECRET
@@ -33,7 +43,7 @@ export async function issueInterviewAccessSession(
     .sign(getSecretKey())
 
   const cookieStore = await cookies()
-  cookieStore.set(COOKIE_NAME, token, {
+  cookieStore.set(getCookieName(interviewId), token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -48,7 +58,9 @@ export async function requireInterviewAccess(params: {
   interviewId: string
 }): Promise<void> {
   const cookieStore = await cookies()
-  const token = cookieStore.get(COOKIE_NAME)?.value
+  const token =
+    cookieStore.get(getCookieName(params.interviewId))?.value ||
+    cookieStore.get(LEGACY_COOKIE_NAME)?.value
   if (!token) {
     throw new Error("Interview access session is required.")
   }
