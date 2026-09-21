@@ -460,6 +460,9 @@ async function processVideoMergeTaskInner(taskId: string) {
       }
       
       const buffer = Buffer.concat(chunks)
+      if (buffer.length < 1024) {
+        throw new Error(`Segment ${i + 1} is empty or too small to be valid video.`)
+      }
       videoBuffers.push(buffer)
       
       // 获取分段视频的实际时长
@@ -476,11 +479,14 @@ async function processVideoMergeTaskInner(taskId: string) {
           segmentDurations.push(Math.round(actualDuration))
           console.log(`[Task ${taskId}] ✓ Segment ${i + 1} actual duration:`, Math.round(actualDuration), 'seconds')
         } else {
-          segmentDurations.push(segment.duration || 90)
+          throw new Error(`Segment ${i + 1} has no valid media duration.`)
         }
       } catch (error) {
-        console.warn(`[Task ${taskId}] ⚠️ Failed to get duration for segment ${i + 1}:`, error)
-        segmentDurations.push(segment.duration || 90)
+        throw new Error(
+          `Segment ${i + 1} is not a decodable video: ${
+            error instanceof Error ? error.message : 'ffprobe failed'
+          }`
+        )
       }
     }
     
@@ -773,46 +779,28 @@ async function processVideoMergeTaskInner(taskId: string) {
               interview.metadata && typeof interview.metadata === 'object' && !Array.isArray(interview.metadata)
                 ? (interview.metadata as Record<string, unknown>)
                 : {}
-            const creditAlreadyDeducted = existingMetadata.creditDeducted === true
             const mergedAt = new Date().toISOString()
-            const creditDeductedAt =
-              creditAlreadyDeducted && typeof existingMetadata.creditDeductedAt === 'string'
-                ? existingMetadata.creditDeductedAt
-                : mergedAt
 
             let lowCreditAlert: { schoolName: string; schoolCode: string | null; creditsBalance: number } | null = null
             await prisma.$transaction(async (tx) => {
-                await tx.interview.update({
-                    where: { id: interview.id },
-                    data: {
-                        video_url: mergedVideoUrl,
-                        // 仅当本次产生了 with-prep 视频时写入；老面试保持 null
-                        ...(mergedWithPrepUrl
-                          ? { video_with_prep_url: mergedWithPrepUrl }
-                          : {}),
-                        subtitle_url: subtitleUrl,
-                        total_duration: actualDuration,
-                        status: 'completed',
-                        completed_at: new Date(),
-                        metadata: {
-                            ...existingMetadata,
-                            taskId: taskId,
-                            merged: true,
-                            mergedAt,
-                            segmentCount: segments.length,
-                            totalDuration: actualDuration,
-                            actualDuration: actualDuration,
-                            estimatedDuration: totalDuration,
-                            subtitleMetadata: subtitleMetadata,
-                            ...(mergedWithPrepUrl
-                              ? { mergedWithPrepVideoUrl: mergedWithPrepUrl }
-                              : {}),
-                            status: 'completed',
-                            creditDeducted: true,
-                            creditDeductedAt,
-                        }
-                    }
+                // Serialize completion for one interview so duplicate merge tasks
+                // cannot both observe creditDeducted=false.
+                await tx.$queryRaw`
+                  SELECT id FROM interviews
+                  WHERE id = ${interview.id}::uuid
+                  FOR UPDATE
+                `
+                const lockedInterview = await tx.interview.findUniqueOrThrow({
+                  where: { id: interview.id },
+                  select: { metadata: true },
                 })
+                const lockedMetadata =
+                  lockedInterview.metadata &&
+                  typeof lockedInterview.metadata === 'object' &&
+                  !Array.isArray(lockedInterview.metadata)
+                    ? (lockedInterview.metadata as Record<string, unknown>)
+                    : existingMetadata
+                const creditAlreadyDeducted = lockedMetadata.creditDeducted === true
 
                 // Parent interviews and student-pay interviews do not consume school credits.
                 const paidStudentInterview = interview.interview_id
@@ -827,15 +815,24 @@ async function processVideoMergeTaskInner(taskId: string) {
                   paidStudentInterview?.status === 'paid'
 
                 if (!creditAlreadyDeducted && !skipCreditDeduction) {
-                    // TD-001: decrement is not conditional on credits_balance >= 1.
-                    // See docs/TECH_DEBT.md — accepted low-priority race until reserved credits.
-                    const updatedSchool = await tx.school.update({
-                        where: { id: interview.school_id },
+                    const debit = await tx.school.updateMany({
+                        where: {
+                          id: interview.school_id,
+                          credits_balance: { gte: 1 },
+                        },
                         data: {
                             credits_balance: {
                                 decrement: 1,
                             },
                         },
+                    })
+                    if (debit.count !== 1) {
+                      throw new Error(
+                        'This school has no interview credits remaining.'
+                      )
+                    }
+                    const updatedSchool = await tx.school.findUniqueOrThrow({
+                        where: { id: interview.school_id },
                         select: {
                             name: true,
                             code: true,
@@ -863,6 +860,48 @@ async function processVideoMergeTaskInner(taskId: string) {
                         },
                     })
                 }
+
+                const creditWasDeducted =
+                  creditAlreadyDeducted || !skipCreditDeduction
+                const creditDeductedAt =
+                  creditAlreadyDeducted &&
+                  typeof lockedMetadata.creditDeductedAt === 'string'
+                    ? lockedMetadata.creditDeductedAt
+                    : creditWasDeducted
+                      ? mergedAt
+                      : undefined
+
+                await tx.interview.update({
+                    where: { id: interview.id },
+                    data: {
+                        video_url: mergedVideoUrl,
+                        // 仅当本次产生了 with-prep 视频时写入；老面试保持 null
+                        ...(mergedWithPrepUrl
+                          ? { video_with_prep_url: mergedWithPrepUrl }
+                          : {}),
+                        subtitle_url: subtitleUrl,
+                        total_duration: actualDuration,
+                        status: 'completed',
+                        completed_at: new Date(),
+                        metadata: {
+                            ...lockedMetadata,
+                            taskId: taskId,
+                            merged: true,
+                            mergedAt,
+                            segmentCount: segments.length,
+                            totalDuration: actualDuration,
+                            actualDuration: actualDuration,
+                            estimatedDuration: totalDuration,
+                            subtitleMetadata: subtitleMetadata,
+                            ...(mergedWithPrepUrl
+                              ? { mergedWithPrepVideoUrl: mergedWithPrepUrl }
+                              : {}),
+                            status: 'completed',
+                            creditDeducted: creditWasDeducted,
+                            ...(creditDeductedAt ? { creditDeductedAt } : {}),
+                        }
+                    }
+                })
 
                 const completedPaymentId =
                   interview.payment_id || paidStudentInterview?.id || null
@@ -914,10 +953,11 @@ async function processVideoMergeTaskInner(taskId: string) {
               )
             }
         } else {
-             console.warn(`[Task ${taskId}] ⚠️ Update returned no rows - interview_id '${interviewId}' may not exist in database`)
+             throw new Error(`Interview '${interviewId}' was not found while completing the merge.`)
         }
     } catch (updateError) {
         console.error(`[Task ${taskId}] ⚠️ Failed to update database:`, updateError)
+        throw updateError
     }
 
     // 只要完整视频和基础元数据已落库，就立刻把视频任务标记完成。
@@ -984,16 +1024,33 @@ async function processVideoMergeTaskInner(taskId: string) {
     try {
       const task = await prisma.videoProcessingTask.findUnique({ where: { id: taskId }, select: { interview_id: true } })
       if (task?.interview_id) {
-        await prisma.interview.updateMany({
-          where: { interview_id: task.interview_id, status: 'processing' },
-          data: {
-            status: 'failed',
-            metadata: {
-              videoProcessingError: errorMessage,
-              videoProcessingFailedAt: new Date().toISOString(),
-            },
-          },
+        const failedInterview = await prisma.interview.findUnique({
+          where: { interview_id: task.interview_id },
+          select: { id: true, status: true, metadata: true },
         })
+        if (
+          failedInterview &&
+          typeof failedInterview.status === 'string' &&
+          ['processing', 'in_progress'].includes(failedInterview.status)
+        ) {
+          const previousMetadata =
+            failedInterview.metadata &&
+            typeof failedInterview.metadata === 'object' &&
+            !Array.isArray(failedInterview.metadata)
+              ? (failedInterview.metadata as Record<string, unknown>)
+              : {}
+          await prisma.interview.update({
+            where: { id: failedInterview.id },
+            data: {
+              status: 'failed',
+              metadata: {
+                ...previousMetadata,
+                videoProcessingError: errorMessage,
+                videoProcessingFailedAt: new Date().toISOString(),
+              },
+            },
+          })
+        }
         console.log(`[Task ${taskId}] Interview status updated to failed`)
       }
     } catch (e) {

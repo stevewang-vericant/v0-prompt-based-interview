@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { processVideoMergeTask } from '../process-video-task/route'
 import { authorizeMergeVideosApi } from '@/lib/auth-guards'
+import { Prisma } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,17 +12,64 @@ export async function POST(request: NextRequest) {
     const auth = await authorizeMergeVideosApi(request, interviewId, segments)
     if (!auth.ok) return auth.response
 
+    // Build the merge manifest from persisted responses as well as this
+    // request. A resumed upload only sends pending segments, while earlier
+    // successful segments already live in the database.
+    const interview = await prisma.interview.findUnique({
+      where: { interview_id: interviewId },
+      select: {
+        responses: {
+          orderBy: [{ sequence_number: 'asc' }, { created_at: 'asc' }],
+          select: {
+            sequence_number: true,
+            video_url: true,
+            video_duration: true,
+            prep_duration: true,
+            prompt_id: true,
+            prompt: {
+              select: { prompt_text: true, category: true },
+            },
+          },
+        },
+      },
+    })
+    if (!interview) {
+      return NextResponse.json(
+        { success: false, error: 'Interview not found' },
+        { status: 404 }
+      )
+    }
+
+    const manifestByOrder = new Map<number, Record<string, unknown>>()
+    for (const response of interview.responses) {
+      manifestByOrder.set(response.sequence_number, {
+        url: response.video_url,
+        sequenceNumber: response.sequence_number,
+        duration: response.video_duration || 90,
+        prepDuration: response.prep_duration || 0,
+        promptId: response.prompt_id,
+        questionText: response.prompt.prompt_text,
+        category: response.prompt.category,
+      })
+    }
+    for (const segment of segments) {
+      manifestByOrder.set(segment.sequenceNumber, segment)
+    }
+    const completeSegments = Array.from(manifestByOrder.values()).sort(
+      (a, b) => Number(a.sequenceNumber) - Number(b.sequenceNumber)
+    )
+
     console.log('[Merge] Creating async task for interview:', interviewId)
-    console.log('[Merge] Segments count:', segments?.length)
+    console.log('[Merge] Segments count:', completeSegments.length)
 
     const task = await prisma.videoProcessingTask.create({
       data: {
         interview_id: interviewId,
         status: 'pending',
-        segments: segments,
+        segments: completeSegments as unknown as Prisma.InputJsonValue,
         metadata: {
           createdAt: new Date().toISOString(),
-          segmentCount: segments.length
+          segmentCount: completeSegments.length
         }
       }
     })

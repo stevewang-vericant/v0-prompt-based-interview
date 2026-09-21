@@ -4,7 +4,7 @@ Known issues that are intentionally deferred. Prefer fixing Critical/High produc
 
 ## TD-001: Credits balance race can oversell (C5)
 
-- **Status**: Accepted for now (low urgency)
+- **Status**: Resolved on 2026-09-21 (negative balances prevented)
 - **Priority**: Low
 - **Logged**: 2026-09-15
 - **Area**: School credits billing (`credits` mode)
@@ -22,12 +22,19 @@ If a school has **1** credit left and two students pass the gate nearly simultan
 - Debit: `app/api/process-video-task/route.ts` (`credits_balance: { decrement: 1 }`)
 - Schema: `prisma/schema.prisma` → `School.credits_balance Int` (no non-negative constraint)
 
-### Suggested fix (later)
+### Resolution
 
-1. Reserve a credit when the interview is created (or use `UPDATE ... WHERE credits_balance >= 1 RETURNING`).
-2. Add a DB constraint / conditional update so balance cannot go negative.
-3. Optionally link `CreditTransaction` rows to `interview_id` for auditability.
+Video completion now serializes per interview, then conditionally decrements with
+`credits_balance >= 1` in the same transaction. A competing completion that
+cannot acquire the final credit rolls back and enters the explicit failed state,
+so the school balance cannot become negative and one interview cannot debit
+twice.
 
-### Why deferred
+### Optional future improvement
 
-Current traffic and credit top-ups make concurrent last-credit collisions uncommon. Product can absorb rare oversell until a dedicated billing hardening pass.
+1. Reserve a credit when the interview is created to fail earlier, before media upload.
+2. Add a database `CHECK (credits_balance >= 0)` as defense in depth.
+3. Link `CreditTransaction` rows to `interview_id` for auditability.
+
+The optional items improve UX and auditability but are no longer required to
+prevent the reproduced negative-balance race.

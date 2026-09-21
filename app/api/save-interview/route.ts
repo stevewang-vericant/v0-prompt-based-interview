@@ -11,18 +11,42 @@ export async function POST(request: NextRequest) {
     const auth = await requireInternalOrSuperAdminApi(request)
     if (!auth.ok) return auth.response
 
-    const data = await request.json()
+    let data: unknown
+    try {
+      data = await request.json()
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON body' },
+        { status: 400 }
+      )
+    }
+    if (
+      !data ||
+      typeof data !== 'object' ||
+      typeof (data as { interview_id?: unknown }).interview_id !== 'string' ||
+      !(data as { interview_id: string }).interview_id.trim()
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'A valid interview_id is required' },
+        { status: 400 }
+      )
+    }
     
-    console.log('[API] Saving interview to database:', data.interview_id)
+    console.log(
+      '[API] Saving interview to database:',
+      (data as { interview_id: string }).interview_id
+    )
     
-    const result = await saveInterview(data)
+    const result = await saveInterview(
+      data as Parameters<typeof saveInterview>[0]
+    )
     
     if (!result.success) {
       console.error('[API] Error saving interview:', result.error)
       return NextResponse.json({
         success: false,
         error: result.error
-      }, { status: 500 })
+      }, { status: result.error === 'Interview not found.' ? 404 : 400 })
     }
     
     console.log('[API] Interview saved/updated successfully:', result.interview?.id)

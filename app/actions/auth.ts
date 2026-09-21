@@ -378,6 +378,12 @@ export async function getCurrentUser(): Promise<{
         if (!admin || !admin.school) {
           return { success: false, error: 'User not found' }
         }
+        if (!admin.active) {
+          return { success: false, error: 'Account is inactive' }
+        }
+        if (!admin.is_super_admin && !admin.school.active) {
+          return { success: false, error: 'School is inactive' }
+        }
 
         return {
           success: true,
@@ -408,6 +414,7 @@ export async function getCurrentUser(): Promise<{
           email: true,
           is_super_admin: true,
           is_rater: true,
+          active: true,
           credits_balance: true,
           billing_mode: true,
         }
@@ -415,6 +422,9 @@ export async function getCurrentUser(): Promise<{
 
       if (!school || !school.email) {
         return { success: false, error: 'User not found' }
+      }
+      if (!school.is_super_admin && !school.active) {
+        return { success: false, error: 'School is inactive' }
       }
 
       return {

@@ -3,6 +3,9 @@
 import { prisma } from '@/lib/prisma'
 import { toClientError } from '@/lib/errors'
 import { requirePaymentAccess } from '@/lib/payment-access'
+import { requireInterviewAccess } from '@/lib/interview-access'
+import { isStudentPayMode } from '@/lib/billing'
+import { getCurrentUser } from './auth'
 
 interface AdditionalStudentInfo {
   gender?: string | null
@@ -21,19 +24,65 @@ export async function updateStudentInfo(
   interviewId?: string
 ) {
   try {
-    let authorizedEmail = studentEmail
-    if (interviewId) {
-      const payment = await prisma.interviewPayment.findUnique({
-        where: { interview_id: interviewId },
-        select: { id: true, student_email: true },
-      })
-      if (payment) {
+    if (!interviewId) {
+      return { success: false, error: 'Interview access is required.' }
+    }
+
+    const interview = await prisma.interview.findUnique({
+      where: { interview_id: interviewId },
+      select: {
+        id: true,
+        payment_id: true,
+        student: { select: { email: true } },
+        school: { select: { id: true, billing_mode: true } },
+      },
+    })
+    if (!interview) {
+      return { success: false, error: 'Interview not found.' }
+    }
+    if (!interview.student) {
+      return { success: false, error: 'Interview student is missing.' }
+    }
+
+    const currentUser = await getCurrentUser()
+    const staffAuthorized =
+      currentUser.success &&
+      !!currentUser.user &&
+      (currentUser.user.school.is_super_admin ||
+        currentUser.user.school.id === interview.school.id)
+
+    if (!staffAuthorized) {
+      const payment =
+        (interview.payment_id
+          ? await prisma.interviewPayment.findUnique({
+              where: { id: interview.payment_id },
+              select: { id: true, interview_id: true, student_email: true },
+            })
+          : null) ||
+        (await prisma.interviewPayment.findUnique({
+          where: { interview_id: interviewId },
+          select: { id: true, interview_id: true, student_email: true },
+        }))
+
+      if (payment || isStudentPayMode(interview.school.billing_mode)) {
+        if (!payment || payment.interview_id !== interviewId) {
+          return { success: false, error: 'Payment access is required.' }
+        }
         await requirePaymentAccess({
           paymentId: payment.id,
           interviewId,
         })
-        authorizedEmail = payment.student_email
+      } else {
+        await requireInterviewAccess({
+          interviewDbId: interview.id,
+          interviewId,
+        })
       }
+    }
+
+    const authorizedEmail = interview.student.email
+    if (studentEmail.toLowerCase() !== authorizedEmail.toLowerCase()) {
+      return { success: false, error: 'Interview student does not match.' }
     }
 
     console.log('[v0] Updating student info for:', authorizedEmail)

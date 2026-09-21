@@ -47,6 +47,24 @@ export async function uploadParentVideoToB2AndSave(
 ) {
   try {
     if (!process.env.B2_BUCKET_NAME) throw new Error("B2_BUCKET_NAME not configured")
+    if (parentInfo?.studentDateOfBirth) {
+      const dob = parentInfo.studentDateOfBirth
+      const parsedDob = /^\d{4}-\d{2}-\d{2}$/.test(dob)
+        ? new Date(`${dob}T00:00:00.000Z`)
+        : new Date(Number.NaN)
+      const endOfToday = new Date()
+      endOfToday.setUTCHours(23, 59, 59, 999)
+      if (
+        Number.isNaN(parsedDob.getTime()) ||
+        parsedDob.toISOString().slice(0, 10) !== dob ||
+        parsedDob > endOfToday
+      ) {
+        return {
+          success: false,
+          error: "The child's date of birth must be a valid date that is not in the future.",
+        }
+      }
+    }
 
     const arrayBuffer = await videoBlob.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
@@ -80,6 +98,12 @@ export async function uploadParentVideoToB2AndSave(
       if (!school) {
         return { success: true, videoUrl, data: null, dbError: "School not found" }
       }
+      if (!school.active) {
+        return {
+          success: false,
+          error: "This school is not accepting interviews right now.",
+        }
+      }
       if (!supportsParentInterviews(school.level)) {
         return { success: true, videoUrl, data: null, dbError: "Parent interviews are not available for this school" }
       }
@@ -112,6 +136,11 @@ export async function uploadParentVideoToB2AndSave(
           started_at: new Date(),
         },
       })
+    } else if (interview.interview_type !== "parent") {
+      return {
+        success: false,
+        error: "This interview ID does not belong to a parent interview.",
+      }
     }
 
     // Find or create the parent prompt (never touches student prompts).
@@ -137,16 +166,40 @@ export async function uploadParentVideoToB2AndSave(
       return { success: true, videoUrl, data: null, dbError: "Prompt not found" }
     }
 
-    const response = await prisma.interviewResponse.create({
-      data: {
-        interview_id: interview.id,
-        prompt_id: prompt.id,
-        sequence_number: responseOrder,
-        video_url: videoUrl,
-        video_duration: 90,
-        prep_duration:
-          typeof promptPrepDuration === "number" && promptPrepDuration >= 0 ? promptPrepDuration : null,
-      },
+    const responseData = {
+      prompt_id: prompt.id,
+      sequence_number: responseOrder,
+      video_url: videoUrl,
+      video_duration: 90,
+      prep_duration:
+        typeof promptPrepDuration === "number" && promptPrepDuration >= 0 ? promptPrepDuration : null,
+    }
+    const interviewDbId = interview.id
+    const response = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT pg_advisory_xact_lock(
+          hashtext(${`${interviewDbId}:${responseOrder}`})
+        )
+      `
+      const existingResponse = await tx.interviewResponse.findFirst({
+        where: {
+          interview_id: interviewDbId,
+          sequence_number: responseOrder,
+        },
+        orderBy: { created_at: "desc" },
+        select: { id: true },
+      })
+      return existingResponse
+        ? tx.interviewResponse.update({
+            where: { id: existingResponse.id },
+            data: responseData,
+          })
+        : tx.interviewResponse.create({
+            data: {
+              interview_id: interviewDbId,
+              ...responseData,
+            },
+          })
     })
 
     return { success: true, videoUrl, data: response }

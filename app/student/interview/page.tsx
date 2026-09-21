@@ -693,7 +693,7 @@ function InterviewPageContent() {
           blob,
           interviewId,
           prompt.id,
-          i + 1, // sequence number (1-based)
+          index + 1, // preserve the original order during resumed uploads
           schoolCode,
           studentEmail,
           studentName,
@@ -723,7 +723,7 @@ function InterviewPageContent() {
         uploadedSegments.push({
           promptId: prompt.id,
           videoUrl: result.videoUrl!,
-          sequenceNumber: i + 1,
+          sequenceNumber: index + 1,
           duration: actualDuration, // 使用实际估算时长
           prepDuration,
           questionText: prompt.text,

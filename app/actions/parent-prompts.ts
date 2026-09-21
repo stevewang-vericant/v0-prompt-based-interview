@@ -305,11 +305,17 @@ export async function getParentPromptsBySchoolCode(
 
     const school = await prisma.school.findUnique({
       where: { code: schoolCode },
-      select: { parent_selected_prompt_ids: true, level: true },
+      select: { parent_selected_prompt_ids: true, level: true, active: true },
     })
 
     if (!school) {
       return { success: false, error: 'School not found' }
+    }
+    if (!school.active) {
+      return {
+        success: false,
+        error: 'This school is not accepting interviews right now.',
+      }
     }
 
     if (!supportsParentInterviews(school.level)) {

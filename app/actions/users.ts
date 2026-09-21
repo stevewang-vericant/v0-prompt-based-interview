@@ -517,6 +517,13 @@ export async function resetUserPassword(userId: string, newPassword: string, use
   try {
     await ensureSuperAdmin()
 
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return {
+        success: false,
+        error: "Password must be at least 8 characters",
+      }
+    }
+
     const hashedPassword = await hashPassword(newPassword)
 
     // 如果没有指定类型，先尝试查找 SchoolAdmin

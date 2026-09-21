@@ -66,10 +66,16 @@ export async function updateGlobalTimingSettings(
     }
 
     // 验证时间值
+    if (!Number.isInteger(preparationTime)) {
+      return { success: false, error: 'Preparation time must be a whole number of seconds' }
+    }
     if (preparationTime < 1 || preparationTime > 300) {
       return { success: false, error: 'Preparation time must be between 1 and 300 seconds' }
     }
 
+    if (!Number.isInteger(responseTime)) {
+      return { success: false, error: 'Response time must be a whole number of seconds' }
+    }
     if (responseTime < 1 || responseTime > 600) {
       return { success: false, error: 'Response time must be between 1 and 600 seconds' }
     }
@@ -170,8 +176,14 @@ export async function updateParentTimingSettings(
       return { success: false, error: 'Not authorized. Only super admin can update parent interview settings.' }
     }
 
+    if (preparationTime !== null && !Number.isInteger(preparationTime)) {
+      return { success: false, error: 'Preparation time must be a whole number of seconds' }
+    }
     if (preparationTime !== null && (preparationTime < 1 || preparationTime > 300)) {
       return { success: false, error: 'Preparation time must be between 1 and 300 seconds' }
+    }
+    if (responseTime !== null && !Number.isInteger(responseTime)) {
+      return { success: false, error: 'Response time must be a whole number of seconds' }
     }
     if (responseTime !== null && (responseTime < 1 || responseTime > 600)) {
       return { success: false, error: 'Response time must be between 1 and 600 seconds' }

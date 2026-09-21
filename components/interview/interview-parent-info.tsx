@@ -49,6 +49,9 @@ export function InterviewParentInfo({ onSubmit, schoolName, lang = "en" }: Inter
   }, [lang])
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10)
 
   const handleSubmit = () => {
     const nextErrors: Record<string, string> = {}
@@ -65,7 +68,12 @@ export function InterviewParentInfo({ onSubmit, schoolName, lang = "en" }: Inter
     if (studentEmail.trim() && !validateEmail(studentEmail)) {
       nextErrors.studentEmail = t.info.errors.studentEmailInvalid
     }
-    if (!studentDob) nextErrors.studentDob = t.info.errors.studentDobRequired
+    if (!studentDob) {
+      nextErrors.studentDob = t.info.errors.studentDobRequired
+    } else if (studentDob > today) {
+      nextErrors.studentDob =
+        lang === "zh" ? "孩子的出生日期不能晚于今天" : "The child's date of birth cannot be in the future"
+    }
 
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
@@ -228,6 +236,7 @@ export function InterviewParentInfo({ onSubmit, schoolName, lang = "en" }: Inter
                 <Input
                   id="student-dob"
                   type="date"
+                  max={today}
                   value={studentDob}
                   onChange={(e) => setStudentDob(e.target.value)}
                   className={errors.studentDob ? "border-red-500" : ""}

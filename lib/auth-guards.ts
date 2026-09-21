@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { isStudentPayMode } from "@/lib/billing"
 import { requirePaymentAccess } from "@/lib/payment-access"
 import { isAllowedProxyUrl } from "@/lib/proxy-allowlist"
+import { requireInterviewAccess } from "@/lib/interview-access"
 
 /**
  * Shared authorization guards for server actions and API route handlers.
@@ -143,7 +144,7 @@ function segmentUrlBelongsToInterview(url: string, interviewId: string): boolean
  * - Internal secret or super admin: always allowed (ops / workers)
  * - Parent interviews: intentionally open (same policy as parent upload)
  * - Student-pay interviews: require the payment-access cookie
- * - Credits interviews: interview must already exist (created by gated first upload)
+ * - Credits interviews: require the ownership cookie issued by the first upload
  * - Segment URLs must be B2 URLs under this interview's prefix
  */
 export async function authorizeMergeVideosApi(
@@ -252,6 +253,19 @@ export async function authorizeMergeVideosApi(
     return { ok: true }
   }
 
-  // Credits-mode student interview: existence + segment ownership is the gate.
-  return { ok: true }
+  try {
+    await requireInterviewAccess({
+      interviewDbId: interview.id,
+      interviewId,
+    })
+    return { ok: true }
+  } catch (error) {
+    return {
+      ok: false,
+      response: denied(
+        error instanceof Error ? error.message : "Interview access is required.",
+        403
+      ),
+    }
+  }
 }

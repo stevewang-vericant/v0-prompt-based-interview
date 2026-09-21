@@ -304,6 +304,27 @@ export async function approveWithOverride(
   try {
     const user = await ensureRater()
 
+    const scoreEntries: Array<[string, number | null]> = [
+      ["total_score", scores.total_score],
+      ["fluency_score", scores.fluency_score],
+      ["coherence_score", scores.coherence_score],
+      ["vocabulary_score", scores.vocabulary_score],
+      ["grammar_score", scores.grammar_score],
+      ["pronunciation_score", scores.pronunciation_score],
+      ...Object.entries(scores.vericant_lite_scores || {}),
+    ]
+    const invalidScore = scoreEntries.find(
+      ([, value]) =>
+        value !== null &&
+        (!Number.isFinite(value) || value < 0 || value > 100)
+    )
+    if (invalidScore) {
+      return {
+        success: false,
+        error: `${invalidScore[0]} must be a number between 0 and 100`,
+      }
+    }
+
     const interview = await prisma.interview.findUnique({
       where: { interview_id: interviewId },
       select: { id: true, metadata: true },

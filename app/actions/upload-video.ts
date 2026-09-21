@@ -5,6 +5,10 @@ import { toClientError } from "@/lib/errors"
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 import { isStudentPayMode } from "@/lib/billing"
 import { requirePaymentAccess } from "@/lib/payment-access"
+import {
+  issueInterviewAccessSession,
+  requireInterviewAccess,
+} from "@/lib/interview-access"
 
 const s3Client = new S3Client({
   endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
@@ -56,6 +60,7 @@ export async function uploadVideoToB2AndSave(
           select: {
             id: true,
             code: true,
+            active: true,
             credits_balance: true,
             billing_mode: true,
           },
@@ -114,6 +119,11 @@ export async function uploadVideoToB2AndSave(
             interviewId,
           })
           verifiedPayment = payment
+        } else {
+          await requireInterviewAccess({
+            interviewDbId: existingInterview.id,
+            interviewId,
+          })
         }
       }
     } else {
@@ -128,6 +138,7 @@ export async function uploadVideoToB2AndSave(
         where: { code: schoolCode },
         select: {
           id: true,
+          active: true,
           credits_balance: true,
           billing_mode: true,
         },
@@ -135,6 +146,12 @@ export async function uploadVideoToB2AndSave(
 
       if (!school) {
         return { success: false, error: "School not found" }
+      }
+      if (!school.active) {
+        return {
+          success: false,
+          error: "This school is not accepting interviews right now.",
+        }
       }
 
       if (isStudentPayMode(school.billing_mode)) {
@@ -273,6 +290,9 @@ export async function uploadVideoToB2AndSave(
           started_at: new Date()
         }
       })
+      if (!verifiedPayment) {
+        await issueInterviewAccessSession(interview.id, interviewId)
+      }
       console.log("[v0] Created new interview:", interview.id)
     }
     
@@ -311,19 +331,44 @@ export async function uploadVideoToB2AndSave(
       return { success: true, videoUrl, data: null, dbError: 'Prompt not found' }
     }
     
-    // 创建 Response
-    const response = await prisma.interviewResponse.create({
-      data: {
-        interview_id: interview.id,
-        prompt_id: prompt.id,
-        sequence_number: responseOrder,
-        video_url: videoUrl,
-        video_duration: 90,
-        prep_duration:
-          typeof promptPrepDuration === 'number' && promptPrepDuration >= 0
-            ? promptPrepDuration
-            : null,
-      }
+    // Retrying the same response order replaces its media instead of creating
+    // duplicate response rows that can corrupt merge/transcript ordering.
+    const responseData = {
+      prompt_id: prompt.id,
+      sequence_number: responseOrder,
+      video_url: videoUrl,
+      video_duration: 90,
+      prep_duration:
+        typeof promptPrepDuration === 'number' && promptPrepDuration >= 0
+          ? promptPrepDuration
+          : null,
+    }
+    const interviewDbId = interview.id
+    const response = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT pg_advisory_xact_lock(
+          hashtext(${`${interviewDbId}:${responseOrder}`})
+        )
+      `
+      const existingResponse = await tx.interviewResponse.findFirst({
+        where: {
+          interview_id: interviewDbId,
+          sequence_number: responseOrder,
+        },
+        orderBy: { created_at: 'desc' },
+        select: { id: true },
+      })
+      return existingResponse
+        ? tx.interviewResponse.update({
+            where: { id: existingResponse.id },
+            data: responseData,
+          })
+        : tx.interviewResponse.create({
+            data: {
+              interview_id: interviewDbId,
+              ...responseData,
+            },
+          })
     })
 
     console.log("[v0] ✓ Database save successful")

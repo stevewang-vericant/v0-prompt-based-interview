@@ -353,6 +353,7 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
       where: { code: schoolCode },
       select: {
         id: true,
+        active: true,
         selected_prompt_ids: true,
         credits_balance: true,
         billing_mode: true,
@@ -361,6 +362,12 @@ export async function getPromptsBySchoolCode(schoolCode: string): Promise<{
 
     if (!school) {
       return { success: false, error: 'School not found' }
+    }
+    if (!school.active) {
+      return {
+        success: false,
+        error: 'This school is not accepting interviews right now.',
+      }
     }
 
     if (!isStudentPayMode(school.billing_mode) && school.credits_balance <= 0) {

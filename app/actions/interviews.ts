@@ -6,6 +6,7 @@ import { requireSuperAdmin, requireUser } from "@/lib/auth-guards"
 import { toClientError } from "@/lib/errors"
 import { requirePaymentAccess } from "@/lib/payment-access"
 import { isStudentPayMode } from "@/lib/billing"
+import { requireInterviewAccess } from "@/lib/interview-access"
 
 async function authorizePaidInterviewRead(interviewId: string): Promise<void> {
   const payment = await prisma.interviewPayment.findFirst({
@@ -141,18 +142,56 @@ export async function saveInterview(data: InterviewData): Promise<{
   interview?: InterviewRecord
 }> {
   try {
+    if (!data || typeof data.interview_id !== "string" || !data.interview_id.trim()) {
+      return { success: false, error: "A valid interview_id is required." }
+    }
     console.log("[DB] Saving interview to database:", data.interview_id)
 
     const existingForAuth = await prisma.interview.findUnique({
       where: { interview_id: data.interview_id },
       select: {
+        id: true,
         payment_id: true,
         interview_type: true,
-        school: { select: { billing_mode: true, id: true } },
+        student: { select: { email: true } },
+        school: {
+          select: { billing_mode: true, id: true, code: true },
+        },
       },
     })
 
-    if (existingForAuth && existingForAuth.interview_type !== "parent") {
+    // The upload action is the only public creation path. It establishes school,
+    // student and either payment or anonymous interview ownership first.
+    if (!existingForAuth) {
+      return { success: false, error: "Interview not found." }
+    }
+    if (existingForAuth.interview_type === "parent") {
+      return { success: false, error: "Parent interviews use a separate save flow." }
+    }
+    if (!existingForAuth.school.code || !existingForAuth.student) {
+      return { success: false, error: "Interview ownership data is incomplete." }
+    }
+    if (
+      data.school_code &&
+      data.school_code.toLowerCase() !== existingForAuth.school.code.toLowerCase()
+    ) {
+      return { success: false, error: "Interview school does not match." }
+    }
+    if (
+      data.student_email &&
+      data.student_email.toLowerCase() !== existingForAuth.student.email.toLowerCase()
+    ) {
+      return { success: false, error: "Interview student does not match." }
+    }
+
+    const currentUser = await getCurrentUser()
+    const staffAuthorized =
+      currentUser.success &&
+      !!currentUser.user &&
+      (currentUser.user.school.is_super_admin ||
+        currentUser.user.school.id === existingForAuth.school.id)
+
+    if (!staffAuthorized) {
       const payment =
         (existingForAuth.payment_id
           ? await prisma.interviewPayment.findUnique({
@@ -165,7 +204,7 @@ export async function saveInterview(data: InterviewData): Promise<{
           select: { id: true, interview_id: true, status: true, entitlement_status: true },
         }))
 
-      if (payment || isStudentPayMode(existingForAuth.school?.billing_mode)) {
+      if (payment || isStudentPayMode(existingForAuth.school.billing_mode)) {
         if (
           !payment ||
           payment.status !== "paid" ||
@@ -178,6 +217,11 @@ export async function saveInterview(data: InterviewData): Promise<{
           paymentId: payment.id,
           interviewId: data.interview_id,
         })
+      } else {
+        await requireInterviewAccess({
+          interviewDbId: existingForAuth.id,
+          interviewId: data.interview_id,
+        })
       }
     }
     
@@ -186,59 +230,9 @@ export async function saveInterview(data: InterviewData): Promise<{
     const completedAt = data.video_url ? new Date() : null
     const submittedAt = new Date()
 
-    // 我们需要先找到或创建 School 和 Student，因为 Prisma 需要 connect
-    // 假设 School 和 Student 已经存在。如果不存在，逻辑会变得复杂。
-    // 为了简化迁移，我们尝试查找关联记录。
-
-    // 1. Find School by code
-    let schoolId: string | undefined
-    if (data.school_code) {
-      const school = await prisma.school.findFirst({ where: { code: data.school_code } })
-      if (school) schoolId = school.id
-    }
-
-    // 2. Find Student by email
-    let studentId: string | undefined
-    if (data.student_email) {
-      const student = await prisma.student.findUnique({ where: { email: data.student_email } })
-      if (student) studentId = student.id
-    }
-
-    // 如果缺少关联 ID，我们可能无法创建记录（Prisma 外键约束）
-    // 但我们可以尝试 upsert。如果是 update，就不需要关联 ID。
-    // 如果是 create，必须要有。
-    
-    // 如果没有 schoolId 或 studentId，我们无法创建。
-    // 这里必须假设数据完整性。如果缺失，返回错误。
-    if (!schoolId || !studentId) {
-        // 尝试仅更新现有记录
-        const existing = await prisma.interview.findUnique({
-            where: { interview_id: data.interview_id }
-        })
-        
-        if (existing) {
-             const updated = await prisma.interview.update({
-                 where: { interview_id: data.interview_id },
-                 data: {
-      video_url: data.video_url,
-      subtitle_url: data.subtitle_url,
-      total_duration: data.total_duration,
-      metadata: data.metadata || {},
-      status: interviewStatus,
-                    completed_at: completedAt,
-                    submitted_at: submittedAt
-                 },
-                 include: { student: true, school: true, _count: { select: { responses: true } } }
-             })
-             return { success: true, interview: mapInterviewToRecord(updated) }
-        } else {
-             return { success: false, error: "Cannot create interview: School or Student not found" }
-        }
-    }
-
-    const interview = await prisma.interview.upsert({
+    const interview = await prisma.interview.update({
       where: { interview_id: data.interview_id },
-      update: {
+      data: {
         video_url: data.video_url,
         subtitle_url: data.subtitle_url,
         total_duration: data.total_duration,
@@ -246,19 +240,6 @@ export async function saveInterview(data: InterviewData): Promise<{
         status: interviewStatus,
         completed_at: completedAt,
         submitted_at: submittedAt
-      },
-      create: {
-        interview_id: data.interview_id,
-        student_id: studentId,
-        school_id: schoolId,
-        video_url: data.video_url,
-        subtitle_url: data.subtitle_url,
-        total_duration: data.total_duration,
-        metadata: data.metadata || {},
-        status: interviewStatus,
-        completed_at: completedAt,
-        submitted_at: submittedAt,
-        started_at: new Date() // 假设现在开始，如果前端没传
       },
       include: {
         student: true,

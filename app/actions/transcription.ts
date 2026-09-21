@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { toClientError } from "@/lib/errors"
+import { requireUser } from "@/lib/auth-guards"
 
 // AssemblyAI API 配置
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLY_AI_API_KEY
@@ -385,9 +386,11 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
   error?: string
 }> {
   try {
+    const user = await requireUser()
     const interview = await prisma.interview.findUnique({
       where: { interview_id: interviewId },
       select: {
+        school_id: true,
         transcription_status: true,
         transcription_text: true,
         ai_summary: true,
@@ -398,6 +401,12 @@ export async function getTranscriptionStatus(interviewId: string): Promise<{
     
     if (!interview) {
       return { success: false, error: 'Interview not found' }
+    }
+    if (
+      !user.school.is_super_admin &&
+      user.school.id !== interview.school_id
+    ) {
+      return { success: false, error: 'Not authorized to access this interview' }
     }
     
     return {
