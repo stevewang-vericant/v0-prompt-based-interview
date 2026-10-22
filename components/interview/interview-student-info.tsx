@@ -638,11 +638,17 @@ export function InterviewStudentInfo({
             <Label htmlFor="id-photo">
               Photo of you holding your ID <span className="text-red-500">*</span>
             </Label>
-            <p className="text-sm text-[rgba(0,0,0,0.56)]">
-              Upload a clear photo of yourself holding a government-issued ID next to your face.
-              Your face and the ID must both be visible. During the interview, one photo is taken
-              from your camera so staff can confirm it is the same person.
-            </p>
+            <div className="flex items-center gap-3 rounded-xl bg-[#f5f5f7] p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/id-photo-example.jpg"
+                alt="Example of holding an ID beside your face"
+                className="h-36 w-36 shrink-0 rounded-lg object-cover"
+              />
+              <p className="text-sm text-[rgba(0,0,0,0.64)]">
+                Hold your ID beside your face, like this. Your whole face and the card both need to be easy to see.
+              </p>
+            </div>
             <input
               ref={idPhotoInputRef}
               id="id-photo"
