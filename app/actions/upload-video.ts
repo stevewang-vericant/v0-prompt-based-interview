@@ -9,6 +9,7 @@ import {
   issueInterviewAccessSession,
   requireInterviewAccess,
 } from "@/lib/interview-access"
+import { attachIdVerificationAssets } from "@/lib/id-verification"
 
 const s3Client = new S3Client({
   endpoint: `https://s3.${process.env.B2_BUCKET_REGION}.backblazeb2.com`,
@@ -32,6 +33,8 @@ export async function uploadVideoToB2AndSave(
   promptCategory?: string,
   promptResponseTime?: number,
   promptPrepDuration?: number,
+  idPhotoUrl?: string | null,
+  verificationScreenshotUrl?: string | null,
 ) {
   try {
     console.log("[v0] ===== Starting video upload (Prisma) =====")
@@ -294,6 +297,20 @@ export async function uploadVideoToB2AndSave(
         await issueInterviewAccessSession(interview.id, interviewId)
       }
       console.log("[v0] Created new interview:", interview.id)
+    }
+
+    if (idPhotoUrl || verificationScreenshotUrl) {
+      try {
+        await attachIdVerificationAssets({
+          interviewDbId: interview.id,
+          studentId: interview.student_id,
+          interviewPublicId: interviewId,
+          idPhotoUrl,
+          screenshotUrl: verificationScreenshotUrl,
+        })
+      } catch (attachError) {
+        console.error("[v0] Failed to attach ID verification photos:", attachError)
+      }
     }
     
     // 处理 Prompt - 查找或创建

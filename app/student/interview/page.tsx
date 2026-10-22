@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense, useEffect } from "react"
+import { useState, Suspense, useEffect, useCallback, useMemo, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -13,6 +13,13 @@ import { InterviewPrompt } from "@/components/interview/interview-prompt"
 import { InterviewComplete } from "@/components/interview/interview-complete"
 import { InterviewIntro } from "@/components/interview/interview-intro"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
+import { uploadIdVerificationImage } from "@/app/actions/id-verification"
+import {
+  readStoredIdPhotoUrl,
+  readStoredScreenshotUrl,
+  writeStoredIdPhotoUrl,
+  writeStoredScreenshotUrl,
+} from "@/lib/id-verification-client"
 import { saveInterview } from "@/app/actions/interviews"
 import { getVideoDuration } from '@/lib/video-utils'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -95,7 +102,10 @@ function InterviewPageContent() {
     needFinancialAid?: boolean | null
     usesCbo: boolean | null
     cboOrganization?: string | null
+    idPhotoUrl?: string | null
   } | null>(null)
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
+  const screenshotBlobRef = useRef<Blob | null>(null)
   const [billingMode, setBillingMode] = useState<string>("credits")
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false)
@@ -219,6 +229,40 @@ function InterviewPageContent() {
       setInterviewId(newId)
     }
   }, [interviewId, urlInterviewId, schoolCode])
+
+  useEffect(() => {
+    if (!interviewId) return
+    const storedScreenshot = readStoredScreenshotUrl(interviewId)
+    if (storedScreenshot) setScreenshotUrl(storedScreenshot)
+  }, [interviewId])
+
+  const formInitialValues = useMemo(() => {
+    const storedIdPhotoUrl = interviewId ? readStoredIdPhotoUrl(interviewId) : null
+    if (!initialStudentInfo && !storedIdPhotoUrl) return null
+    return {
+      ...(initialStudentInfo || {}),
+      idPhotoUrl: initialStudentInfo?.idPhotoUrl || storedIdPhotoUrl || undefined,
+    }
+  }, [initialStudentInfo, interviewId])
+
+  const handleVerificationFrame = useCallback((blob: Blob) => {
+    screenshotBlobRef.current = blob
+    if (!interviewId || !schoolCode) return
+    void (async () => {
+      const formData = new FormData()
+      formData.set("interviewId", interviewId)
+      formData.set("schoolCode", schoolCode)
+      formData.set("kind", "screenshot")
+      formData.set("file", blob, "screenshot.jpg")
+      const uploaded = await uploadIdVerificationImage(formData)
+      if (uploaded.success && uploaded.url) {
+        setScreenshotUrl(uploaded.url)
+        writeStoredScreenshotUrl(interviewId, uploaded.url)
+      } else {
+        console.warn("[v0] Interview screenshot upload failed:", uploaded.error)
+      }
+    })()
+  }, [interviewId, schoolCode])
 
   // Confirm Stripe payment or restore a paid interview before recording starts.
   useEffect(() => {
@@ -500,9 +544,11 @@ function InterviewPageContent() {
     needFinancialAid?: boolean | null
     usesCbo: boolean | null
     cboOrganization?: string | null
+    idPhotoUrl: string
   }) => {
     console.log('[v0] Student info collected:', info)
     setStudentInfo(info)
+    if (info.idPhotoUrl) writeStoredIdPhotoUrl(interviewId, info.idPhotoUrl)
     setPaymentError(null)
     if (typeof window !== 'undefined' && schoolCode) {
       storeInterviewId(schoolCode, interviewId)
@@ -607,7 +653,9 @@ function InterviewPageContent() {
     allResponses: Record<string, Blob>,
     studentEmail?: string,
     studentName?: string,
-    schoolCode?: string | null
+    schoolCode?: string | null,
+    idPhotoUrl?: string | null,
+    verificationScreenshotUrl?: string | null,
   ): Promise<{ success: boolean; error?: string }> => {
     setIsUploading(true)
     setUploadProgress(0)
@@ -702,6 +750,8 @@ function InterviewPageContent() {
           prompt.category,
           prompt.responseTime,
           prepDuration,
+          idPhotoUrl,
+          verificationScreenshotUrl,
         )
         
         if (!result.success) {
@@ -870,9 +920,32 @@ function InterviewPageContent() {
     console.log("[v0] Student email:", studentInfo.email)
     console.log("[v0] School code:", schoolCode || "Not specified")
     console.log("[v0] Student info present:", !!studentInfo)
+
+    let verificationScreenshotUrl = screenshotUrl || readStoredScreenshotUrl(interviewId)
+    if (!verificationScreenshotUrl && screenshotBlobRef.current && schoolCode) {
+      const formData = new FormData()
+      formData.set("interviewId", interviewId)
+      formData.set("schoolCode", schoolCode)
+      formData.set("kind", "screenshot")
+      formData.set("file", screenshotBlobRef.current, "screenshot.jpg")
+      const uploaded = await uploadIdVerificationImage(formData)
+      if (uploaded.success && uploaded.url) {
+        verificationScreenshotUrl = uploaded.url
+        setScreenshotUrl(uploaded.url)
+        writeStoredScreenshotUrl(interviewId, uploaded.url)
+      }
+    }
+    const idPhotoUrl = studentInfo.idPhotoUrl || readStoredIdPhotoUrl(interviewId)
     
     // 上传所有视频分段到 B2，然后在服务端使用 FFmpeg 合并
-    const result = await uploadSegmentVideos(responses, studentInfo.email, studentInfo.name, schoolCode)
+    const result = await uploadSegmentVideos(
+      responses,
+      studentInfo.email,
+      studentInfo.name,
+      schoolCode,
+      idPhotoUrl,
+      verificationScreenshotUrl,
+    )
     
     // 更新学生信息
     const { updateStudentInfo } = await import('@/app/actions/update-student-info')
@@ -1222,10 +1295,12 @@ function InterviewPageContent() {
                 )}
                 <InterviewStudentInfo 
                   onSubmit={handleStudentInfoComplete}
+                  interviewId={interviewId}
+                  schoolCode={schoolCode || ""}
                   schoolLevel={branding.level}
                   submitLabel={billingMode === BILLING_MODE_STUDENT_PAY ? "Continue to Payment" : "Continue to Interview"}
                   submitting={isCreatingCheckout}
-                  initialValues={initialStudentInfo}
+                  initialValues={formInitialValues}
                 />
                 {billingMode === BILLING_MODE_STUDENT_PAY && schoolCode && (
                   <p className="text-center text-sm text-[rgba(0,0,0,0.56)]">
@@ -1257,6 +1332,8 @@ function InterviewPageContent() {
             promptNumber={currentPromptIndex + 1}
                 totalPrompts={prompts.length}
             onComplete={handlePromptComplete}
+            captureVerificationFrame={currentPromptIndex === 0}
+            onVerificationFrame={handleVerificationFrame}
           />
             )}
           </>

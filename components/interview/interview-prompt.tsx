@@ -30,6 +30,9 @@ interface InterviewPromptProps {
   ) => Promise<void>
   // Display language. Only "zh" changes copy; English is unchanged for students.
   lang?: ParentUILang
+  // Student interviews capture one camera frame during the first response.
+  captureVerificationFrame?: boolean
+  onVerificationFrame?: (blob: Blob) => void
 }
 
 type Stage = "reading" | "preparing" | "recording"
@@ -62,7 +65,35 @@ function buildRecorderOptions(): MediaRecorderOptions {
   return options
 }
 
-export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete, lang = "en" }: InterviewPromptProps) {
+function captureVideoFrame(video: HTMLVideoElement): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    if (video.videoWidth < 2 || video.videoHeight < 2) {
+      resolve(null)
+      return
+    }
+    const scale = Math.min(1, 1280 / video.videoWidth)
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(video.videoWidth * scale)
+    canvas.height = Math.round(video.videoHeight * scale)
+    const context = canvas.getContext("2d")
+    if (!context) {
+      resolve(null)
+      return
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.85)
+  })
+}
+
+export function InterviewPrompt({
+  prompt,
+  promptNumber,
+  totalPrompts,
+  onComplete,
+  lang = "en",
+  captureVerificationFrame = false,
+  onVerificationFrame,
+}: InterviewPromptProps) {
   const zh = lang === "zh"
   const t = parentT("zh")
   const [stage, setStage] = useState<Stage>("reading")
@@ -78,6 +109,7 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
   // 记录这一题实际使用的 prep 时长（秒），用于服务端在合成"仅 response"视频时
   // 知道要从片段开头裁掉多少秒。即使 prompt 对象变化也保留启动时的值。
   const prepDurationRef = useRef<number>(0)
+  const frameSentRef = useRef(false)
 
   useEffect(() => {
     const initializeStream = async () => {
@@ -174,6 +206,36 @@ export function InterviewPrompt({ prompt, promptNumber, totalPrompts, onComplete
 
     return () => clearInterval(interval)
   }, [stage])
+
+  useEffect(() => {
+    if (!captureVerificationFrame || promptNumber !== 1 || stage !== "recording" || frameSentRef.current) {
+      return
+    }
+
+    let cancelled = false
+    let attempts = 0
+    let timer = window.setTimeout(function captureWhenReady() {
+      if (cancelled || frameSentRef.current) return
+      const video = videoRef.current
+      if (video && video.videoWidth >= 2) {
+        void captureVideoFrame(video).then((blob) => {
+          if (!blob || cancelled || frameSentRef.current) return
+          frameSentRef.current = true
+          onVerificationFrame?.(blob)
+        })
+        return
+      }
+      attempts += 1
+      if (attempts < 8) {
+        timer = window.setTimeout(captureWhenReady, 500)
+      }
+    }, 2000)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [captureVerificationFrame, onVerificationFrame, promptNumber, stage])
 
   const startPreparation = async () => {
     try {

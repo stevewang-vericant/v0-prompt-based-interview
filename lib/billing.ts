@@ -27,6 +27,7 @@ export type PaidStudentInfo = {
   needFinancialAid?: boolean | null
   usesCbo: boolean | null
   cboOrganization?: string | null
+  idPhotoUrl?: string | null
 }
 
 export function parsePaidStudentInfo(value: unknown): PaidStudentInfo | null {
@@ -51,5 +52,6 @@ export function parsePaidStudentInfo(value: unknown): PaidStudentInfo | null {
     needFinancialAid: typeof record.needFinancialAid === "boolean" ? record.needFinancialAid : null,
     usesCbo: typeof record.usesCbo === "boolean" ? record.usesCbo : null,
     cboOrganization: typeof record.cboOrganization === "string" ? record.cboOrganization : null,
+    idPhotoUrl: typeof record.idPhotoUrl === "string" ? record.idPhotoUrl : null,
   }
 }

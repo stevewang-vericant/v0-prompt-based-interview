@@ -6,7 +6,7 @@ import Image from "next/image"
 import { getCurrentUser, signOut } from "@/app/actions/auth"
 import { supportsParentInterviews } from "@/lib/school-level"
 import { Button } from "@/components/ui/button"
-import { Building2, Video, Settings, LogOut, Menu, X, Users, ClipboardCheck, UsersRound, CreditCard } from "lucide-react"
+import { Building2, Video, Settings, LogOut, Menu, X, Users, ClipboardCheck, UsersRound, CreditCard, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 
 function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
@@ -94,6 +94,11 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                 name: "Payments",
                 href: "/school/payments",
                 icon: CreditCard,
+              },
+              {
+                name: "ID Verification",
+                href: "/school/id-verification",
+                icon: ShieldCheck,
               },
             ]
           : []),
@@ -248,6 +253,8 @@ function SchoolLayoutContent({ children }: { children: React.ReactNode }) {
                             ? "Schools"
                             : pathname === "/school/rating"
                               ? "Rating"
+                              : pathname === "/school/id-verification"
+                                ? "ID Verification"
                               : ""}
                   </h1>
                 </div>

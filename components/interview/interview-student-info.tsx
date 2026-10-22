@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Mail, User, MapPin } from "lucide-react"
+import { Mail, User, MapPin, Upload } from "lucide-react"
 import { COUNTRIES, searchCountries } from "@/lib/countries"
 import { CBO_ORGANIZATIONS } from "@/lib/cbo-organizations"
+import { uploadIdVerificationImage } from "@/app/actions/id-verification"
+import { mediaProxyUrl, writeStoredIdPhotoUrl } from "@/lib/id-verification-client"
 
 // Sentinel value for "my CBO is not in the list" so the student can type it in.
 const CBO_OTHER_VALUE = "__other__"
@@ -24,10 +26,16 @@ interface StudentInfo {
   needFinancialAid?: boolean | null
   usesCbo: boolean | null
   cboOrganization?: string | null
+  idPhotoUrl: string
 }
+
+const MAX_ID_PHOTO_BYTES = 8 * 1024 * 1024
+const ACCEPTED_ID_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
 
 interface InterviewStudentInfoProps {
   onSubmit: (info: StudentInfo) => void | Promise<void>
+  interviewId: string
+  schoolCode: string
   // School level ("k12" | "undergraduate"). CBO is only relevant to K-12 students.
   schoolLevel?: string | null
   submitLabel?: string
@@ -37,6 +45,8 @@ interface InterviewStudentInfoProps {
 
 export function InterviewStudentInfo({
   onSubmit,
+  interviewId,
+  schoolCode,
   schoolLevel,
   submitLabel = "Continue to Interview",
   submitting = false,
@@ -65,6 +75,14 @@ export function InterviewStudentInfo({
   const [gradeError, setGradeError] = useState("")
   const [cboOrganizationError, setCboOrganizationError] = useState("")
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
+  const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null)
+  const [idPhotoPreview, setIdPhotoPreview] = useState<string | null>(null)
+  const [existingIdPhotoUrl, setExistingIdPhotoUrl] = useState<string | null>(null)
+  const [uploadedIdPhotoUrl, setUploadedIdPhotoUrl] = useState<string | null>(null)
+  const [uploadedIdPhotoKey, setUploadedIdPhotoKey] = useState<string | null>(null)
+  const [idPhotoError, setIdPhotoError] = useState("")
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const idPhotoInputRef = useRef<HTMLInputElement>(null)
   
   // Country search dropdown state
   const [countrySearchQuery, setCountrySearchQuery] = useState("")
@@ -72,29 +90,35 @@ export function InterviewStudentInfo({
   const [filteredCountries, setFilteredCountries] = useState<string[]>(COUNTRIES.slice(0, 20))
   const countryInputRef = useRef<HTMLInputElement>(null)
   const countryDropdownRef = useRef<HTMLDivElement>(null)
-  const appliedInitialValues = useRef(false)
 
   useEffect(() => {
-    if (!initialValues || appliedInitialValues.current) return
-    appliedInitialValues.current = true
+    if (!initialValues) return
 
-    if (initialValues.email) setStudentEmail(initialValues.email)
-    if (initialValues.name) setStudentName(initialValues.name)
-    if (initialValues.gender) setGender(initialValues.gender)
-    if (initialValues.currentGrade) setCurrentGrade(initialValues.currentGrade)
-    if (initialValues.residencyCity) setResidencyCity(initialValues.residencyCity)
+    // Fill only fields the student has not already entered, so a late restore
+    // (payment return, saved photo) does not wipe in-progress input.
+    if (initialValues.email) setStudentEmail((current) => current || initialValues.email || "")
+    if (initialValues.name) setStudentName((current) => current || initialValues.name || "")
+    if (initialValues.gender) setGender((current) => current || initialValues.gender || "")
+    if (initialValues.currentGrade) setCurrentGrade((current) => current || initialValues.currentGrade || "")
+    if (initialValues.residencyCity) setResidencyCity((current) => current || initialValues.residencyCity || "")
     if (initialValues.residenceCountry) {
-      setResidenceCountry(initialValues.residenceCountry)
-      setCountrySearchQuery(initialValues.residenceCountry)
+      setResidenceCountry((current) => current || initialValues.residenceCountry || "")
+      setCountrySearchQuery((current) => current || initialValues.residenceCountry || "")
     }
     if (typeof initialValues.needFinancialAid === "boolean") {
-      setNeedFinancialAid(initialValues.needFinancialAid ? "yes" : "no")
+      const value = initialValues.needFinancialAid ? "yes" : "no"
+      setNeedFinancialAid((current) => current || value)
     }
     if (typeof initialValues.usesCbo === "boolean") {
-      setUsesCbo(initialValues.usesCbo ? "yes" : "no")
+      const value = initialValues.usesCbo ? "yes" : "no"
+      setUsesCbo((current) => current || value)
     }
     if (initialValues.cboOrganization) {
-      setCboOrganization(initialValues.cboOrganization)
+      setCboOrganization((current) => current || initialValues.cboOrganization || "")
+    }
+    if (initialValues.idPhotoUrl) {
+      setExistingIdPhotoUrl((current) => current || initialValues.idPhotoUrl || null)
+      setIdPhotoPreview((current) => current || mediaProxyUrl(initialValues.idPhotoUrl || ""))
     }
   }, [initialValues])
 
@@ -241,7 +265,60 @@ export function InterviewStudentInfo({
       setCboOrganizationError("")
     }
 
+    let idPhotoUrl = existingIdPhotoUrl
+    if (!idPhotoFile && !existingIdPhotoUrl) {
+      setIdPhotoError("Please upload a photo of yourself holding your ID")
+      hasError = true
+    } else if (idPhotoFile) {
+      if (!ACCEPTED_ID_PHOTO_TYPES.includes(idPhotoFile.type)) {
+        setIdPhotoError("Photo must be a JPEG, PNG, or WEBP image")
+        hasError = true
+      } else if (idPhotoFile.size > MAX_ID_PHOTO_BYTES) {
+        setIdPhotoError("Photo must be 8 MB or smaller")
+        hasError = true
+      } else {
+        setIdPhotoError("")
+      }
+    } else {
+      setIdPhotoError("")
+    }
+
+    if (!interviewId || !schoolCode) {
+      setIdPhotoError("The interview is still starting. Please wait a moment and try again.")
+      hasError = true
+    }
+
     if (hasError) {
+      return
+    }
+
+    if (idPhotoFile) {
+      const fileKey = `${idPhotoFile.name}:${idPhotoFile.size}:${idPhotoFile.lastModified}`
+      if (uploadedIdPhotoUrl && uploadedIdPhotoKey === fileKey) {
+        idPhotoUrl = uploadedIdPhotoUrl
+      } else {
+        setIsUploadingPhoto(true)
+        const formData = new FormData()
+        formData.set("interviewId", interviewId)
+        formData.set("schoolCode", schoolCode)
+        formData.set("kind", "id_photo")
+        formData.set("file", idPhotoFile)
+        const uploaded = await uploadIdVerificationImage(formData)
+        setIsUploadingPhoto(false)
+        if (!uploaded.success || !uploaded.url) {
+          setIdPhotoError(uploaded.error || "Could not upload the ID photo. Please try again.")
+          return
+        }
+        idPhotoUrl = uploaded.url
+        setUploadedIdPhotoUrl(uploaded.url)
+        setUploadedIdPhotoKey(fileKey)
+        setExistingIdPhotoUrl(uploaded.url)
+        writeStoredIdPhotoUrl(interviewId, uploaded.url)
+      }
+    }
+
+    if (!idPhotoUrl) {
+      setIdPhotoError("Please upload a photo of yourself holding your ID")
       return
     }
 
@@ -269,6 +346,7 @@ export function InterviewStudentInfo({
       needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : null,
       usesCbo: usesCboValue,
       cboOrganization: cboOrganizationValue,
+      idPhotoUrl,
     }
 
     await onSubmit(studentInfo)
@@ -556,13 +634,79 @@ export function InterviewStudentInfo({
             </>
           )}
 
+          <div className="space-y-2">
+            <Label htmlFor="id-photo">
+              Photo of you holding your ID <span className="text-red-500">*</span>
+            </Label>
+            <p className="text-sm text-[rgba(0,0,0,0.56)]">
+              Upload a clear photo of yourself holding a government-issued ID next to your face.
+              Your face and the ID must both be visible. During the interview, one photo is taken
+              from your camera so staff can confirm it is the same person.
+            </p>
+            <input
+              ref={idPhotoInputRef}
+              id="id-photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (!file) return
+                if (!ACCEPTED_ID_PHOTO_TYPES.includes(file.type)) {
+                  setIdPhotoError("Photo must be a JPEG, PNG, or WEBP image")
+                  return
+                }
+                if (file.size > MAX_ID_PHOTO_BYTES) {
+                  setIdPhotoError("Photo must be 8 MB or smaller")
+                  return
+                }
+                if (idPhotoPreview?.startsWith("blob:")) {
+                  URL.revokeObjectURL(idPhotoPreview)
+                }
+                setIdPhotoFile(file)
+                setIdPhotoPreview(URL.createObjectURL(file))
+                setIdPhotoError("")
+              }}
+            />
+            {idPhotoPreview ? (
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-lg border border-black/[0.08] bg-[#f5f5f7]">
+                  {/* Local previews are blob URLs; saved photos are loaded through the media proxy. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={idPhotoPreview} alt="ID photo preview" className="max-h-64 w-full object-contain" />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => idPhotoInputRef.current?.click()}
+                  disabled={submitting || isUploadingPhoto}
+                >
+                  Replace photo
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => idPhotoInputRef.current?.click()}
+                className={`w-full rounded-lg border border-dashed p-8 text-center transition-colors hover:border-[#0071e3] ${
+                  idPhotoError ? "border-red-500" : "border-black/[0.12]"
+                }`}
+              >
+                <Upload className="mx-auto mb-3 h-8 w-8 text-[rgba(0,0,0,0.36)]" />
+                <p className="text-sm font-medium text-[#1d1d1f]">Upload photo</p>
+                <p className="mt-1 text-xs text-[rgba(0,0,0,0.48)]">JPEG, PNG, or WEBP. 8 MB maximum.</p>
+              </button>
+            )}
+            {idPhotoError && <p className="text-sm text-red-600">{idPhotoError}</p>}
+          </div>
+
           <Button 
             onClick={handleSubmit} 
             className="w-full" 
             size="lg"
-            disabled={submitting}
+            disabled={submitting || isUploadingPhoto || !interviewId || !schoolCode}
           >
-            {submitting ? "Please wait..." : submitLabel}
+            {isUploadingPhoto ? "Uploading photo..." : submitting ? "Please wait..." : submitLabel}
           </Button>
         </CardContent>
       </Card>

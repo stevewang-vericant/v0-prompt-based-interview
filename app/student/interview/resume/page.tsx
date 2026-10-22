@@ -13,6 +13,7 @@ import {
   type VideoSegment
 } from "@/lib/indexeddb"
 import { uploadVideoToB2AndSave } from "@/app/actions/upload-video"
+import { readStoredIdPhotoUrl, readStoredScreenshotUrl } from "@/lib/id-verification-client"
 import { saveInterview } from "@/app/actions/interviews"
 
 const mockPrompts = [
@@ -135,7 +136,10 @@ function ResumeUploadContent() {
           undefined, // studentName
           segment.questionText,
           segment.category,
-          segment.responseTime
+          segment.responseTime,
+          undefined,
+          readStoredIdPhotoUrl(interviewId),
+          readStoredScreenshotUrl(interviewId),
         )
 
         if (!result.success) {
