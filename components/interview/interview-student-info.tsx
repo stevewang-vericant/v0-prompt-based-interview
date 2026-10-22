@@ -641,7 +641,7 @@ export function InterviewStudentInfo({
             <div className="flex items-center gap-3 rounded-xl bg-[#f5f5f7] p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/id-photo-example.jpg"
+                src="/id-photo-example.jpg?v=2"
                 alt="Example of holding an ID beside your face"
                 className="h-36 w-36 shrink-0 rounded-lg object-cover"
               />
