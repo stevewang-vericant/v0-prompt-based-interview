@@ -881,6 +881,11 @@ function SchoolDashboardContent() {
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${progressBadge.className}`}>
                             {progressBadge.label}
                           </span>
+                          {interview.verification_status !== "approved" && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                              ID not verified
+                            </span>
+                          )}
                           {cathovenBadge && (
                             <span
                               className={`rounded-full px-2 py-0.5 text-xs font-medium ${cathovenBadge.className}`}

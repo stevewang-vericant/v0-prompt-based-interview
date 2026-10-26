@@ -92,6 +92,8 @@ export interface InterviewRecord {
   rater_vocabulary_score: number | null
   rater_grammar_score: number | null
   rater_pronunciation_score: number | null
+  // pending | approved | rejected. Missing or not approved means ID is not verified.
+  verification_status: string | null
 }
 
 // Helper to map Prisma interview to InterviewRecord
@@ -130,6 +132,7 @@ function mapInterviewToRecord(interview: any): InterviewRecord {
     rater_vocabulary_score: interview.rater_vocabulary_score ? Number(interview.rater_vocabulary_score) : null,
     rater_grammar_score: interview.rater_grammar_score ? Number(interview.rater_grammar_score) : null,
     rater_pronunciation_score: interview.rater_pronunciation_score ? Number(interview.rater_pronunciation_score) : null,
+    verification_status: interview.verification_status || "pending",
   }
 }
 
