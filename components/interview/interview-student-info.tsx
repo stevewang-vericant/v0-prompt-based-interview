@@ -352,7 +352,7 @@ export function InterviewStudentInfo({
       needFinancialAid: needFinancialAid === "yes" ? true : needFinancialAid === "no" ? false : null,
       usesCbo: usesCboValue,
       cboOrganization: cboOrganizationValue,
-      idPhotoUrl,
+      idPhotoUrl: idPhotoUrl || "",
     }
 
     await onSubmit(studentInfo)
