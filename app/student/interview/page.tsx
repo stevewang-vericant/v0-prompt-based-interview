@@ -20,6 +20,7 @@ import {
   writeStoredIdPhotoUrl,
   writeStoredScreenshotUrl,
 } from "@/lib/id-verification-client"
+import { requiresIdVerification } from "@/lib/school-level"
 import { saveInterview } from "@/app/actions/interviews"
 import { getVideoDuration } from '@/lib/video-utils'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -921,8 +922,9 @@ function InterviewPageContent() {
     console.log("[v0] School code:", schoolCode || "Not specified")
     console.log("[v0] Student info present:", !!studentInfo)
 
-    let verificationScreenshotUrl = screenshotUrl || readStoredScreenshotUrl(interviewId)
-    if (!verificationScreenshotUrl && screenshotBlobRef.current && schoolCode) {
+    const verifyId = requiresIdVerification(branding.level)
+    let verificationScreenshotUrl = verifyId ? screenshotUrl || readStoredScreenshotUrl(interviewId) : null
+    if (verifyId && !verificationScreenshotUrl && screenshotBlobRef.current && schoolCode) {
       const formData = new FormData()
       formData.set("interviewId", interviewId)
       formData.set("schoolCode", schoolCode)
@@ -935,7 +937,7 @@ function InterviewPageContent() {
         writeStoredScreenshotUrl(interviewId, uploaded.url)
       }
     }
-    const idPhotoUrl = studentInfo.idPhotoUrl || readStoredIdPhotoUrl(interviewId)
+    const idPhotoUrl = verifyId ? studentInfo.idPhotoUrl || readStoredIdPhotoUrl(interviewId) : null
     
     // 上传所有视频分段到 B2，然后在服务端使用 FFmpeg 合并
     const result = await uploadSegmentVideos(
@@ -1332,7 +1334,7 @@ function InterviewPageContent() {
             promptNumber={currentPromptIndex + 1}
                 totalPrompts={prompts.length}
             onComplete={handlePromptComplete}
-            captureVerificationFrame={currentPromptIndex === 0}
+            captureVerificationFrame={requiresIdVerification(branding.level) && currentPromptIndex === 0}
             onVerificationFrame={handleVerificationFrame}
           />
             )}

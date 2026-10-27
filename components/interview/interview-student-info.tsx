@@ -12,6 +12,7 @@ import { COUNTRIES, searchCountries } from "@/lib/countries"
 import { CBO_ORGANIZATIONS } from "@/lib/cbo-organizations"
 import { uploadIdVerificationImage } from "@/app/actions/id-verification"
 import { mediaProxyUrl, writeStoredIdPhotoUrl } from "@/lib/id-verification-client"
+import { requiresIdVerification } from "@/lib/school-level"
 
 // Sentinel value for "my CBO is not in the list" so the student can type it in.
 const CBO_OTHER_VALUE = "__other__"
@@ -36,7 +37,7 @@ interface InterviewStudentInfoProps {
   onSubmit: (info: StudentInfo) => void | Promise<void>
   interviewId: string
   schoolCode: string
-  // School level ("k12" | "undergraduate"). CBO is only relevant to K-12 students.
+  // School level ("k12" | "undergraduate"). CBO is K-12 only; ID verification is higher education only.
   schoolLevel?: string | null
   submitLabel?: string
   submitting?: boolean
@@ -54,6 +55,7 @@ export function InterviewStudentInfo({
 }: InterviewStudentInfoProps) {
   // Higher-ed schools don't collect CBO info; everything else defaults to K-12.
   const showCbo = schoolLevel !== "undergraduate"
+  const requireIdPhoto = requiresIdVerification(schoolLevel)
   const [studentEmail, setStudentEmail] = useState("")
   const [studentName, setStudentName] = useState("")
   const [emailError, setEmailError] = useState("")
@@ -265,34 +267,38 @@ export function InterviewStudentInfo({
       setCboOrganizationError("")
     }
 
-    let idPhotoUrl = existingIdPhotoUrl
-    if (!idPhotoFile && !existingIdPhotoUrl) {
-      setIdPhotoError("Please upload a photo of yourself holding your ID")
-      hasError = true
-    } else if (idPhotoFile) {
-      if (!ACCEPTED_ID_PHOTO_TYPES.includes(idPhotoFile.type)) {
-        setIdPhotoError("Photo must be a JPEG, PNG, or WEBP image")
+    let idPhotoUrl = requireIdPhoto ? existingIdPhotoUrl : ""
+    if (requireIdPhoto) {
+      if (!idPhotoFile && !existingIdPhotoUrl) {
+        setIdPhotoError("Please upload a photo of yourself holding your ID")
         hasError = true
-      } else if (idPhotoFile.size > MAX_ID_PHOTO_BYTES) {
-        setIdPhotoError("Photo must be 8 MB or smaller")
-        hasError = true
+      } else if (idPhotoFile) {
+        if (!ACCEPTED_ID_PHOTO_TYPES.includes(idPhotoFile.type)) {
+          setIdPhotoError("Photo must be a JPEG, PNG, or WEBP image")
+          hasError = true
+        } else if (idPhotoFile.size > MAX_ID_PHOTO_BYTES) {
+          setIdPhotoError("Photo must be 8 MB or smaller")
+          hasError = true
+        } else {
+          setIdPhotoError("")
+        }
       } else {
         setIdPhotoError("")
       }
+
+      if (!interviewId || !schoolCode) {
+        setIdPhotoError("The interview is still starting. Please wait a moment and try again.")
+        hasError = true
+      }
     } else {
       setIdPhotoError("")
-    }
-
-    if (!interviewId || !schoolCode) {
-      setIdPhotoError("The interview is still starting. Please wait a moment and try again.")
-      hasError = true
     }
 
     if (hasError) {
       return
     }
 
-    if (idPhotoFile) {
+    if (requireIdPhoto && idPhotoFile) {
       const fileKey = `${idPhotoFile.name}:${idPhotoFile.size}:${idPhotoFile.lastModified}`
       if (uploadedIdPhotoUrl && uploadedIdPhotoKey === fileKey) {
         idPhotoUrl = uploadedIdPhotoUrl
@@ -317,7 +323,7 @@ export function InterviewStudentInfo({
       }
     }
 
-    if (!idPhotoUrl) {
+    if (requireIdPhoto && !idPhotoUrl) {
       setIdPhotoError("Please upload a photo of yourself holding your ID")
       return
     }
@@ -634,6 +640,7 @@ export function InterviewStudentInfo({
             </>
           )}
 
+          {requireIdPhoto && (
           <div className="space-y-2">
             <Label htmlFor="id-photo">
               Photo of you holding your ID <span className="text-red-500">*</span>
@@ -705,12 +712,13 @@ export function InterviewStudentInfo({
             )}
             {idPhotoError && <p className="text-sm text-red-600">{idPhotoError}</p>}
           </div>
+          )}
 
           <Button 
             onClick={handleSubmit} 
             className="w-full" 
             size="lg"
-            disabled={submitting || isUploadingPhoto || !interviewId || !schoolCode}
+            disabled={submitting || isUploadingPhoto || (requireIdPhoto && (!interviewId || !schoolCode))}
           >
             {isUploadingPhoto ? "Uploading photo..." : submitting ? "Please wait..." : submitLabel}
           </Button>

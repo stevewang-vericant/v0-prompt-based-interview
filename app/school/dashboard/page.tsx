@@ -13,6 +13,7 @@ import {
 import { getCurrentUser } from "@/app/actions/auth"
 import { Video, Calendar, Clock, Mail, RefreshCw, AlertCircle, Shield, Copy, Search, Link as LinkIcon, CheckCircle, Trash2, CreditCard } from "lucide-react"
 import { format } from "date-fns"
+import { requiresIdVerification } from "@/lib/school-level"
 
 function SchoolDashboardContent() {
   const [interviews, setInterviews] = useState<InterviewRecord[]>([])
@@ -881,7 +882,7 @@ function SchoolDashboardContent() {
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${progressBadge.className}`}>
                             {progressBadge.label}
                           </span>
-                          {interview.verification_status !== "approved" && (
+                          {requiresIdVerification(interview.school_level) && interview.verification_status !== "approved" && (
                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                               ID not verified
                             </span>

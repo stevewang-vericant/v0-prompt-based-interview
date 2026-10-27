@@ -18,3 +18,8 @@ export const UNIVERSITY_LEVEL = "undergraduate"
 export function supportsParentInterviews(level: string | null | undefined): boolean {
   return level !== UNIVERSITY_LEVEL
 }
+
+/** ID photo upload, interview screenshot, and the school-list label apply to higher education only. */
+export function requiresIdVerification(level: string | null | undefined): boolean {
+  return level === UNIVERSITY_LEVEL
+}

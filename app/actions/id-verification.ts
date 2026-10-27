@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { toClientError } from "@/lib/errors"
 import { requireSuperAdmin } from "@/lib/auth-guards"
+import { requiresIdVerification, UNIVERSITY_LEVEL } from "@/lib/school-level"
 import {
   uploadVerificationImage,
   type VerificationDecision,
@@ -102,6 +103,7 @@ export async function listIdVerifications(params?: {
     const records = await prisma.interview.findMany({
       where: {
         interview_type: "student",
+        school: { level: UNIVERSITY_LEVEL },
         OR: [{ id_photo_url: { not: null } }, { verification_screenshot_url: { not: null } }],
         ...(status ? { verification_status: status } : {}),
         ...(query
@@ -173,9 +175,10 @@ export async function reviewIdVerification(params: {
         student_id: true,
         id_photo_url: true,
         verification_screenshot_url: true,
+        school: { select: { level: true } },
       },
     })
-    if (!interview || interview.interview_type === "parent") {
+    if (!interview || interview.interview_type === "parent" || !requiresIdVerification(interview.school.level)) {
       return { success: false, error: "Student interview not found." }
     }
     if (!interview.id_photo_url) {

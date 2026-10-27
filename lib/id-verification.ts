@@ -1,6 +1,7 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { requiresIdVerification } from "@/lib/school-level"
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"] as const
@@ -108,10 +109,13 @@ export async function uploadVerificationImage(params: {
 
   const school = await prisma.school.findFirst({
     where: { code: schoolCode, active: true },
-    select: { id: true },
+    select: { id: true, level: true },
   })
   if (!school) {
     throw new Error("School not found.")
+  }
+  if (!requiresIdVerification(school.level)) {
+    throw new Error("ID verification is only used for higher education interviews.")
   }
 
   const existing = await prisma.interview.findUnique({
@@ -184,9 +188,10 @@ export async function attachIdVerificationAssets(params: {
       id_photo_url: true,
       verification_screenshot_url: true,
       verification_status: true,
+      school: { select: { level: true } },
     },
   })
-  if (!interview) return
+  if (!interview || !requiresIdVerification(interview.school.level)) return
 
   const photoChanged = !!idPhotoUrl && idPhotoUrl !== interview.id_photo_url
   const shotChanged = !!screenshotUrl && screenshotUrl !== interview.verification_screenshot_url
