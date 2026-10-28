@@ -37,7 +37,7 @@ export async function getStudentInterviewPrice(): Promise<{
 
 export async function markInterviewPaymentPaid(params: {
   checkoutSession: Stripe.Checkout.Session
-}): Promise<{ success: boolean; studentInfo: PaidStudentInfo | null }> {
+}): Promise<{ success: boolean; ignored?: boolean; studentInfo: PaidStudentInfo | null }> {
   const session = params.checkoutSession
   if (session.payment_status !== "paid") {
     return { success: false, studentInfo: null }
@@ -72,6 +72,11 @@ export async function markInterviewPaymentPaid(params: {
   }
 
   if (!existing) {
+    const interviewId = session.metadata?.interviewId?.trim()
+    if (!interviewId) {
+      // Shared Stripe account delivers other products' checkouts here.
+      return { success: false, ignored: true, studentInfo: null }
+    }
     console.error("[Payments] No interview payment found for Stripe session", session.id)
     return { success: false, studentInfo: null }
   }

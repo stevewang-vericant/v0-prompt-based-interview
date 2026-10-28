@@ -29,8 +29,18 @@ export async function POST(req: Request) {
         const session = event.data.object
         if (session.payment_status === "paid") {
           const marked = await markInterviewPaymentPaid({ checkoutSession: session })
+          if (marked.ignored) {
+            // Another product on this Stripe account. Acknowledge so Stripe
+            // does not retry the delivery for days.
+            console.info(
+              "[Stripe webhook] Ignoring paid checkout from another product:",
+              session.id
+            )
+            return NextResponse.json({ received: true, ignored: true })
+          }
           if (!marked.success) {
-            // Ask Stripe to retry until the payment row can be found/updated.
+            // Our checkout carries interviewId. A missing row is usually the
+            // write racing the webhook, so ask Stripe to retry.
             console.error(
               "[Stripe webhook] Paid session could not be persisted:",
               session.id
