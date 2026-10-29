@@ -1,5 +1,5 @@
 # 使用官方 Node.js 镜像
-FROM node:20-alpine AS base
+FROM node:22.23.4-alpine AS base
 
 # 安装依赖阶段
 FROM base AS deps
