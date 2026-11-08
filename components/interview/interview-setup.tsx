@@ -178,25 +178,44 @@ export function InterviewSetup({
               )}
             </div>
 
-            <div className="space-y-3 p-4 border border-black/[0.06] rounded-lg">
+            <div className="p-4 border border-black/[0.06] rounded-lg">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <Mic className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium">{zh ? t.setup.microphone : "Microphone"}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {micPermission
-                        ? micSignalDetected
-                          ? zh
-                            ? "已检测到麦克风声音"
-                            : "Microphone sound detected"
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        {micPermission
+                          ? micSignalDetected
+                            ? zh
+                              ? "已检测到麦克风声音"
+                              : "Microphone sound detected"
+                            : zh
+                              ? "请对着麦克风说话"
+                              : "Please speak to test your microphone"
                           : zh
-                            ? "请对着麦克风说话"
-                            : "Please speak to test your microphone"
-                        : zh
-                          ? t.setup.micDesc
-                          : "Required for audio recording"}
-                    </p>
+                            ? t.setup.micDesc
+                            : "Required for audio recording"}
+                      </p>
+                      {micPermission && (
+                        <div
+                          className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-black/[0.08]"
+                          role="meter"
+                          aria-label={zh ? "麦克风音量" : "Microphone level"}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={Math.round(audioLevel * 100)}
+                        >
+                          <div
+                            className={`h-full rounded-full ${
+                              micSignalDetected ? "bg-green-500" : "bg-amber-500"
+                            }`}
+                            style={{ width: `${Math.max(2, audioLevel * 100)}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {micPermission === null ? (
@@ -209,23 +228,6 @@ export function InterviewSetup({
                   <XCircle className="h-5 w-5 text-red-600" />
                 )}
               </div>
-              {micPermission && (
-                <div
-                  className="h-2 overflow-hidden rounded-full bg-black/[0.08]"
-                  role="meter"
-                  aria-label={zh ? "麦克风音量" : "Microphone level"}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(audioLevel * 100)}
-                >
-                  <div
-                    className={`h-full rounded-full transition-[width] duration-75 ${
-                      micSignalDetected ? "bg-green-500" : "bg-amber-500"
-                    }`}
-                    style={{ width: `${Math.max(2, audioLevel * 100)}%` }}
-                  />
-                </div>
-              )}
             </div>
           </div>
 

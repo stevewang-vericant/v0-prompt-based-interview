@@ -42,6 +42,7 @@ export function startAudioLevelMonitor(
   const samples = new Float32Array(analyser.fftSize)
   let animationFrame = 0
   let stopped = false
+  let smoothedLevel = 0
 
   const measure = () => {
     if (stopped) return
@@ -54,11 +55,14 @@ export function startAudioLevelMonitor(
 
     const rms = Math.sqrt(sumSquares / samples.length)
     const db = rms > 0 ? 20 * Math.log10(rms) : -100
-    const level = Math.max(0, Math.min(1, (db + 60) / 45))
+    const targetLevel = Math.max(0, Math.min(1, (db + 55) / 35))
+    const smoothingFactor = targetLevel > smoothedLevel ? 0.25 : 0.08
+    smoothedLevel += (targetLevel - smoothedLevel) * smoothingFactor
+    if (smoothedLevel < 0.005) smoothedLevel = 0
 
     onSample({
       db,
-      level,
+      level: smoothedLevel,
       audible: db >= AUDIBLE_AUDIO_DB_THRESHOLD,
     })
     animationFrame = window.requestAnimationFrame(measure)
