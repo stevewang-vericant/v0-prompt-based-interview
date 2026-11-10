@@ -9,9 +9,10 @@ import { requireInternalOrSuperAdminApi } from '@/lib/auth-guards'
 import { generateEnglishCaptionsFromVideoUrl } from '@/lib/english-captions'
 import { findMatchingStudentInterviewId } from '@/app/actions/parent-interviews'
 import { isStudentPayMode } from '@/lib/billing'
+import { probeMediaDurationSeconds } from '@/lib/media-duration'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { writeFileSync, unlinkSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
@@ -471,17 +472,28 @@ async function processVideoMergeTaskInner(taskId: string) {
         writeFileSync(tempFile, buffer as any)
         tempFiles.push(tempFile)
         
-        const durationCommand = `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${tempFile}"`
-        const { stdout: durationOutput } = await execAsync(durationCommand)
-        const actualDuration = parseFloat(durationOutput.trim())
-        
-        if (!isNaN(actualDuration) && actualDuration > 0) {
-          segmentDurations.push(Math.round(actualDuration))
-          console.log(`[Task ${taskId}] ✓ Segment ${i + 1} actual duration:`, Math.round(actualDuration), 'seconds')
+        // 部分浏览器（常见于 VP8 MediaRecorder）的 WebM 不写 Duration。
+        // 容器时长读不到时，无损重封装后再继续合并，画面和音频包不变。
+        const probed = await probeMediaDurationSeconds(tempFile)
+        const actualDuration = Math.round(probed.seconds)
+        segmentDurations.push(actualDuration)
+        if (probed.recovered) {
+          tempFiles.push(probed.mediaPath)
+          videoBuffers[i] = readFileSync(probed.mediaPath)
+          console.log(
+            `[Task ${taskId}] ✓ Segment ${i + 1} container had no duration; remuxed and recovered ${actualDuration}s`,
+          )
         } else {
-          throw new Error(`Segment ${i + 1} has no valid media duration.`)
+          console.log(`[Task ${taskId}] ✓ Segment ${i + 1} actual duration:`, actualDuration, 'seconds')
         }
       } catch (error) {
+        tempFiles.forEach((file) => {
+          try {
+            if (existsSync(file)) unlinkSync(file)
+          } catch {
+            // Best-effort cleanup after a segment probe failure.
+          }
+        })
         throw new Error(
           `Segment ${i + 1} is not a decodable video: ${
             error instanceof Error ? error.message : 'ffprobe failed'
