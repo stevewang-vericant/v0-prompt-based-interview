@@ -69,6 +69,7 @@ function InterviewPageContent() {
   const [isUnsupportedDevice, setIsUnsupportedDevice] = useState(false)
   
   const [stage, setStage] = useState<InterviewStage>("student-info")
+  const [verifiedMediaStream, setVerifiedMediaStream] = useState<MediaStream | null>(null)
   // School branding (logo shown on the interview page, intro video gate before start)
   const [branding, setBranding] = useState<{
     logoUrl: string | null
@@ -589,7 +590,8 @@ function InterviewPageContent() {
     setStage("setup")
   }
 
-  const handleSetupComplete = () => {
+  const handleSetupComplete = (stream: MediaStream) => {
+    setVerifiedMediaStream(stream)
     setStage("interview")
   }
 
@@ -1334,6 +1336,7 @@ function InterviewPageContent() {
             promptNumber={currentPromptIndex + 1}
                 totalPrompts={prompts.length}
             onComplete={handlePromptComplete}
+            initialStream={verifiedMediaStream}
             captureVerificationFrame={requiresIdVerification(branding.level) && currentPromptIndex === 0}
             onVerificationFrame={handleVerificationFrame}
           />

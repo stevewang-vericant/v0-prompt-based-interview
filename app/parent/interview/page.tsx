@@ -55,6 +55,7 @@ function ParentInterviewContent() {
   const [responses, setResponses] = useState<Record<string, { blob: Blob; prepDuration: number }>>({})
   const [interviewCompleted, setInterviewCompleted] = useState(false)
   const [interviewId, setInterviewId] = useState("")
+  const [verifiedMediaStream, setVerifiedMediaStream] = useState<MediaStream | null>(null)
 
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -127,7 +128,10 @@ function ParentInterviewContent() {
     }
   }
 
-  const handleSetupComplete = () => setStage("interview")
+  const handleSetupComplete = (stream: MediaStream) => {
+    setVerifiedMediaStream(stream)
+    setStage("interview")
+  }
 
   const handlePromptComplete = async (promptId: string, videoBlob: Blob, prepDurationSec: number) => {
     if (interviewCompleted) return
@@ -402,6 +406,7 @@ function ParentInterviewContent() {
                 promptNumber={currentPromptIndex + 1}
                 totalPrompts={prompts.length}
                 onComplete={handlePromptComplete}
+                initialStream={verifiedMediaStream}
                 lang={uiLang}
               />
             )}

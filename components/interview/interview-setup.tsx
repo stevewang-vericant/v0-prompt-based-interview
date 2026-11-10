@@ -6,9 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2, XCircle, Video, Mic, AlertCircle } from "lucide-react"
 import { parentT, type ParentUILang } from "@/lib/parent-i18n"
+import {
+  hasLiveAudioTrack,
+  startAudioLevelMonitor,
+  type AudioLevelMonitor,
+} from "@/lib/audio-level"
 
 interface InterviewSetupProps {
-  onComplete: () => void
+  onComplete: (stream: MediaStream) => void
   preparationTime?: number
   responseTime?: number
   // Number of questions the interviewee will answer. Defaults to 4 to preserve
@@ -36,9 +41,14 @@ export function InterviewSetup({
   const t = parentT("zh")
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null)
   const [micPermission, setMicPermission] = useState<boolean | null>(null)
+  const [micSignalDetected, setMicSignalDetected] = useState(false)
+  const [audioLevel, setAudioLevel] = useState(0)
   const [isTestingCamera, setIsTestingCamera] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const audioMonitorRef = useRef<AudioLevelMonitor | null>(null)
+  const audibleFramesRef = useRef(0)
+  const streamTransferredRef = useRef(false)
 
   const [errorMessage, setErrorMessage] = useState<string>("")
   const [recordingConsent, setRecordingConsent] = useState<boolean>(false)
@@ -46,8 +56,21 @@ export function InterviewSetup({
   const testDevices = async () => {
     setIsTestingCamera(true)
     setErrorMessage("")
+    setMicSignalDetected(false)
+    setAudioLevel(0)
+    audibleFramesRef.current = 0
+    streamTransferredRef.current = false
+    audioMonitorRef.current?.stop()
+    audioMonitorRef.current = null
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720, facingMode: "user" },
+        audio: true,
+      })
+      if (!hasLiveAudioTrack(stream)) {
+        stream.getTracks().forEach((track) => track.stop())
+        throw new Error("No live microphone track is available.")
+      }
       streamRef.current = stream
 
       if (videoRef.current) {
@@ -56,10 +79,22 @@ export function InterviewSetup({
 
       setCameraPermission(true)
       setMicPermission(true)
+
+      const monitor = startAudioLevelMonitor(stream, ({ level, audible }) => {
+        setAudioLevel(level)
+        audibleFramesRef.current = audible ? audibleFramesRef.current + 1 : 0
+        if (audibleFramesRef.current >= 6) {
+          setMicSignalDetected(true)
+        }
+      })
+      audioMonitorRef.current = monitor
+      await monitor.resume()
     } catch (err) {
       console.error("[v0] Device access error:", err)
+      stopStream()
       setCameraPermission(false)
       setMicPermission(false)
+      setIsTestingCamera(false)
       
       // 提供更详细的错误信息
       if (err instanceof Error) {
@@ -81,6 +116,8 @@ export function InterviewSetup({
   }
 
   const stopStream = () => {
+    audioMonitorRef.current?.stop()
+    audioMonitorRef.current = null
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
       streamRef.current = null
@@ -89,11 +126,26 @@ export function InterviewSetup({
 
   useEffect(() => {
     return () => {
-      stopStream()
+      audioMonitorRef.current?.stop()
+      audioMonitorRef.current = null
+      if (!streamTransferredRef.current) {
+        streamRef.current?.getTracks().forEach((track) => track.stop())
+      }
+      streamRef.current = null
     }
   }, [])
 
-  const canProceed = cameraPermission && micPermission && recordingConsent
+  const handleComplete = () => {
+    if (!streamRef.current || !micSignalDetected) return
+    streamTransferredRef.current = true
+    audioMonitorRef.current?.stop()
+    audioMonitorRef.current = null
+    onComplete(streamRef.current)
+  }
+
+  const canProceed = Boolean(
+    cameraPermission && micPermission && micSignalDetected && recordingConsent,
+  )
 
   return (
     <div className="space-y-6">
@@ -126,21 +178,56 @@ export function InterviewSetup({
               )}
             </div>
 
-            <div className="flex items-center justify-between p-4 border border-black/[0.06] rounded-lg">
-              <div className="flex items-center gap-3">
-                <Mic className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
-                <div>
-                  <p className="font-medium">{zh ? t.setup.microphone : "Microphone"}</p>
-                  <p className="text-sm text-muted-foreground">{zh ? t.setup.micDesc : "Required for audio recording"}</p>
+            <div className="p-4 border border-black/[0.06] rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Mic className="h-5 w-5 text-[rgba(0,0,0,0.56)]" />
+                  <div className="min-w-0">
+                    <p className="font-medium">{zh ? t.setup.microphone : "Microphone"}</p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        {micPermission
+                          ? micSignalDetected
+                            ? zh
+                              ? "已检测到麦克风声音"
+                              : "Microphone sound detected"
+                            : zh
+                              ? "请对着麦克风说话"
+                              : "Please speak to test your microphone"
+                          : zh
+                            ? t.setup.micDesc
+                            : "Required for audio recording"}
+                      </p>
+                      {micPermission && (
+                        <div
+                          className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-black/[0.08]"
+                          role="meter"
+                          aria-label={zh ? "麦克风音量" : "Microphone level"}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={Math.round(audioLevel * 100)}
+                        >
+                          <div
+                            className={`h-full rounded-full ${
+                              micSignalDetected ? "bg-green-500" : "bg-amber-500"
+                            }`}
+                            style={{ width: `${Math.max(2, audioLevel * 100)}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+                {micPermission === null ? (
+                  <AlertCircle className="h-5 w-5 text-[rgba(0,0,0,0.36)]" />
+                ) : micPermission && micSignalDetected ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                ) : micPermission ? (
+                  <Mic className="h-5 w-5 animate-pulse text-amber-600" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-600" />
+                )}
               </div>
-              {micPermission === null ? (
-                <AlertCircle className="h-5 w-5 text-[rgba(0,0,0,0.36)]" />
-              ) : micPermission ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
             </div>
           </div>
 
@@ -191,12 +278,22 @@ export function InterviewSetup({
           {/* Proceed Button */}
           {cameraPermission && micPermission && (
             <Button
-              onClick={onComplete}
+              onClick={handleComplete}
               className="w-full"
               size="lg"
               variant="default"
               disabled={!canProceed}
-              title={!recordingConsent ? (zh ? t.setup.consentHint : "Please confirm the recording notice above") : undefined}
+              title={
+                !micSignalDetected
+                  ? zh
+                    ? "请先对着麦克风说话，确认能够检测到声音"
+                    : "Please speak so we can confirm your microphone is receiving sound"
+                  : !recordingConsent
+                    ? zh
+                      ? t.setup.consentHint
+                      : "Please confirm the recording notice above"
+                    : undefined
+              }
             >
               {zh ? t.setup.startInterview : "Start Interview"}
             </Button>

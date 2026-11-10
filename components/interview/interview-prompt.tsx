@@ -5,8 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Circle, Square } from "lucide-react"
+import { AlertTriangle, Circle, Square } from "lucide-react"
 import { parentT, type ParentUILang } from "@/lib/parent-i18n"
+import {
+  hasLiveAudioTrack,
+  startAudioLevelMonitor,
+  type AudioLevelMonitor,
+} from "@/lib/audio-level"
 
 interface Prompt {
   id: string
@@ -30,6 +35,8 @@ interface InterviewPromptProps {
   ) => Promise<void>
   // Display language. Only "zh" changes copy; English is unchanged for students.
   lang?: ParentUILang
+  // Reuse the exact stream that passed the setup screen's microphone signal test.
+  initialStream?: MediaStream | null
   // Student interviews capture one camera frame during the first response.
   captureVerificationFrame?: boolean
   onVerificationFrame?: (blob: Blob) => void
@@ -91,6 +98,7 @@ export function InterviewPrompt({
   totalPrompts,
   onComplete,
   lang = "en",
+  initialStream = null,
   captureVerificationFrame = false,
   onVerificationFrame,
 }: InterviewPromptProps) {
@@ -100,12 +108,16 @@ export function InterviewPrompt({
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [streamInitialized, setStreamInitialized] = useState(false)
+  const [micSilentWarning, setMicSilentWarning] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioMonitorRef = useRef<AudioLevelMonitor | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
   const shouldProcessUploadRef = useRef(true)
+  const stageRef = useRef<Stage>("reading")
+  const lastAudibleAtRef = useRef(Date.now())
   // 记录这一题实际使用的 prep 时长（秒），用于服务端在合成"仅 response"视频时
   // 知道要从片段开头裁掉多少秒。即使 prompt 对象变化也保留启动时的值。
   const prepDurationRef = useRef<number>(0)
@@ -115,13 +127,25 @@ export function InterviewPrompt({
     const initializeStream = async () => {
       try {
         console.log("[v0] Initializing media stream...")
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720, facingMode: "user" },
-          audio: true,
-        })
+        const reusableStream =
+          initialStream &&
+          initialStream.getVideoTracks().some((track) => track.readyState === "live") &&
+          hasLiveAudioTrack(initialStream)
+            ? initialStream
+            : null
+        const stream =
+          reusableStream ||
+          (await navigator.mediaDevices.getUserMedia({
+            video: { width: 1280, height: 720, facingMode: "user" },
+            audio: true,
+          }))
         streamRef.current = stream
         setStreamInitialized(true)
-        console.log("[v0] Stream initialized successfully")
+        console.log(
+          reusableStream
+            ? "[v0] Reusing setup-verified media stream"
+            : "[v0] Stream initialized successfully",
+        )
       } catch (err) {
         console.error("[v0] Stream initialization error:", err)
         alert(zh ? t.prompt.cameraError : "Unable to access camera and microphone. Please check your permissions.")
@@ -138,6 +162,8 @@ export function InterviewPrompt({
       
       // 先清空 chunks，防止累积
       chunksRef.current = []
+      audioMonitorRef.current?.stop()
+      audioMonitorRef.current = null
       
       // 停止并清理 MediaRecorder
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
@@ -171,9 +197,11 @@ export function InterviewPrompt({
   useEffect(() => {
     console.log("[v0] Prompt changed:", prompt.id, "Question:", promptNumber)
     shouldProcessUploadRef.current = true // 重置标记，允许新问题上传
+    stageRef.current = "reading"
     setStage("reading")
     setRecordedBlob(null)
     setTimeRemaining(0)
+    setMicSilentWarning(false)
 
     if (promptNumber > 1) {
       setTimeout(() => {
@@ -246,6 +274,34 @@ export function InterviewPrompt({
         alert("Camera not ready. Please refresh and try again.")
         return
       }
+      if (!hasLiveAudioTrack(streamRef.current)) {
+        alert(
+          zh
+            ? "麦克风连接已中断。请刷新页面并重新检测设备。"
+            : "The microphone connection was lost. Please refresh and test your devices again.",
+        )
+        return
+      }
+
+      if (!audioMonitorRef.current) {
+        audioMonitorRef.current = startAudioLevelMonitor(
+          streamRef.current,
+          ({ audible }) => {
+            if (audible) {
+              lastAudibleAtRef.current = Date.now()
+              setMicSilentWarning(false)
+            } else if (
+              stageRef.current === "recording" &&
+              Date.now() - lastAudibleAtRef.current >= 8_000
+            ) {
+              setMicSilentWarning(true)
+            }
+          },
+        )
+      }
+      await audioMonitorRef.current.resume()
+      lastAudibleAtRef.current = Date.now()
+      setMicSilentWarning(false)
 
       if (videoRef.current) {
         videoRef.current.srcObject = streamRef.current
@@ -303,6 +359,7 @@ export function InterviewPrompt({
       mediaRecorder.start()
       console.log("[v0] MediaRecorder started for prep phase")
 
+      stageRef.current = "preparing"
       setStage("preparing")
       setTimeRemaining(prompt.preparationTime)
     } catch (err) {
@@ -314,6 +371,9 @@ export function InterviewPrompt({
   // prep -> response 仅切换 UI；MediaRecorder 持续运行
   const transitionToResponse = () => {
     console.log("[v0] Transition: preparing -> recording (recorder keeps running)")
+    stageRef.current = "recording"
+    lastAudibleAtRef.current = Date.now()
+    setMicSilentWarning(false)
     setStage("recording")
     setTimeRemaining(prompt.responseTime)
   }
@@ -447,6 +507,19 @@ export function InterviewPrompt({
                   <span className="text-lg sm:text-2xl font-bold">{formatTime(timeRemaining)}</span>
                 </div>
               </div>
+              {micSilentWarning && (
+                <div
+                  className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+                  role="alert"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>
+                    {zh
+                      ? "没有检测到麦克风声音。请确认麦克风未静音，并靠近麦克风继续回答。"
+                      : "No microphone sound is being detected. Make sure your microphone is not muted and continue speaking close to it."}
+                  </p>
+                </div>
+              )}
               <Progress value={getProgressPercentage()} className="h-2" />
               <Button onClick={stopRecording} variant="destructive" className="w-full" size="lg">
                 <Square className="h-4 w-4 mr-2 fill-current" />
